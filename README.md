@@ -138,6 +138,65 @@ já cria isso para o administrador inicial.
 2. Formulários sem **token CSRF**
 3. Credenciais do banco em texto plano no `config.php` versionado
 
+## Solução de problemas
+
+### Erro 18456 — "Falha de logon do usuário 'user_chamada'"
+
+O servidor foi alcançado, mas recusou a autenticação. Rode, **como
+administrador** no SSMS, o diagnóstico:
+
+```
+sql_inicial/DIAGNOSTICO_LOGIN.sql
+```
+
+Ele é somente leitura e aponta a causa. As três mais comuns:
+
+| Causa | Como identificar | Correção |
+|---|---|---|
+| **O LOGIN não existe** (só criaram o USER no banco) | seção 3 do diagnóstico; ERRORLOG com `State: 5` | rode `CRIAR_LOGIN_APLICACAO.sql` |
+| **Senha vazia ou errada no `config.php`** | `DB_PASSWORD` está `''`; ERRORLOG com `State: 8` | preencha com a mesma senha do login |
+| **Servidor em modo "Somente Windows"** | seção 2: `SomenteWindows = 1`; `State: 58` | mude para Modo Misto e **reinicie o serviço** |
+
+> **LOGIN ≠ USER.** `LOGIN` é do servidor e autentica; `USER` é do banco e
+> autoriza. `CREATE USER ... FOR LOGIN` exige que o LOGIN já exista — criar só o
+> USER gera exatamente este erro.
+
+Para criar/corrigir o login e as permissões:
+
+```
+sql_inicial/CRIAR_LOGIN_APLICACAO.sql
+```
+
+Edite a senha no bloco 2 antes de executar e depois coloque **a mesma** no
+`config.php`.
+
+### Modo Misto (se o diagnóstico apontar `SomenteWindows = 1`)
+
+1. SSMS → botão direito no servidor → **Properties** → **Security**
+2. **SQL Server and Windows Authentication mode** → OK
+3. **Reinicie o serviço**: SQL Server Configuration Manager → SQL Server
+   Services → botão direito em `SQL Server (INSTANCIA)` → **Restart**
+
+### Instância nomeada ou porta diferente
+
+`DB_HOST` aceita três formas:
+
+| Situação | `DB_HOST` | `DB_PORT` |
+|---|---|---|
+| Instância padrão | `127.0.0.1` | `1433` |
+| Instância nomeada | `SERVIDOR\SQLEXPRESS` | `''` (vazio) |
+| Porta já no host | `SERVIDOR,1435` | ignorado |
+
+### Outros erros
+
+| Erro | Causa provável |
+|---|---|
+| `Could not find driver` | extensão `sqlsrv` não habilitada no `php.ini` |
+| `Login timeout expired` | host/porta errados, firewall, ou serviço parado |
+| `Cannot open database "db_chamada"` | banco não criado, ou login sem mapeamento |
+| `Invalid object name 'VIEW_ACESSOS_USUARIOS'` | rode o `INSTALACAO_COMPLETA.sql` atualizado |
+| `Invalid column name 'EMAIL'` | idem — o script novo cria essa coluna |
+
 ## Backup
 
 ```sql
