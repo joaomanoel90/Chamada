@@ -40,6 +40,17 @@ if (isset($_SESSION['usuarioId'])) {
       <a class="nav-link text-white" id="almoxarifados" href="<?php echo BASEURL; ?>almoxarifados/index.php"><i class="fas fa-warehouse"></i> <span>Almoxarifados</span></a>
       <a class="nav-link text-white" id="usuarios" href="<?php echo BASEURL; ?>usuarios/index.php"><i class="fas fa-users"></i> <span>Usuários</span></a>
       <a class="nav-link text-white" id="config_email" href="<?php echo BASEURL; ?>config_email/index.php"><i class="fas fa-envelope"></i> <span>Configurar E-mail</span></a>
+
+      <hr class="border-light">
+      <p class="text-white-50 small mb-1 px-2">CHAMADA DE ALUNOS</p>
+      <a class="nav-link text-white" id="chamada" href="<?php echo BASEURL; ?>chamada/index.php"><i class="fas fa-clipboard-user"></i> <span>Chamada do Dia</span></a>
+      <a class="nav-link text-white" id="alunos" href="<?php echo BASEURL; ?>alunos/index.php"><i class="fas fa-child-reaching"></i> <span>Alunos</span></a>
+      <a class="nav-link text-white" id="turmas" href="<?php echo BASEURL; ?>turmas/index.php"><i class="fas fa-children"></i> <span>Turmas</span></a>
+      <a class="nav-link text-white" id="periodos" href="<?php echo BASEURL; ?>periodos/index.php"><i class="fas fa-clock"></i> <span>Períodos</span></a>
+      <a class="nav-link text-white" id="feriados" href="<?php echo BASEURL; ?>feriados/index.php"><i class="fas fa-calendar-day"></i> <span>Feriados</span></a>
+      <a class="nav-link text-white" id="observacoes" href="<?php echo BASEURL; ?>observacoes/index.php"><i class="far fa-comment-dots"></i> <span>Observações</span></a>
+      <a class="nav-link text-white" id="relatorios" href="<?php echo BASEURL; ?>relatorios/index.php"><i class="fas fa-file-lines"></i> <span>Relatório Anual</span></a>
+
       <hr class="border-light">
       <a class="nav-link text-white" href="<?php echo BASEURL; ?>conta/index.php"><i class="fas fa-key"></i> <span>Alterar Senha</span></a>
       <a class="nav-link text-white" href="<?php echo BASEURL; ?>sair.php"><i class="fas fa-sign-out-alt"></i> <span>Sair</span></a>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 ob_start();
 require_once("tema.php");
 require_once('auth_periodo.php');
@@ -28,6 +28,14 @@ if (isset($_SESSION['usuarioId'])) {
       <!-- Links da Sidebar -->
       <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
       <a class="nav-link text-white" id="pedidos" href="<?php echo BASEURL; ?>pedidos/index.php"><i class="fas fa-shopping-basket	"></i> <span>Pedidos</span></a>
+
+      <hr class="border-light">
+      <p class="text-white-50 small mb-1 px-2">CHAMADA DE ALUNOS</p>
+      <a class="nav-link text-white" id="chamada" href="<?php echo BASEURL; ?>chamada/index.php"><i class="fas fa-clipboard-user"></i> <span>Chamada do Dia</span></a>
+      <a class="nav-link text-white" id="alunos" href="<?php echo BASEURL; ?>alunos/index.php"><i class="fas fa-child-reaching"></i> <span>Alunos</span></a>
+      <a class="nav-link text-white" id="observacoes" href="<?php echo BASEURL; ?>observacoes/index.php"><i class="far fa-comment-dots"></i> <span>Observações</span></a>
+      <a class="nav-link text-white" id="relatorios" href="<?php echo BASEURL; ?>relatorios/index.php"><i class="fas fa-file-lines"></i> <span>Relatório Anual</span></a>
+      <a class="nav-link text-white" id="feriados" href="<?php echo BASEURL; ?>feriados/index.php"><i class="fas fa-calendar-day"></i> <span>Feriados</span></a>
 
       <hr class="border-light">
       <a class="nav-link text-white" href="<?php echo BASEURL; ?>conta/index.php"><i class="fas fa-key"></i> <span>Alterar Senha</span></a>
