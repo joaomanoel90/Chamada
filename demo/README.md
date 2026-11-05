@@ -7,7 +7,8 @@ em uma máquina que não tem SQL Server nem o driver `sqlsrv`.
 
 | Arquivo | Função |
 |---|---|
-| `bootstrap.php` | emula as funções `sqlsrv_*` sobre PDO/SQLite e traduz o T-SQL usado pelo módulo |
+| `bootstrap.php` | constantes da demo e carga do adaptador via `require_once` |
+| `sqlsrv_shim.php` | emula as funções `sqlsrv_*` sobre PDO/SQLite e traduz o T-SQL usado pelo módulo |
 | `schema.sql` | schema SQLite equivalente ao `MODULO_CHAMADA.sql` |
 | `seed.php` | cria a base com dados fictícios |
 | `router.php` | serve o sistema sob `/Chamada/`, como no IIS/Apache |
@@ -44,6 +45,21 @@ e 14 feriados (2 deles parciais).
 php demo/seed.php          # base limpa
 python3 demo/testes.py 8001
 ```
+
+Cobre login, todas as telas, gravação de chamada, bloqueios por feriado
+(integral e parcial), data futura, validações de cadastro, observações,
+relatório anual, exportações CSV, permissões por unidade e os arquivos
+estáticos (CSS/JS/imagens).
+
+### Dois detalhes do servidor embutido
+
+1. **`auto_prepend_file` roda também nos arquivos estáticos.** Por isso as
+   funções `sqlsrv_*` ficam em `sqlsrv_shim.php`, carregado com `require_once`
+   — sem isso, ocorria `Cannot redeclare function`.
+2. **O router serve os assets diretamente**, em vez de devolver `false`. Como o
+   prefixo `/Chamada/` não existe como pasta no docroot, devolver `false` fazia o
+   servidor subir na árvore de diretórios e executar o `index.php`, transformando
+   CSS e JS em um redirect 302 para o login.
 
 ## Importante
 

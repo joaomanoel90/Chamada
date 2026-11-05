@@ -150,6 +150,20 @@ chk('professor redirecionado de tela da gestão', u.endswith('/Chamada/index.php
 u, h = get(prof, 'relatorios/ver.php?aluno_id=1&ano=2026')
 chk('professor vê relatório da sua unidade', 'Relatório Anual 2026' in h)
 
+# ---------------------------------------------------------------- estáticos
+# Regressão: o router precisa servir os assets ele mesmo. Se devolver false,
+# o servidor embutido não acha /Chamada/... e cai no index.php, virando 302.
+import os
+raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for asset, tipo in [('css/style.css', b'text/css'), ('css/tabela.css', b'text/css'),
+                    ('js/tabela.js', b'javascript'), ('images/brasao.png', b'image/png')]:
+    r = op.open(BASE + asset)
+    conteudo = r.read()
+    esperado = os.path.getsize(os.path.join(raiz, asset))
+    chk(f'asset {asset}',
+        r.status == 200 and tipo in r.headers.get('Content-Type', '').encode()
+        and len(conteudo) == esperado and b'Fatal error' not in conteudo)
+
 # ---------------------------------------------------------------- resultado
 print()
 for nome, res in RESULTADOS:
