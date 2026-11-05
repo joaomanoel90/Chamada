@@ -1,0 +1,20 @@
+CREATE TABLE TB_PEDIDOS (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    Objetivo NVARCHAR(500) NOT NULL,
+    ID_Unidade INT NOT NULL,
+    Ativo BIT NOT NULL DEFAULT 1,
+    DataCadastro DATETIME NOT NULL DEFAULT GETDATE(),
+    Status NVARCHAR(50) NOT NULL,
+    DataEnvio DATETIME,
+    DataFinalizado DATETIME,
+    UsuarioFinalizou INT NULL,
+    NomeRecebedor NVARCHAR(200) NULL,
+    DocumentoRecebedor NVARCHAR(50) NULL,
+    Assinatura VARBINARY(MAX) NULL
+
+
+CONSTRAINT FK_Pedido_Unidade FOREIGN KEY (ID_Unidade) REFERENCES TB_UNIDADES (ID),
+CONSTRAINT FK_Pedido_Usuario FOREIGN KEY (UsuarioFinalizou) REFERENCES TB_USUARIOS (ID)
+
+
+);

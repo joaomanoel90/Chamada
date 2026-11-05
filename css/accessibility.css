@@ -1,0 +1,99 @@
+.high-contrast .contrast-btn,
+		.high-contrast,
+		.high-contrast a,
+		.high-contrast .dropdown-menu,
+		.high-contrast table,
+		.high-contrast table th,
+		.high-contrast table td,
+		.high-contrast .btn {
+  background-color: #000 !important;
+  color: #fff !important;
+  border: 1px solid #fff !important;
+}
+
+		.high-contrast .table,
+		.high-contrast .form-control,
+		.high-contrast .navbar,
+		.high-contrast .navbar .navbar-brand,
+		.high-contrast .navbar .nav-link,
+		.high-contrast .navbar .nav-link:hover,
+		.high-contrast .form-select,
+		.high-contrast .offcanvas {
+			background-color: #000 !important;
+			color: #fff !important;
+		}
+
+
+body.high-contrast {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+
+
+		.high-contrast .navbar-toggler {
+			border-color: #fff !important;
+		}
+
+		.high-contrast .navbar-toggler-icon {
+			filter: invert(100%);
+		}
+
+		/*Datatables*/
+		/* Estilos para contraste */
+		.high-contrast .dataTables_wrapper .pagination .page-item>a.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item>span.page-link {
+			background-color: #000 !important;
+			color: #fff !important;
+			border-color: #fff !important;
+		}
+
+		.high-contrast .dataTables_wrapper .pagination .page-item.active>a.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item.active>span.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item.paginate_button.active>a.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item.paginate_button.active>span.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item>a.page-link:hover,
+		.high-contrast .dataTables_wrapper .pagination .page-item>span.page-link:hover {
+			background-color: #fff !important;
+			color: #000 !important;
+			border-color: #000 !important;
+		}
+
+		.high-contrast .dataTables_wrapper .pagination .page-item.disabled>a.page-link,
+		.high-contrast .dataTables_wrapper .pagination .page-item.disabled>span.page-link {
+			pointer-events: none;
+			opacity: 0.5;
+		}
+
+		/*Imagem com Contraste*/
+		.high-contrast img {
+			filter: invert(100%);
+		  }
+
+
+		  /*Select2 Contraste*/
+
+		  .high-contrast .select2-container .select2-selection {
+  background-color: #000 !important;
+  color: #fff !important;
+  border: 2px solid #fff !important;
+}
+
+.high-contrast .select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: #fff !important;
+}
+
+.high-contrast .select2-dropdown {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+.high-contrast .select2-results__option {
+  color: #fff !important;
+  background-color: #000 !important;
+}
+
+.high-contrast .select2-results__option--highlighted {
+  background-color: #fff !important;
+  color: #000 !important;
+}

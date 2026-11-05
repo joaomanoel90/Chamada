@@ -1,0 +1,32 @@
+/* Botões padrão */
+.dataTables_wrapper .dataTables_paginate .pagination .page-link {
+  background-color: #2c3e50 !important;
+  color: white !important;
+  border-radius: 8px !important;
+  padding: 8px 16px;
+  margin: 2px;
+  font-size: 1em;
+  text-align: center;
+  border: none !important;
+  transition: background-color 0.3s ease;
+}
+
+/* Botão ativo (página atual) */
+div.dataTables_wrapper div.dataTables_paginate ul.pagination li.active > a.page-link {
+  background-color: #1a252f !important;
+  color: white !important;
+  font-weight: bold;
+}
+
+/* Hover */
+.dataTables_wrapper .dataTables_paginate .pagination .page-link:hover {
+  background-color: #1a252f !important;
+  color: white !important;
+}
+
+/* Remover foco */
+.dataTables_wrapper .dataTables_paginate .pagination .page-link:focus,
+.dataTables_wrapper .dataTables_paginate .pagination .page-link:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
