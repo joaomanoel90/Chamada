@@ -21,6 +21,10 @@
       - Se o banco ainda não existe, ele é criado.
       - Se já existe, apenas os objetos que faltam são criados.
    4. Ao final, o script imprime um relatório de verificação.
+   UPGRADE: se você já tinha instalado uma versão anterior, basta executar este
+   mesmo arquivo de novo. Ele acrescenta o que falta (equipe da turma, histórico
+   de retificações, colunas de confirmação) e migra o professor único de cada
+   turma para REGENTE, sem apagar nada.
    5. Ajuste config.php com host, usuário e senha do banco.
 
    ----------------------------------------------------------------------------
@@ -304,6 +308,8 @@ BEGIN
         STATUS        nvarchar(1)   NOT NULL,
         JUSTIFICATIVA nvarchar(500) NULL,
         ID_USUARIO    int           NOT NULL,
+        CONFIRMADA_EM  datetime     NULL,
+        CONFIRMADA_POR int          NULL,
         CREATED       datetime      NOT NULL CONSTRAINT DF_CHAMADA_CREATED DEFAULT (GETDATE()),
         MODIFIED      datetime      NULL,
         CONSTRAINT PK_TB_CHAMADA PRIMARY KEY CLUSTERED (ID),
@@ -322,8 +328,117 @@ ELSE
     PRINT '  = TB_CHAMADA já existe';
 GO
 
+/* Colunas de confirmação em bases já existentes (upgrade). */
+IF COL_LENGTH('dbo.TB_CHAMADA', 'CONFIRMADA_EM') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA ADD CONFIRMADA_EM datetime NULL;
+    PRINT '  + TB_CHAMADA.CONFIRMADA_EM adicionada';
+END
+IF COL_LENGTH('dbo.TB_CHAMADA', 'CONFIRMADA_POR') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA ADD CONFIRMADA_POR int NULL;
+    PRINT '  + TB_CHAMADA.CONFIRMADA_POR adicionada';
+END
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CHAMADA_CONFIRMOU')
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA ADD CONSTRAINT FK_CHAMADA_CONFIRMOU
+        FOREIGN KEY (CONFIRMADA_POR) REFERENCES dbo.TB_USUARIOS (ID);
+    PRINT '  + FK_CHAMADA_CONFIRMOU criada';
+END
+/* Registros antigos: quem lançou é quem confirmou. */
+UPDATE dbo.TB_CHAMADA
+   SET CONFIRMADA_EM  = ISNULL(CONFIRMADA_EM, CREATED),
+       CONFIRMADA_POR = ISNULL(CONFIRMADA_POR, ID_USUARIO)
+ WHERE CONFIRMADA_EM IS NULL OR CONFIRMADA_POR IS NULL;
+GO
+
 /* ============================================================================
-   10. TB_OBSERVACOES — observações do professor por aluno
+   10. TB_TURMA_PROFESSORES — equipe da turma (vários professores)
+   ----------------------------------------------------------------------------
+   Substitui o professor único. TB_TURMAS.ID_PROFESSOR é mantido apenas como
+   legado, sincronizado com o REGENTE, para não quebrar consultas antigas.
+   ============================================================================ */
+PRINT '';
+PRINT '10. TB_TURMA_PROFESSORES — equipe da turma';
+
+IF OBJECT_ID('dbo.TB_TURMA_PROFESSORES', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_TURMA_PROFESSORES (
+        ID         int IDENTITY(1,1) NOT NULL,
+        ID_TURMA   int          NOT NULL,
+        ID_USUARIO int          NOT NULL,
+        PAPEL      nvarchar(10) NOT NULL CONSTRAINT DF_TURMAPROF_PAPEL   DEFAULT ('AUXILIAR'),
+        ATIVO      bit          NOT NULL CONSTRAINT DF_TURMAPROF_ATIVO   DEFAULT (1),
+        CREATED    datetime     NOT NULL CONSTRAINT DF_TURMAPROF_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_TURMA_PROFESSORES PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_TURMAPROF_TURMA_USUARIO UNIQUE (ID_TURMA, ID_USUARIO),
+        CONSTRAINT FK_TURMAPROF_TURMA   FOREIGN KEY (ID_TURMA)   REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_TURMAPROF_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_TURMAPROF_PAPEL CHECK (PAPEL IN ('REGENTE', 'AUXILIAR'))
+    );
+    CREATE INDEX IX_TURMAPROF_USUARIO ON dbo.TB_TURMA_PROFESSORES (ID_USUARIO);
+    PRINT '  + TB_TURMA_PROFESSORES criada';
+END
+
+/* No máximo um regente ativo por turma. Índice filtrado: em SQL Server um
+   UNIQUE comum não impediria vários regentes quando a coluna fosse NULL. */
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_TURMAPROF_REGENTE')
+BEGIN
+    CREATE UNIQUE INDEX UX_TURMAPROF_REGENTE
+        ON dbo.TB_TURMA_PROFESSORES (ID_TURMA)
+        WHERE PAPEL = 'REGENTE' AND ATIVO = 1;
+    PRINT '  + UX_TURMAPROF_REGENTE criado (um regente por turma)';
+END
+GO
+
+/* Migração: o professor único de cada turma vira o REGENTE da equipe. */
+INSERT INTO dbo.TB_TURMA_PROFESSORES (ID_TURMA, ID_USUARIO, PAPEL, ATIVO)
+SELECT t.ID, t.ID_PROFESSOR, 'REGENTE', 1
+FROM dbo.TB_TURMAS t
+WHERE t.ID_PROFESSOR IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM dbo.TB_TURMA_PROFESSORES tp
+      WHERE tp.ID_TURMA = t.ID AND tp.ID_USUARIO = t.ID_PROFESSOR
+  );
+IF @@ROWCOUNT > 0 PRINT '  + professores únicos migrados para a equipe como REGENTE';
+GO
+
+/* ============================================================================
+   11. TB_CHAMADA_RETIFICACOES — histórico de correções da chamada
+   ----------------------------------------------------------------------------
+   Depois de confirmada, a presença do aluno no dia não pode ser confirmada de
+   novo: só retificada, com motivo obrigatório. Cada retificação guarda o valor
+   anterior, o novo, quem fez e quando.
+   ============================================================================ */
+PRINT '';
+PRINT '11. TB_CHAMADA_RETIFICACOES — histórico de retificações';
+
+IF OBJECT_ID('dbo.TB_CHAMADA_RETIFICACOES', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_CHAMADA_RETIFICACOES (
+        ID                     int IDENTITY(1,1) NOT NULL,
+        ID_CHAMADA             int           NOT NULL,
+        STATUS_ANTERIOR        nvarchar(1)   NOT NULL,
+        STATUS_NOVO            nvarchar(1)   NOT NULL,
+        JUSTIFICATIVA_ANTERIOR nvarchar(500) NULL,
+        JUSTIFICATIVA_NOVA     nvarchar(500) NULL,
+        MOTIVO                 nvarchar(500) NOT NULL,
+        ID_USUARIO             int           NOT NULL,
+        CREATED                datetime      NOT NULL CONSTRAINT DF_RETIF_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_CHAMADA_RETIFICACOES PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_RETIF_CHAMADA FOREIGN KEY (ID_CHAMADA) REFERENCES dbo.TB_CHAMADA (ID),
+        CONSTRAINT FK_RETIF_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_RETIF_STATUS CHECK (STATUS_ANTERIOR IN ('P','F','J','A') AND STATUS_NOVO IN ('P','F','J','A')),
+        CONSTRAINT CK_RETIF_MOTIVO CHECK (LTRIM(RTRIM(MOTIVO)) <> '')
+    );
+    CREATE INDEX IX_RETIF_CHAMADA ON dbo.TB_CHAMADA_RETIFICACOES (ID_CHAMADA);
+    CREATE INDEX IX_RETIF_CREATED ON dbo.TB_CHAMADA_RETIFICACOES (CREATED);
+    PRINT '  + TB_CHAMADA_RETIFICACOES criada';
+END
+GO
+
+/* ============================================================================
+   12. TB_OBSERVACOES — observações do professor por aluno
    ============================================================================ */
 IF OBJECT_ID(N'dbo.TB_OBSERVACOES', N'U') IS NULL
 BEGIN
@@ -348,7 +463,7 @@ ELSE
 GO
 
 /* ============================================================================
-   11. TB_RELATORIOS_ANUAIS — parecer final por aluno/ano
+   13. TB_RELATORIOS_ANUAIS — parecer final por aluno/ano
    ============================================================================ */
 IF OBJECT_ID(N'dbo.TB_RELATORIOS_ANUAIS', N'U') IS NULL
 BEGIN
@@ -374,7 +489,7 @@ ELSE
 GO
 
 /* ============================================================================
-   12. VIEW_ACESSOS_USUARIOS
+   14. VIEW_ACESSOS_USUARIOS
        Corrige o script antigo, que trazia só o SELECT e nunca criava a view.
        Usada por inc/functions.php e usuarios/processa/acesso_processa.php.
    ============================================================================ */
@@ -396,7 +511,7 @@ PRINT '  + VIEW_ACESSOS_USUARIOS criada/atualizada';
 GO
 
 /* ============================================================================
-   13. DADOS INICIAIS — PERÍODOS
+   15. DADOS INICIAIS — PERÍODOS
    ============================================================================ */
 IF NOT EXISTS (SELECT 1 FROM dbo.TB_PERIODOS)
 BEGIN
@@ -411,7 +526,7 @@ ELSE
 GO
 
 /* ============================================================================
-   14. DADOS INICIAIS — UNIDADES DA REDE MUNICIPAL
+   16. DADOS INICIAIS — UNIDADES DA REDE MUNICIPAL
        Insere apenas as que ainda não existem, comparando pelo nome.
    ============================================================================ */
 DECLARE @unidades TABLE (id int IDENTITY(1,1), nome nvarchar(255));
@@ -447,7 +562,7 @@ PRINT '  + unidades inseridas: ' + CAST(@@ROWCOUNT AS varchar(10));
 GO
 
 /* ============================================================================
-   15. DADOS INICIAIS — USUÁRIO ADMINISTRADOR
+   17. DADOS INICIAIS — USUÁRIO ADMINISTRADOR
        Criado SOMENTE se a tabela estiver vazia. Nunca sobrescreve usuários.
 
        CPF   : 398.114.718-94
@@ -483,7 +598,7 @@ ELSE
 GO
 
 /* ============================================================================
-   16. VERIFICAÇÃO
+   18. VERIFICAÇÃO
    ============================================================================ */
 PRINT '';
 PRINT '================================================================';
@@ -497,7 +612,8 @@ SELECT
     (SELECT COUNT(*) FROM sys.indexes i WHERE i.object_id = t.object_id AND i.is_unique = 1) AS IndicesUnicos
 FROM sys.tables t
 WHERE t.name IN ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
-                 'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS')
+                 'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS',
+                 'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES')
 ORDER BY t.name;
 
 SELECT
@@ -507,7 +623,9 @@ SELECT
     (SELECT COUNT(*) FROM dbo.TB_PERIODOS)  AS Periodos,
     (SELECT COUNT(*) FROM dbo.TB_TURMAS)    AS Turmas,
     (SELECT COUNT(*) FROM dbo.TB_ALUNOS)    AS Alunos,
-    (SELECT COUNT(*) FROM dbo.TB_CHAMADA)   AS Chamadas;
+    (SELECT COUNT(*) FROM dbo.TB_CHAMADA)   AS Chamadas,
+    (SELECT COUNT(*) FROM dbo.TB_TURMA_PROFESSORES)   AS EquipeTurmas,
+    (SELECT COUNT(*) FROM dbo.TB_CHAMADA_RETIFICACOES) AS Retificacoes;
 
 IF OBJECT_ID(N'dbo.VIEW_ACESSOS_USUARIOS', N'V') IS NULL
     PRINT 'ATENÇÃO: a VIEW_ACESSOS_USUARIOS não foi criada!';
@@ -516,8 +634,9 @@ ELSE
 
 IF (SELECT COUNT(*) FROM sys.tables WHERE name IN
       ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
-       'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS')) = 10
-    PRINT 'As 10 tabelas estão presentes. Instalação concluída.';
+       'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS',
+       'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES')) = 12
+    PRINT 'As 12 tabelas estão presentes. Instalação concluída.';
 ELSE
     PRINT 'ATENÇÃO: alguma tabela está faltando. Revise as mensagens acima.';
 GO

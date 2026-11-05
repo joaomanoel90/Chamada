@@ -91,7 +91,26 @@ function ch_nivel()
     return (int)($_SESSION['usuarioNiveisAcessoId'] ?? 0);
 }
 
-/** Nível 1 e 2 são gestão: enxergam todas as unidades. */
+/** Nível 1 — administração da rede: enxerga todas as unidades. */
+function ch_admin()
+{
+    return ch_nivel() === 1;
+}
+
+/** Nível 2 — diretor: enxerga tudo da(s) unidade(s) a que está vinculado. */
+function ch_diretor()
+{
+    return ch_nivel() === 2;
+}
+
+/** Nível 3 — professor: enxerga apenas as turmas em que está na equipe. */
+function ch_professor()
+{
+    return ch_nivel() === 3;
+}
+
+/** Níveis 1 e 2 mantêm cadastros. O alcance de cada um é dado por
+ *  ch_unidades_ids(): admin = rede toda, diretor = somente sua unidade. */
 function ch_gestor()
 {
     return in_array(ch_nivel(), [1, 2], true);
@@ -107,34 +126,82 @@ function ch_require_gestor()
     }
 }
 
+/** Só o nível 1 administra usuários e vínculos da rede. */
+function ch_require_admin()
+{
+    if (!ch_admin()) {
+        ch_flash('Acesso restrito à administração da rede.', 'danger');
+        header('Location: ' . BASEURL . 'index.php');
+        exit;
+    }
+}
+
 /* ------------------------------------------------------- controle de acesso */
 
-/** IDs de unidade que o usuário pode acessar (gestão = todas). */
+/** IDs de unidade do usuário.
+ *  Nível 1 = todas; níveis 2 e 3 = apenas as vinculadas em TB_ACESSO. */
 function ch_unidades_ids()
 {
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    if (ch_gestor()) {
+    if (ch_admin()) {
         $rows = ch_rows('SELECT id FROM TB_UNIDADES ORDER BY unidade');
-        $cache = array_map(function ($r) { return (int)$r['id']; }, $rows);
-        return $cache;
+        $cache = array_map(function ($r) { return (int)$r['id']; }, $rows ?: []);
+    } else {
+        $rows = ch_rows(
+            'SELECT id_unidade FROM TB_ACESSO WHERE id_usuario = ? AND ISNULL(ativo, 1) = 1',
+            [ch_uid()]
+        );
+        $cache = array_map(function ($r) { return (int)$r['id_unidade']; }, $rows ?: []);
     }
-
-    $rows = ch_rows(
-        'SELECT id_unidade FROM TB_ACESSO WHERE id_usuario = ? AND ISNULL(ativo, 1) = 1',
-        [ch_uid()]
-    );
-    $cache = array_map(function ($r) { return (int)$r['id_unidade']; }, $rows);
     return $cache;
 }
 
-/** Filtro SQL pronto para restringir uma consulta por unidade.
- *  $alias = alias da tabela TB_TURMAS na consulta (ex.: 't').
+/** Turmas em que o usuário faz parte da equipe (vínculo ativo). */
+function ch_turmas_ids()
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $rows = ch_rows(
+        'SELECT ID_TURMA FROM TB_TURMA_PROFESSORES WHERE ID_USUARIO = ? AND ATIVO = 1',
+        [ch_uid()]
+    );
+    $cache = array_map(function ($r) { return (int)$r['ID_TURMA']; }, $rows ?: []);
+    return $cache;
+}
+
+/** Filtro SQL para restringir uma consulta de TURMAS ao alcance do usuário.
+ *  $alias = alias da TB_TURMAS na consulta (ex.: 't').
+ *  Nível 1: sem filtro. Nível 2: unidades vinculadas. Nível 3: turmas da equipe.
  *  Devolve ['sql' => string, 'params' => array]. */
+function ch_filtro_turma($alias = 't')
+{
+    if (ch_admin()) {
+        return ['sql' => '', 'params' => []];
+    }
+
+    /* O vínculo com a turma é o que dá acesso ao professor: se a gestão o
+       incluiu na equipe, ele alcança a turma mesmo sem vínculo em TB_ACESSO. */
+    if (ch_professor()) {
+        $ids = ch_turmas_ids();
+        if (!$ids) return ['sql' => ' AND 1 = 0', 'params' => []];
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        return ['sql' => " AND {$alias}.ID IN ({$ph})", 'params' => $ids];
+    }
+
+    $ids = ch_unidades_ids();
+    if (!$ids) return ['sql' => ' AND 1 = 0', 'params' => []];
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    return ['sql' => " AND {$alias}.ID_UNIDADE IN ({$ph})", 'params' => $ids];
+}
+
+/** Filtro por UNIDADE apenas (não considera equipe de turma).
+ *  Mantido para telas que listam unidades, não turmas. */
 function ch_filtro_unidade($alias = 't')
 {
-    if (ch_gestor()) {
+    if (ch_admin()) {
         return ['sql' => '', 'params' => []];
     }
     $ids = ch_unidades_ids();
@@ -150,6 +217,18 @@ function ch_pode_unidade($idUnidade)
     return in_array((int)$idUnidade, ch_unidades_ids(), true);
 }
 
+/** Unidades para selects de cadastro, já restritas ao alcance do usuário. */
+function ch_unidades_opcoes()
+{
+    if (ch_admin()) {
+        return ch_rows('SELECT id, unidade FROM TB_UNIDADES ORDER BY unidade');
+    }
+    $ids = ch_unidades_ids();
+    if (!$ids) return [];
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    return ch_rows("SELECT id, unidade FROM TB_UNIDADES WHERE id IN ({$ph}) ORDER BY unidade", $ids);
+}
+
 /** Turma completa, com unidade e período. */
 function ch_turma($idTurma)
 {
@@ -157,21 +236,68 @@ function ch_turma($idTurma)
         'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.ID_PERIODO, t.ID_PROFESSOR,
                 t.CAPACIDADE, t.ATIVO,
                 u.unidade AS UNIDADE,
-                p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM,
-                pr.NOME AS PROFESSOR
+                p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM
          FROM TB_TURMAS t
          INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
          INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
-         LEFT  JOIN TB_USUARIOS pr ON pr.ID = t.ID_PROFESSOR
          WHERE t.ID = ?',
         [(int)$idTurma]
     );
 }
 
+/** Equipe da turma: todos os professores ativos, regente primeiro. */
+function ch_turma_professores($idTurma)
+{
+    return ch_rows(
+        "SELECT tp.ID_USUARIO, tp.PAPEL, u.NOME
+         FROM TB_TURMA_PROFESSORES tp
+         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+         WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
+         ORDER BY CASE tp.PAPEL WHEN 'REGENTE' THEN 0 ELSE 1 END, u.NOME",
+        [(int)$idTurma]
+    );
+}
+
+/** Nomes da equipe em uma linha, para exibição em listagens. */
+function ch_turma_equipe_texto($idTurma)
+{
+    $eq = ch_turma_professores($idTurma);
+    if (!$eq) return '';
+    $partes = [];
+    foreach ($eq as $m) {
+        $partes[] = $m['NOME'] . ($m['PAPEL'] === 'REGENTE' ? ' (regente)' : '');
+    }
+    return implode(', ', $partes);
+}
+
+/** O usuário faz parte da equipe desta turma? */
+function ch_na_equipe($idTurma, $idUsuario = null)
+{
+    $idUsuario = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($idUsuario <= 0) return false;
+    return (bool)ch_val(
+        'SELECT ID FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ? AND ATIVO = 1',
+        [(int)$idTurma, $idUsuario]
+    );
+}
+
+/** Acesso à turma: admin = todas; diretor = unidades vinculadas;
+ *  professor = somente turmas em que está na equipe. */
 function ch_pode_turma($idTurma)
 {
     $t = ch_turma($idTurma);
-    return $t && ch_pode_unidade($t['ID_UNIDADE']);
+    if (!$t) return false;
+    if (ch_professor()) {
+        return in_array((int)$idTurma, ch_turmas_ids(), true);
+    }
+    return ch_pode_unidade($t['ID_UNIDADE']);
+}
+
+/** Quem pode retificar uma chamada já confirmada: a gestão da unidade
+ *  ou qualquer professor da equipe da turma. */
+function ch_pode_retificar($idTurma)
+{
+    return ch_pode_turma($idTurma);
 }
 
 /** Aluno completo, com turma/unidade/período. */
@@ -199,15 +325,15 @@ function ch_aluno($idAluno)
 function ch_pode_aluno($idAluno)
 {
     $a = ch_aluno($idAluno);
-    return $a && ch_pode_unidade($a['ID_UNIDADE']);
+    return $a && ch_pode_turma($a['ID_TURMA']);
 }
 
-/** Bloqueia o acesso a aluno de outra unidade. */
+/** Bloqueia o acesso a aluno fora do alcance do usuário. */
 function ch_exige_aluno($idAluno)
 {
     $a = ch_aluno($idAluno);
-    if (!$a || !ch_pode_unidade($a['ID_UNIDADE'])) {
-        ch_flash('Aluno não encontrado ou fora da sua unidade.', 'danger');
+    if (!$a || !ch_pode_turma($a['ID_TURMA'])) {
+        ch_flash('Aluno não encontrado ou fora do seu alcance.', 'danger');
         header('Location: ' . BASEURL . 'alunos/index.php');
         exit;
     }
@@ -303,6 +429,29 @@ function ch_idade_texto($nascimento, $referencia = null)
     if ($d->m > 0) $p[] = $d->m . ($d->m == 1 ? ' mês' : ' meses');
     if (!$p) $p[] = $d->d . ($d->d == 1 ? ' dia' : ' dias');
     return implode(' e ', $p);
+}
+
+/** Iniciais para o avatar (primeiro e último nome). */
+function ch_iniciais($nome)
+{
+    $nome = trim((string)$nome);
+    if ($nome === '') return '?';
+    $partes = preg_split('/\s+/u', $nome);
+    $partes = array_values(array_filter($partes, function ($x) { return mb_strlen($x) > 2; }));
+    if (!$partes) $partes = preg_split('/\s+/u', $nome);
+    $ini = mb_substr($partes[0], 0, 1);
+    if (count($partes) > 1) $ini .= mb_substr($partes[count($partes) - 1], 0, 1);
+    return mb_strtoupper($ini);
+}
+
+/** Texto curto de "quando foi confirmado", para o cartão do aluno. */
+function ch_confirma_texto($iso)
+{
+    if (!$iso) return '';
+    $iso = (string)$iso;
+    $dia = substr($iso, 0, 10);
+    $hora = substr($iso, 11, 5);
+    return ch_data_br($dia) . ($hora ? ' às ' . $hora : '');
 }
 
 /* ------------------------------------------------------- status da chamada */

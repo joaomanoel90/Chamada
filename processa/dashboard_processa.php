@@ -10,7 +10,7 @@ $hoje      = ch_hoje();
 $ano       = (int)date('Y');
 $mes       = (int)date('n');
 $inicioMes = sprintf('%04d-%02d-01', $ano, $mes);
-$filtro    = ch_filtro_unidade('t');
+$filtro    = ch_filtro_turma('t');
 $p         = $filtro['params'];
 
 /* ------------------------------------------------------------- totais */

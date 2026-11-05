@@ -176,3 +176,61 @@ alunos  chamada  conta  css  feriados  images  inc  js
 observacoes  periodos  processa  relatorios  sql_inicial  turmas
 unidades  usuarios
 ```
+
+---
+
+## 12. Equipe por turma, retificação e layout escolar
+
+Pedido: *"pode ter mais de um professor por turma; ao lançar presença não poder
+mais confirmar para o aluno naquele dia, somente retificar; e ajuste o layout,
+deixe mais com cara de ambiente escolar"*.
+
+### Banco (o mesmo `INSTALACAO_COMPLETA.sql`, re-executável)
+
+| Objeto | Para que serve |
+|---|---|
+| `TB_TURMA_PROFESSORES` | equipe da turma: N professores, `PAPEL` REGENTE/AUXILIAR, `ATIVO` |
+| `UX_TURMAPROF_REGENTE` | índice único **filtrado**: no máximo 1 regente ativo por turma |
+| `TB_CHAMADA_RETIFICACOES` | antes/depois, justificativas, motivo (`CHECK` não-vazio), autor, data/hora |
+| `TB_CHAMADA.CONFIRMADA_EM` / `CONFIRMADA_POR` | quem confirmou originalmente, preservado nas retificações |
+
+Migração automática: o professor único de cada turma vira REGENTE; registros
+antigos de chamada recebem `CONFIRMADA_EM = CREATED` e `CONFIRMADA_POR = ID_USUARIO`.
+`TB_TURMAS.ID_PROFESSOR` foi mantida como legado e é sincronizada com o regente.
+
+### Alcance por nível (mudou)
+
+Antes, níveis 1 e 2 viam **todas** as unidades. Agora:
+
+- **1** — rede toda;
+- **2 (diretor)** — apenas as unidades do seu `TB_ACESSO`;
+- **3 (professor)** — apenas as turmas em que é membro ativo da equipe.
+
+Novas funções: `ch_admin`, `ch_diretor`, `ch_professor`, `ch_require_admin`,
+`ch_turmas_ids`, `ch_filtro_turma`, `ch_unidades_opcoes`, `ch_turma_professores`,
+`ch_turma_equipe_texto`, `ch_na_equipe`, `ch_pode_retificar`, `ch_iniciais`.
+Os selects de unidade das telas de cadastro passaram a usar `ch_unidades_opcoes()`,
+então o diretor não vê mais a rede inteira.
+
+### Chamada
+
+`salvar_processa.php` deixou de fazer upsert: só insere. Quem já tem registro no
+dia é ignorado com aviso. `retificar.php` é o único caminho de correção e exige
+motivo. `historico.php` mostra a linha do tempo das retificações.
+
+### Layout
+
+`css/escola.css` (novo), carregado por último no `inc/tema.php`. Paleta alegre,
+cantos arredondados, avatares com iniciais, cartões por aluno, painel da turma com
+placar, linha do tempo do histórico, responsivo, impressão e
+`prefers-reduced-motion`. A geometria do menu original foi preservada.
+
+### Validação desta rodada
+
+- `php -l` em **96 arquivos**: zero erros.
+- `sqlfluff --dialect tsql`: **8.715 nós, 0 trechos não interpretados**.
+- **82/82** testes funcionais (acesso por nível, equipe, confirmação única,
+  retificação, histórico, layout) e **12/12** testes de restrição do banco.
+- Varredura de **37 telas**: nenhum warning/notice de runtime.
+- Os testes rodaram sobre um adaptador `sqlsrv`→SQLite em `/tmp`, **fora do
+  repositório**. Não foram executados em SQL Server real nem em PHP 8.5.12.

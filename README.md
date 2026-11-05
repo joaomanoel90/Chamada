@@ -10,12 +10,30 @@ da rede municipal (creches e escolas).
 ## Funcionalidades
 
 - **Chamada diária** por turma, com Presente, Falta, Falta justificada e Atraso
+- **Confirmação única** por aluno/dia: depois de confirmada, a presença só muda por
+  **retificação com motivo obrigatório** e histórico auditável
+- **Equipe por turma** com vários professores e um regente
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
   descritivo, encaminhamentos, versão para impressão e exportação CSV
 - **Cadastros** de alunos, turmas, períodos, unidades e usuários
-- **Perfis de acesso**: gestão (tudo) e professor (só as suas unidades)
+- **Perfis de acesso**: administração (rede toda), diretor (sua unidade) e
+  professor (só as turmas da sua equipe)
+- **Layout** com identidade de educação infantil
+
+## Atualizando uma instalação existente
+
+Execute **o mesmo** `sql_inicial/INSTALACAO_COMPLETA.sql` novamente. Ele é
+idempotente e faz o upgrade sem apagar dados:
+
+- cria `TB_TURMA_PROFESSORES` e `TB_CHAMADA_RETIFICACOES`;
+- acrescenta `CONFIRMADA_EM` e `CONFIRMADA_POR` em `TB_CHAMADA`;
+- migra o professor único de cada turma para **regente** da equipe;
+- preenche a confirmação dos registros antigos com quem os lançou.
+
+Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
+com um professor (o antigo responsável) e você acrescenta os demais.
 
 ## Instalação
 
@@ -100,16 +118,65 @@ css/  js/  images/      estilos, scripts e brasão
 sql_inicial/            INSTALACAO_COMPLETA.sql (script único do banco)
 ```
 
-## Perfis
+## Perfis e alcance
 
-| Nível | Quem | Acesso |
+| Nível | Quem | O que vê |
 |---|---|---|
-| 1 e 2 | Gestão | todas as unidades e todos os cadastros |
-| 3 | Professor / unidade | apenas as unidades vinculadas em `TB_ACESSO` |
+| **1** | Administração da rede | **todas** as unidades, turmas e cadastros; administra usuários e vínculos |
+| **2** | Diretor | **tudo da unidade** a que está vinculado em `TB_ACESSO`; não vê as outras unidades |
+| **3** | Professor | **somente as turmas** em que está na equipe (`TB_TURMA_PROFESSORES`) |
 
-Para um professor enxergar as turmas, cadastre o vínculo em
-**Usuários → Acesso Unidades**. A gestão também precisa de vínculo — o script
-já cria isso para o administrador inicial.
+O vínculo do **diretor** é por unidade: **Usuários → Acesso Unidades**.
+O vínculo do **professor** é por turma: **Turmas → Editar → Equipe da turma**.
+Ao incluir o professor na equipe, ele já alcança a turma — não é obrigatório
+vínculo em `TB_ACESSO` para isso.
+
+## Equipe da turma (vários professores)
+
+Uma turma pode ter **quantos professores forem necessários**. Em
+**Turmas → Editar → Equipe da turma**:
+
+- marque todos os professores que atendem a turma;
+- escolha **um regente** (se nenhum for escolhido, o primeiro marcado assume);
+- todos os marcados lançam chamada, registram observações e retificam presenças;
+- quem não está marcado **não vê** a turma.
+
+Ao remover alguém da equipe, o vínculo é **desativado**, não apagado — o
+histórico do que a pessoa lançou permanece intacto.
+
+## Chamada: confirmar uma vez, depois retificar
+
+A presença de cada aluno é **confirmada uma única vez por dia**.
+
+1. **Aguardando confirmação** — o professor escolhe Presente / Falta /
+   Justificada / Atraso e confirma. Há um aviso de confirmação antes de gravar.
+2. **Presença confirmada** — o cartão fica **travado**, mostrando a situação,
+   quem confirmou e quando. Não existe mais botão de confirmar para esse aluno
+   no dia.
+3. **Retificar** — única forma de corrigir. Abre uma janela que exige:
+   - a nova situação;
+   - a justificativa, se for falta justificada;
+   - **o motivo da retificação** (obrigatório).
+
+Cada retificação grava em `TB_CHAMADA_RETIFICACOES` o status anterior, o novo,
+as justificativas, o motivo, o autor e a data/hora. Consulte em
+**Chamada → Histórico de retificações**.
+
+Quem pode retificar: a gestão da unidade e qualquer professor da equipe da turma.
+`CONFIRMADA_POR` e `CONFIRMADA_EM` continuam apontando para quem confirmou
+originalmente, mesmo depois de retificações.
+
+> Retificar para a mesma situação e a mesma justificativa é recusado — não gera
+> registro vazio no histórico.
+
+## Layout
+
+Tema visual de educação infantil em `css/escola.css`: paleta alegre, cantos
+arredondados, avatares com iniciais, cartões por aluno, painel da turma com
+placar de presença e linha do tempo para o histórico. É carregado por último no
+`inc/tema.php`, então prevalece sobre o `style.css` original sem alterar a
+geometria do menu. Inclui ajustes para celular, impressão e
+`prefers-reduced-motion`.
 
 ## Banco de dados
 
@@ -119,10 +186,12 @@ já cria isso para o administrador inicial.
 | `TB_USUARIOS` | gestão e professores |
 | `TB_ACESSO` | vínculo usuário ↔ unidade |
 | `TB_PERIODOS` | Manhã, Tarde, Integral |
-| `TB_TURMAS` | turmas por unidade e ano letivo |
+| `TB_TURMAS` | turmas por unidade e ano letivo (`ID_PROFESSOR` é legado, espelha o regente) |
 | `TB_ALUNOS` | alunos e responsáveis |
 | `TB_FERIADOS` | feriados integrais e parciais |
-| `TB_CHAMADA` | presença por aluno/dia |
+| `TB_CHAMADA` | presença por aluno/dia, com data e autor da confirmação |
+| `TB_TURMA_PROFESSORES` | equipe da turma (vários professores, um regente) |
+| `TB_CHAMADA_RETIFICACOES` | histórico de retificações, com motivo e autor |
 | `TB_OBSERVACOES` | observações de desenvolvimento |
 | `TB_RELATORIOS_ANUAIS` | parecer e encaminhamentos por aluno/ano |
 | `VIEW_ACESSOS_USUARIOS` | view de apoio às permissões |

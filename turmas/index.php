@@ -42,7 +42,7 @@
         <th width="26%">Unidade</th>
         <th width="18%">Turma</th>
         <th width="14%">Período</th>
-        <th width="20%">Professor(a)</th>
+        <th width="22%">Equipe</th>
         <th width="8%">Alunos</th>
         <th width="7%">Situação</th>
         <th width="7%">Opções</th>
@@ -54,7 +54,25 @@
         <td><?= ch_h($row['UNIDADE']) ?></td>
         <td><?= ch_h($row['NOME']) ?></td>
         <td><?= ch_h($row['PERIODO']) ?> <small class="text-muted"><?= ch_h($row['HORA_INICIO']) ?>–<?= ch_h($row['HORA_FIM']) ?></small></td>
-        <td><?= $row['PROFESSOR'] ? ch_h($row['PROFESSOR']) : '<span class="text-muted">não definido</span>' ?></td>
+        <td>
+          <?php $eq = $equipePorTurma[(int)$row['ID']] ?? []; ?>
+          <?php if (!$eq): ?>
+            <span class="text-muted">sem equipe</span>
+          <?php else: ?>
+            <div class="equipe-mini">
+              <?php foreach ($eq as $m): ?>
+                <span class="avatar-prof avatar-mini <?= $m['PAPEL'] === 'REGENTE' ? 'regente' : '' ?>"
+                      title="<?= ch_h($m['NOME']) ?><?= $m['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?>">
+                  <?= ch_h(ch_iniciais($m['NOME'])) ?>
+                </span>
+              <?php endforeach; ?>
+              <small class="text-muted ms-1">
+                <?= count($eq) ?> prof<?= count($eq) > 1 ? 's' : '' ?>.
+              </small>
+            </div>
+            <small class="text-muted"><?= ch_h($eq[0]['NOME']) ?><?= $eq[0]['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?></small>
+          <?php endif; ?>
+        </td>
         <td class="text-center"><?= (int)$row['ALUNOS'] ?> / <?= (int)$row['CAPACIDADE'] ?></td>
         <td class="text-center">
           <span class="badge bg-<?= (int)$row['ATIVO'] === 1 ? 'success' : 'secondary' ?>">

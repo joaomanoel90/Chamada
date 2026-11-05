@@ -79,7 +79,7 @@
 
 
 	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;600&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 
 
 	<style>
@@ -135,4 +135,7 @@
 
 
 
+	<!-- Tema escolar: carregado por ÚLTIMO para prevalecer sobre style.css
+	     e sobre o <style> embutido acima. -->
+	<link rel="stylesheet" type="text/css" href="<?php echo BASEURL; ?>css/escola.css">
 </head>

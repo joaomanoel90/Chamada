@@ -3,7 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-$filtro = ch_filtro_unidade('t');
+$filtro = ch_filtro_turma('t');
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE, p.NOME AS PERIODO
      FROM TB_TURMAS t
@@ -21,6 +21,10 @@ $bloqueio = null;
 $alunos = [];
 $jaLancada = false;
 $resumo = ['P' => 0, 'F' => 0, 'J' => 0, 'A' => 0];
+$pendentes = [];
+$confirmados = [];
+$equipe = [];
+$podeRetificar = false;
 
 if ($turmaId > 0) {
     if (!ch_pode_turma($turmaId)) {
@@ -29,14 +33,21 @@ if ($turmaId > 0) {
         exit;
     }
     $turma = ch_turma($turmaId);
+    $equipe = ch_turma_professores($turmaId);
     $bloqueio = ch_bloqueio_chamada($data, $turma);
+    $podeRetificar = ch_pode_retificar($turmaId);
 
+    /* CONFIRMADA_EM vira texto no banco: o driver sqlsrv devolveria DateTime. */
     $alunos = ch_rows(
         'SELECT a.ID, a.MATRICULA, a.NOME,
-                c.STATUS, c.JUSTIFICATIVA,
-                CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO
+                c.ID AS ID_CHAMADA, c.STATUS, c.JUSTIFICATIVA,
+                CONVERT(varchar(16), c.CONFIRMADA_EM, 120) AS CONFIRMADA_EM,
+                uc.NOME AS CONFIRMADA_POR_NOME,
+                CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO,
+                (SELECT COUNT(*) FROM TB_CHAMADA_RETIFICACOES r WHERE r.ID_CHAMADA = c.ID) AS RETIFICACOES
          FROM TB_ALUNOS a
          LEFT JOIN TB_CHAMADA c ON c.ID_ALUNO = a.ID AND c.DATA = ?
+         LEFT JOIN TB_USUARIOS uc ON uc.ID = c.CONFIRMADA_POR
          WHERE a.ID_TURMA = ? AND a.ATIVO = 1
          ORDER BY a.NOME',
         [$data, $turmaId]
@@ -46,6 +57,9 @@ if ($turmaId > 0) {
         if (!empty($a['STATUS'])) {
             $jaLancada = true;
             $resumo[$a['STATUS']] = ($resumo[$a['STATUS']] ?? 0) + 1;
+            $confirmados[] = $a;
+        } else {
+            $pendentes[] = $a;
         }
     }
 }

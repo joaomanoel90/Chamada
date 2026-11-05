@@ -3,7 +3,7 @@
 
 <?php ch_cabecalho('Chamada de Alunos', 'fa-clipboard-user'); ?>
 
-<form method="get" action="index.php" class="row g-2 align-items-end mb-3">
+<form method="get" action="index.php" class="row g-2 align-items-end mb-4">
   <div class="col-md-6">
     <label class="fw-bold">Turma</label>
     <select name="turma_id" class="form-select" required>
@@ -28,36 +28,43 @@
   <div class="alert alert-warning">
     Nenhuma turma disponível para o seu usuário.
     <?php if (ch_gestor()): ?>Cadastre uma turma em <a href="<?= ch_url('turmas/index.php') ?>">Turmas</a>.
-    <?php else: ?>Peça à gestão o vínculo com a sua unidade em <strong>Usuários &rarr; Acesso por Unidade</strong>.<?php endif; ?>
+    <?php else: ?>Peça à gestão para incluir você na <strong>equipe da turma</strong> em Turmas &rarr; Editar.<?php endif; ?>
   </div>
 <?php elseif (!$turma): ?>
   <div class="alert alert-info">Selecione uma turma e a data para iniciar a chamada.</div>
 <?php else: ?>
 
-  <div class="card border-0 shadow-sm rounded-4 mb-3">
-    <div class="card-body py-3">
-      <div class="row align-items-center">
-        <div class="col-md-8">
-          <strong><?= ch_h($turma['UNIDADE']) ?></strong> — <?= ch_h($turma['NOME']) ?><br>
-          <span class="text-muted">
-            <?= ch_h($turma['PERIODO']) ?> (<?= ch_h($turma['HORA_INICIO']) ?>–<?= ch_h($turma['HORA_FIM']) ?>)
-            &middot; <?= ch_data_longa($data) ?>
-            &middot; Professor(a): <?= $turma['PROFESSOR'] ? ch_h($turma['PROFESSOR']) : 'não definido' ?>
-          </span>
+  <div class="painel-turma mb-4">
+    <div class="painel-turma-info">
+      <div class="painel-turma-icone"><i class="fas fa-children"></i></div>
+      <div>
+        <div class="painel-turma-nome"><?= ch_h($turma['NOME']) ?></div>
+        <div class="painel-turma-sub">
+          <?= ch_h($turma['UNIDADE']) ?><br>
+          <i class="far fa-clock"></i> <?= ch_h($turma['PERIODO']) ?>
+          (<?= ch_h($turma['HORA_INICIO']) ?>–<?= ch_h($turma['HORA_FIM']) ?>)
+          &nbsp;·&nbsp; <i class="far fa-calendar"></i> <?= ch_data_longa($data) ?>
         </div>
-        <div class="col-md-4 text-md-end">
-          <?php if ($jaLancada): ?>
-            <span class="badge bg-success">Chamada já lançada</span>
-            <div class="mt-1">
-              <small class="text-muted">
-                P <?= $resumo['P'] ?> &middot; A <?= $resumo['A'] ?> &middot; F <?= $resumo['F'] ?> &middot; J <?= $resumo['J'] ?>
-              </small>
-            </div>
-          <?php else: ?>
-            <span class="badge bg-secondary">Ainda não lançada</span>
-          <?php endif; ?>
+        <?php if ($equipe): ?>
+        <div class="painel-turma-equipe">
+          <?php foreach ($equipe as $m): ?>
+            <span class="avatar-prof avatar-mini <?= $m['PAPEL'] === 'REGENTE' ? 'regente' : '' ?>"
+                  title="<?= ch_h($m['NOME']) ?><?= $m['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?>">
+              <?= ch_h(ch_iniciais($m['NOME'])) ?>
+            </span>
+          <?php endforeach; ?>
+          <small><?= count($equipe) ?> professor(a/es) na equipe</small>
         </div>
+        <?php endif; ?>
       </div>
+    </div>
+    <div class="painel-turma-placar">
+      <?php foreach (ch_status_lista() as $sigla => $info): ?>
+        <div class="placar-item placar-<?= $sigla ?>">
+          <span class="placar-num"><?= (int)$resumo[$sigla] ?></span>
+          <span class="placar-rot"><i class="fas <?= $info['icone'] ?>"></i> <?= ch_h($info['rotulo']) ?></span>
+        </div>
+      <?php endforeach; ?>
     </div>
   </div>
 
@@ -71,97 +78,260 @@
     <div class="alert alert-info">Não há alunos ativos nesta turma.</div>
   <?php else: ?>
 
+  <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <?php if (!$bloqueio && $pendentes): ?>
+      <button type="button" class="btn btn-sm btn-outline-success" data-marcar-todos="P">
+        <i class="fas fa-check-double"></i> Marcar pendentes como presentes
+      </button>
+    <?php endif; ?>
+    <a class="btn btn-sm btn-outline-secondary" href="exportar.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
+      <i class="fas fa-file-csv"></i> Exportar CSV
+    </a>
+    <?php if ($confirmados): ?>
+      <a class="btn btn-sm btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
+        <i class="fas fa-clock-rotate-left"></i> Histórico de retificações
+      </a>
+    <?php endif; ?>
+  </div>
+
+  <?php if (!$bloqueio && $pendentes): ?>
   <form method="post" action="salvar.php" id="form-chamada">
     <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
     <input type="hidden" name="data" value="<?= ch_h($data) ?>">
 
-    <?php if (!$bloqueio): ?>
-    <div class="d-flex flex-wrap gap-2 mb-2">
-      <button type="button" class="btn btn-sm btn-outline-success" data-marcar-todos="P"><i class="fas fa-check-double"></i> Marcar todos presentes</button>
-      <a class="btn btn-sm btn-outline-secondary" href="exportar.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>"><i class="fas fa-file-csv"></i> Exportar CSV</a>
-    </div>
-    <?php endif; ?>
+    <div class="secao-chamada">
+      <h3 class="secao-titulo">
+        <span class="secao-icone pendente"><i class="fas fa-hourglass-half"></i></span>
+        Aguardando confirmação
+        <span class="badge bg-warning text-dark"><?= count($pendentes) ?></span>
+      </h3>
+      <p class="text-muted small mb-3">
+        A presença é confirmada <strong>uma única vez</strong> por aluno no dia.
+        Depois disso, correções são feitas por <strong>retificação</strong>, com motivo registrado.
+      </p>
 
-    <div class="table-responsive">
-      <table class="table table-light table-striped align-middle">
-        <thead>
-          <tr>
-            <th width="30%">Aluno</th>
-            <th width="34%" class="text-center">Situação no dia</th>
-            <th width="28%">Justificativa / anotação</th>
-            <th width="8%" class="text-center">Obs.</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($alunos as $a): $st = $a['STATUS'] ?: ''; ?>
-          <tr>
-            <td>
-              <strong><?= ch_h($a['NOME']) ?></strong><br>
-              <small class="text-muted"><?= ch_h($a['MATRICULA']) ?> &middot; <?= ch_h(ch_idade_texto($a['NASCIMENTO'], $data)) ?></small>
-            </td>
-            <td class="text-center">
-              <div class="btn-group flex-wrap" role="group">
-                <?php foreach (ch_status_lista() as $sigla => $info): ?>
-                  <input type="radio" class="btn-check" name="status[<?= (int)$a['ID'] ?>]"
-                         id="st<?= (int)$a['ID'] ?><?= $sigla ?>" value="<?= $sigla ?>"
-                         <?= $st === $sigla ? 'checked' : '' ?> <?= $bloqueio ? 'disabled' : '' ?>>
-                  <label class="btn btn-sm btn-outline-<?= $info['cor'] ?>" for="st<?= (int)$a['ID'] ?><?= $sigla ?>"
-                         title="<?= ch_h($info['rotulo']) ?>">
-                    <i class="fas <?= $info['icone'] ?>"></i> <?= ch_h($info['rotulo']) ?>
-                  </label>
-                <?php endforeach; ?>
-              </div>
-            </td>
-            <td>
-              <input type="text" class="form-control form-control-sm" name="justificativa[<?= (int)$a['ID'] ?>]"
-                     maxlength="500" value="<?= ch_h($a['JUSTIFICATIVA'] ?? '') ?>"
-                     placeholder="Obrigatória se falta justificada" <?= $bloqueio ? 'disabled' : '' ?>>
-            </td>
-            <td class="text-center">
-              <a class="btn btn-sm btn-outline-primary" title="Registrar observação do aluno"
-                 href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
-                <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
-              </a>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+      <div class="grade-alunos">
+        <?php foreach ($pendentes as $a): ?>
+        <div class="cartao-aluno" data-aluno="<?= (int)$a['ID'] ?>">
+          <div class="cartao-aluno-topo">
+            <span class="avatar-aluno"><?= ch_h(ch_iniciais($a['NOME'])) ?></span>
+            <div class="cartao-aluno-id">
+              <strong><?= ch_h($a['NOME']) ?></strong>
+              <small><?= ch_h($a['MATRICULA']) ?> · <?= ch_h(ch_idade_texto($a['NASCIMENTO'], $data)) ?></small>
+            </div>
+            <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
+               href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
+              <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
+            </a>
+          </div>
+          <div class="cartao-aluno-status">
+            <?php foreach (ch_status_lista() as $sigla => $info): ?>
+              <input type="radio" class="btn-check" name="status[<?= (int)$a['ID'] ?>]"
+                     id="st<?= (int)$a['ID'] ?><?= $sigla ?>" value="<?= $sigla ?>">
+              <label class="botao-status status-<?= $sigla ?>" for="st<?= (int)$a['ID'] ?><?= $sigla ?>"
+                     title="<?= ch_h($info['rotulo']) ?>">
+                <i class="fas <?= $info['icone'] ?>"></i><span><?= ch_h($info['rotulo']) ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+          <input type="text" class="form-control form-control-sm campo-just" name="justificativa[<?= (int)$a['ID'] ?>]"
+                 maxlength="500" value="" placeholder="Justificativa (obrigatória se falta justificada)">
+        </div>
+        <?php endforeach; ?>
+      </div>
     </div>
 
-    <?php if (!$bloqueio): ?>
-    <div class="col-auto my-4">
-      <a href="index.php" class="btn btn-outline-success">Cancelar</a>
-      <button type="submit" class="btn btn-success btn-lg"><i class="fas fa-save"></i> Salvar chamada</button>
+    <div class="my-4">
+      <a href="index.php" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-success btn-lg">
+        <i class="fas fa-lock"></i> Confirmar presença de <?= count($pendentes) ?> aluno(s)
+      </button>
     </div>
-    <?php endif; ?>
   </form>
+  <?php endif; ?>
+
+  <?php if ($confirmados): ?>
+  <div class="secao-chamada">
+    <h3 class="secao-titulo">
+      <span class="secao-icone confirmado"><i class="fas fa-lock"></i></span>
+      Presença confirmada
+      <span class="badge bg-success"><?= count($confirmados) ?></span>
+    </h3>
+    <p class="text-muted small mb-3">
+      Estes registros estão <strong>travados</strong>. Para corrigir, use
+      <strong>Retificar</strong> e informe o motivo — a alteração fica no histórico.
+    </p>
+
+    <div class="grade-alunos">
+      <?php foreach ($confirmados as $a): $info = ch_status_lista()[$a['STATUS']]; ?>
+      <div class="cartao-aluno travado">
+        <div class="cartao-aluno-topo">
+          <span class="avatar-aluno"><?= ch_h(ch_iniciais($a['NOME'])) ?></span>
+          <div class="cartao-aluno-id">
+            <strong><?= ch_h($a['NOME']) ?></strong>
+            <small><?= ch_h($a['MATRICULA']) ?> · <?= ch_h(ch_idade_texto($a['NASCIMENTO'], $data)) ?></small>
+          </div>
+          <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
+             href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
+            <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
+          </a>
+        </div>
+
+        <div class="cartao-aluno-confirmado">
+          <span class="selo-status status-<?= ch_h($a['STATUS']) ?>">
+            <i class="fas <?= $info['icone'] ?>"></i> <?= ch_h($info['rotulo']) ?>
+          </span>
+          <?php if (!empty($a['JUSTIFICATIVA'])): ?>
+            <div class="just-exibida"><i class="fas fa-quote-left"></i> <?= ch_h($a['JUSTIFICATIVA']) ?></div>
+          <?php endif; ?>
+          <div class="confirmado-meta">
+            <i class="fas fa-lock"></i>
+            Confirmada <?= ch_h(ch_confirma_texto($a['CONFIRMADA_EM'])) ?>
+            <?php if (!empty($a['CONFIRMADA_POR_NOME'])): ?>
+              por <?= ch_h($a['CONFIRMADA_POR_NOME']) ?>
+            <?php endif; ?>
+            <?php if ((int)$a['RETIFICACOES'] > 0): ?>
+              · <span class="badge bg-secondary"><?= (int)$a['RETIFICACOES'] ?> retificação(ões)</span>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <?php if ($podeRetificar && !$bloqueio): ?>
+        <button type="button" class="btn btn-sm btn-outline-warning botao-retificar"
+                data-bs-toggle="modal" data-bs-target="#modalRetificar"
+                data-chamada="<?= (int)$a['ID_CHAMADA'] ?>"
+                data-aluno="<?= ch_h($a['NOME']) ?>"
+                data-status="<?= ch_h($a['STATUS']) ?>"
+                data-justificativa="<?= ch_h($a['JUSTIFICATIVA'] ?? '') ?>">
+          <i class="fas fa-pen-to-square"></i> Retificar
+        </button>
+        <?php endif; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <?php if (!$bloqueio && !$pendentes && $confirmados): ?>
+    <div class="alert alert-success mt-4">
+      <i class="fas fa-circle-check"></i>
+      <strong>Chamada do dia concluída.</strong>
+      Todos os <?= count($confirmados) ?> alunos tiveram a presença confirmada.
+    </div>
+  <?php endif; ?>
+
+  <!-- Modal de retificação -->
+  <div class="modal fade" id="modalRetificar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content conteudo-modal">
+        <form method="post" action="retificar.php" id="form-retificar">
+          <div class="modal-header cabecalho-modal">
+            <h5 class="modal-title"><i class="fas fa-pen-to-square"></i> Retificar presença</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
+            <input type="hidden" name="data" value="<?= ch_h($data) ?>">
+            <input type="hidden" name="chamada_id" id="ret-chamada" value="">
+
+            <div class="alert alert-light border">
+              <strong id="ret-aluno"></strong><br>
+              <small class="text-muted">Situação atual: <span id="ret-atual"></span></small>
+            </div>
+
+            <label class="fw-bold mb-2">Nova situação</label>
+            <div class="cartao-aluno-status mb-3">
+              <?php foreach (ch_status_lista() as $sigla => $info): ?>
+                <input type="radio" class="btn-check" name="status" id="ret<?= $sigla ?>" value="<?= $sigla ?>">
+                <label class="botao-status status-<?= $sigla ?>" for="ret<?= $sigla ?>">
+                  <i class="fas <?= $info['icone'] ?>"></i><span><?= ch_h($info['rotulo']) ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+
+            <div class="mb-3">
+              <label class="fw-bold">Justificativa da falta</label>
+              <input type="text" class="form-control" name="justificativa" id="ret-just" maxlength="500"
+                     placeholder="Obrigatória se a nova situação for falta justificada">
+            </div>
+
+            <div class="mb-0">
+              <label class="fw-bold">Motivo da retificação <span class="text-danger">*</span></label>
+              <textarea class="form-control" name="motivo" id="ret-motivo" rows="3" maxlength="500" required
+                        placeholder="Ex.: responsável informou por telefone que o aluno esteve presente; lançamento inicial incorreto."></textarea>
+              <div class="form-text">Obrigatório. Fica registrado no histórico junto com seu nome e a data/hora.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-warning"><i class="fas fa-pen-to-square"></i> Retificar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <script>
+    /* "Marcar pendentes como presentes" só toca nos cartões ainda não confirmados. */
     document.querySelectorAll('[data-marcar-todos]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var v = btn.getAttribute('data-marcar-todos');
-        document.querySelectorAll('input[type=radio][value="' + v + '"]').forEach(function (r) { r.checked = true; });
+        document.querySelectorAll('#form-chamada input[type=radio][value="' + v + '"]')
+          .forEach(function (r) { r.checked = true; });
       });
     });
-    document.getElementById('form-chamada').addEventListener('submit', function (e) {
-      var faltando = [];
-      document.querySelectorAll('tbody tr').forEach(function (tr) {
-        var radios = tr.querySelectorAll('input[type=radio]');
-        if (!radios.length) return;
-        var marcado = tr.querySelector('input[type=radio]:checked');
-        var nome = tr.querySelector('strong').textContent.trim();
-        if (!marcado) { faltando.push(nome); return; }
-        if (marcado.value === 'J') {
-          var j = tr.querySelector('input[type=text]');
-          if (!j.value.trim()) { faltando.push(nome + ' (justificativa obrigatória)'); }
+
+    var formChamada = document.getElementById('form-chamada');
+    if (formChamada) {
+      formChamada.addEventListener('submit', function (e) {
+        var faltando = [];
+        formChamada.querySelectorAll('.cartao-aluno').forEach(function (card) {
+          var marcado = card.querySelector('input[type=radio]:checked');
+          var nome = card.querySelector('.cartao-aluno-id strong').textContent.trim();
+          if (!marcado) { faltando.push(nome); return; }
+          if (marcado.value === 'J') {
+            var j = card.querySelector('.campo-just');
+            if (!j.value.trim()) { faltando.push(nome + ' (justificativa obrigatória)'); }
+          }
+        });
+        if (faltando.length) {
+          e.preventDefault();
+          alert('Verifique os alunos a seguir antes de confirmar:\n\n' + faltando.join('\n'));
+          return;
+        }
+        if (!confirm('Confirma a presença destes alunos? Depois de confirmada, a presença só poderá ser alterada por retificação.')) {
+          e.preventDefault();
         }
       });
-      if (faltando.length) {
-        e.preventDefault();
-        alert('Verifique os alunos a seguir antes de salvar:\n\n' + faltando.join('\n'));
-      }
-    });
+    }
+
+    /* Preenche o modal com os dados do aluno clicado. */
+    var modalRet = document.getElementById('modalRetificar');
+    if (modalRet) {
+      var rotulos = <?= json_encode(array_map(function ($i) { return $i['rotulo']; }, ch_status_lista()), JSON_UNESCAPED_UNICODE) ?>;
+      modalRet.addEventListener('show.bs.modal', function (ev) {
+        var b = ev.relatedTarget;
+        if (!b) return;
+        document.getElementById('ret-chamada').value = b.getAttribute('data-chamada');
+        document.getElementById('ret-aluno').textContent = b.getAttribute('data-aluno');
+        document.getElementById('ret-atual').textContent = rotulos[b.getAttribute('data-status')] || '';
+        document.getElementById('ret-just').value = b.getAttribute('data-justificativa') || '';
+        document.getElementById('ret-motivo').value = '';
+        modalRet.querySelectorAll('input[name=status]').forEach(function (r) {
+          r.checked = (r.value === b.getAttribute('data-status'));
+        });
+      });
+      document.getElementById('form-retificar').addEventListener('submit', function (e) {
+        var st = modalRet.querySelector('input[name=status]:checked');
+        if (!st) { e.preventDefault(); alert('Escolha a nova situação.'); return; }
+        if (st.value === 'J' && !document.getElementById('ret-just').value.trim()) {
+          e.preventDefault(); alert('A falta justificada exige justificativa.'); return;
+        }
+        if (!document.getElementById('ret-motivo').value.trim()) {
+          e.preventDefault(); alert('Informe o motivo da retificação.');
+        }
+      });
+    }
   </script>
   <?php endif; ?>
 <?php endif; ?>

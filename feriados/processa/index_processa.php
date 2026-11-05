@@ -11,4 +11,4 @@ $feriados = ch_rows(
      WHERE YEAR(f.DATA) = ? ORDER BY f.DATA',
     [$fAno]
 );
-$unidades = ch_rows('SELECT id, unidade FROM TB_UNIDADES ORDER BY unidade');
+$unidades = ch_unidades_opcoes();

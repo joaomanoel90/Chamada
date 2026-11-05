@@ -28,7 +28,7 @@ function observacao_validar($post)
 /** Alunos que o usuário pode observar. */
 function observacao_alunos()
 {
-    $f = ch_filtro_unidade('t');
+    $f = ch_filtro_turma('t');
     return ch_rows(
         'SELECT a.ID, a.NOME, a.MATRICULA, t.NOME AS TURMA, u.unidade AS UNIDADE
          FROM TB_ALUNOS a

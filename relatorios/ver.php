@@ -35,7 +35,7 @@
         <dl class="row mb-0">
           <dt class="col-sm-3">Unidade</dt><dd class="col-sm-9"><?= ch_h($aluno['UNIDADE']) ?></dd>
           <dt class="col-sm-3">Turma</dt><dd class="col-sm-9"><?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?></dd>
-          <dt class="col-sm-3">Professor(a)</dt><dd class="col-sm-9"><?= $professor ? ch_h($professor) : 'não definido' ?></dd>
+          <dt class="col-sm-3">Equipe da turma</dt><dd class="col-sm-9"><?= $professor ? ch_h($professor) : 'sem equipe definida' ?></dd>
           <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9"><?= ch_h($aluno['RESPONSAVEL']) ?> &middot; <?= ch_h($aluno['TELEFONE']) ?></dd>
         </dl>
       </div>

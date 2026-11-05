@@ -15,7 +15,7 @@ if (!$atual) {
 }
 
 $erros = [];
-$unidades = ch_rows('SELECT id, unidade FROM TB_UNIDADES ORDER BY unidade');
+$unidades = ch_unidades_opcoes();
 $d = $atual;
 $d['ID_UNIDADE'] = (int)($atual['ID_UNIDADE'] ?? 0);
 

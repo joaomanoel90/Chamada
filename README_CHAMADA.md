@@ -47,7 +47,11 @@ que já existe:
 Execute no SQL Server o script único:
 
 ```
+css/escola.css                   tema visual de educação infantil
+
 sql_inicial/INSTALACAO_COMPLETA.sql
+sql_inicial/DIAGNOSTICO_LOGIN.sql
+sql_inicial/CRIAR_LOGIN_APLICACAO.sql
 ```
 
 O script é **idempotente**: pode rodar mais de uma vez sem apagar dados. Cria o
@@ -84,6 +88,38 @@ do dia, frequência do mês, próximos feriados, observações recentes).
 
 ## 3. Regras de negócio
 
+### Equipe da turma
+
+Uma turma tem **vários professores** (`TB_TURMA_PROFESSORES`), sendo **um**
+regente. Todos os membros ativos da equipe lançam chamada, observações e
+retificações. Remover alguém da equipe desativa o vínculo (`ATIVO = 0`), sem
+apagar o histórico. `TB_TURMAS.ID_PROFESSOR` permanece como coluna legada,
+sempre igual ao regente, para não quebrar consultas antigas.
+
+### Confirmação e retificação
+
+- A presença é **confirmada uma vez** por aluno/dia. `salvar_processa.php` só
+  faz `INSERT`; se o registro já existe, ele **não sobrescreve** e orienta a usar
+  a retificação. Há rechecagem dentro da transação contra gravação simultânea.
+- Corrigir exige **retificação** (`retificar.php`), com **motivo obrigatório**.
+  O antes/depois vai para `TB_CHAMADA_RETIFICACOES` com autor e data/hora.
+- `CONFIRMADA_EM` / `CONFIRMADA_POR` guardam quem confirmou originalmente e não
+  mudam nas retificações; `ID_USUARIO` passa a ser quem retificou por último.
+- Retificar sem mudança efetiva é recusado.
+- Falta justificada exige justificativa tanto na confirmação quanto na
+  retificação (validado em PHP e por `CHECK` no banco).
+
+### Alcance por nível
+
+| Nível | Alcance |
+|---|---|
+| 1 | todas as unidades |
+| 2 | unidades vinculadas em `TB_ACESSO` |
+| 3 | turmas em que é membro ativo da equipe |
+
+`ch_filtro_turma()` aplica o recorte nas listagens; `ch_pode_turma()` e
+`ch_pode_aluno()` barram o acesso direto por URL.
+
 ### Chamada
 
 | Código | Situação | Observação |
@@ -93,8 +129,8 @@ do dia, frequência do mês, próximos feriados, observações recentes).
 | `F` | Falta | não conta |
 | `J` | Falta justificada | **exige justificativa**; não conta |
 
-- Um registro por aluno por dia (índice único `ID_ALUNO + DATA`). Salvar de novo
-  atualiza o registro existente.
+- Um registro por aluno por dia (índice único `ID_ALUNO + DATA`). Depois de
+  confirmado, salvar de novo **não** atualiza: a correção é por retificação.
 - **Data futura** é bloqueada.
 - A data precisa pertencer ao **ano letivo da turma**.
 - Turma inativa não aceita novos lançamentos.
@@ -143,10 +179,10 @@ inc/chamada.php                  funções compartilhadas (acesso, datas, regras
 inc/chamada_categorias.php       categorias de observação
 
 periodos/     index add edit formulario + processa/{index,add,edit,salvar,toggle}
-turmas/       index add edit formulario + processa/{index,add,edit,salvar,toggle}
+turmas/       index add edit formulario (equipe) + processa/{index,add,edit,salvar,toggle}
 alunos/       index add edit view formulario + processa/{index,add,edit,view,salvar,toggle}
 feriados/     index add edit formulario + processa/{index,add,edit,salvar,delete}
-chamada/      index salvar exportar + processa/{index,salvar}
+chamada/      index salvar retificar historico exportar + processa/{index,salvar,retificar,historico}
 observacoes/  index add edit formulario + processa/{index,add,edit,salvar}
 relatorios/   index ver salvar exportar + processa/{index,ver,salvar}
 

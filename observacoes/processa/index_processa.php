@@ -9,7 +9,7 @@ $fCategoria = trim($_GET['categoria'] ?? '');
 $fInicio = ch_data_iso($_GET['inicio'] ?? '', date('Y-m-01'));
 $fFim    = ch_data_iso($_GET['fim'] ?? '', ch_hoje());
 
-$filtro = ch_filtro_unidade('t');
+$filtro = ch_filtro_turma('t');
 
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE

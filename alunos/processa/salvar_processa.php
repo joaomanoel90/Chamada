@@ -57,7 +57,7 @@ function aluno_validar($post, $idAtual = 0)
 
 function aluno_turmas_disponiveis()
 {
-    $f = ch_filtro_unidade('t');
+    $f = ch_filtro_turma('t');
     return ch_rows(
         'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, u.unidade AS UNIDADE,
                 (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS

@@ -5,7 +5,7 @@ require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
 $fTurma = (int)($_GET['turma_id'] ?? 0);
 $fAno   = (int)($_GET['ano'] ?? (int)date('Y'));
-$filtro = ch_filtro_unidade('t');
+$filtro = ch_filtro_turma('t');
 
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE

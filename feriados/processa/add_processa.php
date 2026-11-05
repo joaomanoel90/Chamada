@@ -6,7 +6,7 @@ ch_db();
 require_once(__DIR__ . '/salvar_processa.php');
 
 $erros = [];
-$unidades = ch_rows('SELECT id, unidade FROM TB_UNIDADES ORDER BY unidade');
+$unidades = ch_unidades_opcoes();
 $d = ['DATA' => '', 'DESCRICAO' => '', 'TIPO' => 'INTEGRAL', 'HORA_INICIO' => '12:00', 'HORA_FIM' => '18:00', 'ID_UNIDADE' => 0];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

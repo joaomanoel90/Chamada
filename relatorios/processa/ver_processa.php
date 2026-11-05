@@ -63,5 +63,5 @@ $parecer = ch_row(
 $dias       = (int)($totais['DIAS'] ?? 0);
 $presencas  = (int)($totais['P'] ?? 0) + (int)($totais['A'] ?? 0);
 $frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;
-$professor  = ch_val('SELECT pr.NOME FROM TB_TURMAS t LEFT JOIN TB_USUARIOS pr ON pr.ID = t.ID_PROFESSOR WHERE t.ID = ?',
-                     [(int)$aluno['ID_TURMA']]);
+/* A turma pode ter vários professores: mostra a equipe inteira. */
+$professor  = ch_turma_equipe_texto((int)$aluno['ID_TURMA']);
