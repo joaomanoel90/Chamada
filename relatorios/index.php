@@ -33,7 +33,7 @@
 </div>
 
 <div class="table-responsive-sm">
-  <table id="item" class="table table-light table-striped table-sm align-middle">
+  <table id="item" data-vazio="Nenhum aluno encontrado para o ano e filtro escolhidos." class="table table-light table-striped table-sm align-middle">
     <thead class="text-sm-center">
       <tr>
         <th width="30%">Aluno</th>
@@ -63,9 +63,6 @@
         </td>
       </tr>
       <?php endforeach; ?>
-      <?php if (!$alunos): ?>
-        <tr><td colspan="6" class="text-center py-3">Nenhum aluno encontrado para o ano e filtro escolhidos.</td></tr>
-      <?php endif; ?>
     </tbody>
   </table>
 </div>

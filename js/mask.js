@@ -23,9 +23,23 @@ function MascaraCpfCnpj(campo) {
     campo.value = vr;
 }
 
-// Aplica a máscara ao digitar ou colar
-document.getElementById('cpfcnpj').addEventListener('input', function() {
-    MascaraCpfCnpj(this);
-});;
+/* Aplica a máscara ao digitar ou colar.
+   Este arquivo é carregado no <head> de todas as telas, mas o campo 'cpfcnpj'
+   só existe em alguns formulários. Sem a guarda abaixo, o script gerava
+   "Cannot read properties of null (reading 'addEventListener')" em toda página
+   que não tem o campo — e ainda rodava antes de o DOM existir. */
+function ch_aplicarMascaraCpfCnpj() {
+    var campo = document.getElementById('cpfcnpj');
+    if (!campo) return;
+    campo.addEventListener('input', function () {
+        MascaraCpfCnpj(this);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ch_aplicarMascaraCpfCnpj);
+} else {
+    ch_aplicarMascaraCpfCnpj();
+}
 
 

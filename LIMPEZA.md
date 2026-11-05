@@ -234,3 +234,86 @@ placar, linha do tempo do histórico, responsivo, impressão e
 - Varredura de **37 telas**: nenhum warning/notice de runtime.
 - Os testes rodaram sobre um adaptador `sqlsrv`→SQLite em `/tmp`, **fora do
   repositório**. Não foram executados em SQL Server real nem em PHP 8.5.12.
+
+---
+
+## 13. Correções de layout: rodapé, menus "Opções" e DataTables
+
+Rodada seguinte ao layout escolar, para corrigir dois recortes visuais
+relatados em uso: o fundo do menu lateral "cortando" no encontro com o rodapé e
+o menu **Opções** das listagens sendo cortado.
+
+### Causa raiz: Bootstrap carregado três vezes
+
+O achado principal não era CSS. Cada página carregava **três cópias do
+JavaScript do Bootstrap** e **duas folhas de estilo**:
+
+| Onde | O que carregava |
+|---|---|
+| `inc/tema.php` (head) | bundle **5.1.3** |
+| `inc/tema.php` (head) | CSS **5.2.0** + CSS "twitter-bootstrap" **5.1.3** |
+| `inc/footer.php` | `bootstrap.min.js` **5.2.0** |
+| `inc/footer.php` | `bootstrap.bundle.min.js` **5.2.0** |
+
+Cada cópia registra o seu próprio *data-api* de dropdown e sobrescreve o
+posicionamento calculado pela anterior. O menu abria, recebia uma posição e era
+reposicionado em seguida pela outra instância — daí o recorte, e daí também
+nenhuma configuração de Popper ter efeito.
+
+**Correção:** uma única cópia — o bundle **5.2.0**, com `integrity`, no
+`inc/tema.php`. As duas tags de script do rodapé e o CSS 5.1.3 foram removidos.
+Com uma só instância, o Popper do Bootstrap volta a funcionar sozinho: o menu
+"vira" para cima quando não cabe abaixo, sem nenhum código de posicionamento
+manual no projeto.
+
+### Menu lateral e rodapé
+
+`css/escola.css`: o canto inferior direito do `.sidebar` passou a raio **0**, de
+modo que a lateral encoste no rodapé sem deixar uma faixa do fundo aparecendo
+entre os dois. A geometria original (60px, 220px no hover, rodapé fixo) foi
+mantida.
+
+### DataTables
+
+- **Cabeçalho legível.** O degradê foi movido de `thead` para `thead > tr` e o
+  `--bs-table-bg` de cada `th` foi neutralizado. Antes, o `.table-light` pintava
+  cada célula de cinza-claro por cima do degradê, resultando em texto branco
+  sobre fundo branco.
+- **Invólucro da tabela.** `.table-responsive*` fica com `overflow:visible` em
+  telas largas e só ganha `overflow-x:auto` abaixo de 992px. Um invólucro com
+  rolagem recorta o menu que abre para fora dele.
+- **Coluna Opções sempre visível.** `responsivePriority:1` + `className:'all'` na
+  última coluna. O Responsive escondia justamente a coluna das ações primeiro,
+  e a engrenagem desaparecia em 1024px.
+- **Tradução embutida.** O JSON de pt-BR da CDN falhava silenciosamente e a
+  interface ficava em inglês. As traduções agora estão em `js/tabela.js`.
+- **Listas vazias.** As linhas `<tr><td colspan="N">` de exemplo foram retiradas
+  dos sete `index.php`: elas quebravam o DataTables (`_DT_CellIndex` indefinido).
+  A mensagem vem de `data-vazio` na `<table>`, aplicada a
+  `language.emptyTable`/`zeroRecords`.
+- **Menu alto.** `.dropdown-menu` ganhou altura máxima de `calc(100vh - 24px)`
+  com rolagem interna, para o menu de 5 itens de `alunos` nunca sair da janela.
+
+### Outros dois bugs encontrados no caminho
+
+- `js/mask.js` era carregado no `<head>` de todas as páginas, mas só algumas têm
+  o campo `#cpfcnpj`: três erros de `null` por página. Agora tem guarda de
+  existência e espera o `DOMContentLoaded`. **Bug pré-existente.**
+- A validação em JavaScript da chamada exigia marcar **todos** os alunos
+  pendentes, enquanto o servidor já aceitava confirmação parcial. O JavaScript
+  foi alinhado ao servidor: confirma quem foi marcado, avisa quantos continuam
+  pendentes e continua bloqueando falta justificada sem justificativa.
+
+### Validação desta rodada
+
+- `php -l` em **96 arquivos**: zero erros. `node --check` nos dois JS.
+- **228/228** verificações de layout: 8 listagens + 6 outras telas × 4 larguras
+  (1024, 1366, 1440, 1920), medindo transbordo, alcance do botão Opções e menu
+  inteiro dentro da janela.
+- **25/25** verificações de geometria (junção lateral/rodapé, cabeçalho, menu,
+  tradução, erros de JavaScript).
+- **21/21** testes funcionais do que depende do Bootstrap depois da remoção das
+  cópias: modal de retificação, gravação no histórico, bloqueio sem motivo,
+  confirmação de presença e formulário de equipe.
+- Mesma ressalva da seção 12: testes sobre o adaptador `sqlsrv`→SQLite em
+  `/tmp`, **não** em SQL Server real nem em PHP 8.5.12.

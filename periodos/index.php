@@ -5,7 +5,7 @@
     '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Período</a>'); ?>
 
 <div class="table-responsive-sm">
-  <table id="item" class="table table-light table-striped table-sm align-middle">
+  <table id="item" data-vazio="Nenhum período cadastrado." class="table table-light table-striped table-sm align-middle">
     <thead class="text-sm-center">
       <tr>
         <th width="8%">ID</th>
@@ -53,9 +53,6 @@
         </td>
       </tr>
       <?php endforeach; ?>
-      <?php if (!$periodos): ?>
-        <tr><td colspan="7" class="text-center py-3">Nenhum período cadastrado.</td></tr>
-      <?php endif; ?>
     </tbody>
   </table>
 </div>

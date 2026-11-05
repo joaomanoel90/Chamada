@@ -33,7 +33,7 @@ include(HEADER_TEMPLATE);
 
 <div class="table-responsive-sm">
 
-	<table name="item" id="item" class="table table-light table-striped table-sm">
+	<table name="item" id="item" data-vazio="Nenhum registro encontrado." class="table table-light table-striped table-sm">
 		<thead class="text-sm-center">
 			<tr>
 				<th width="5%">ID</th>
@@ -95,12 +95,7 @@ include(HEADER_TEMPLATE);
 
 				<?php }
 				sqlsrv_free_stmt($stmt);
-			} else { ?>
-				<tr>
-					<td colspan="6">Nenhum registro encontrado.</td>
-				</tr>
-			<?php }
-			; ?>
+			} ?>
 		</tbody>
 	</table>
 </div>

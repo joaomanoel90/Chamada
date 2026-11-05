@@ -284,24 +284,36 @@
     var formChamada = document.getElementById('form-chamada');
     if (formChamada) {
       formChamada.addEventListener('submit', function (e) {
-        var faltando = [];
+        /* Alinhado ao servidor: é possível confirmar só parte da turma — quem
+           ficar sem marcação continua pendente. Só a falta justificada sem
+           justificativa é impedida. */
+        var problemas = [], marcados = 0, semMarcacao = 0;
         formChamada.querySelectorAll('.cartao-aluno').forEach(function (card) {
           var marcado = card.querySelector('input[type=radio]:checked');
           var nome = card.querySelector('.cartao-aluno-id strong').textContent.trim();
-          if (!marcado) { faltando.push(nome); return; }
+          if (!marcado) { semMarcacao++; return; }
+          marcados++;
           if (marcado.value === 'J') {
             var j = card.querySelector('.campo-just');
-            if (!j.value.trim()) { faltando.push(nome + ' (justificativa obrigatória)'); }
+            if (!j.value.trim()) { problemas.push(nome + ' (justificativa obrigatória)'); }
           }
         });
-        if (faltando.length) {
+        if (problemas.length) {
           e.preventDefault();
-          alert('Verifique os alunos a seguir antes de confirmar:\n\n' + faltando.join('\n'));
+          alert('Verifique os alunos a seguir antes de confirmar:\n\n' + problemas.join('\n'));
           return;
         }
-        if (!confirm('Confirma a presença destes alunos? Depois de confirmada, a presença só poderá ser alterada por retificação.')) {
+        if (marcados === 0) {
           e.preventDefault();
+          alert('Marque a situação de pelo menos um aluno antes de confirmar.');
+          return;
         }
+        var aviso = 'Confirmar a presença de ' + marcados + ' aluno(s)?\n\n'
+                  + 'Depois de confirmada, a presença só poderá ser alterada por retificação.';
+        if (semMarcacao > 0) {
+          aviso += '\n\n' + semMarcacao + ' aluno(s) sem marcação continuarão aguardando confirmação.';
+        }
+        if (!confirm(aviso)) { e.preventDefault(); }
       });
     }
 

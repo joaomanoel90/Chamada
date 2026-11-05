@@ -36,7 +36,7 @@
 </form>
 
 <div class="table-responsive-sm">
-  <table id="item" class="table table-light table-striped table-sm align-middle">
+  <table id="item" data-vazio="Nenhuma turma encontrada para o filtro escolhido." class="table table-light table-striped table-sm align-middle">
     <thead class="text-sm-center">
       <tr>
         <th width="26%">Unidade</th>
@@ -101,9 +101,6 @@
         </td>
       </tr>
       <?php endforeach; ?>
-      <?php if (!$turmas): ?>
-        <tr><td colspan="7" class="text-center py-3">Nenhuma turma encontrada para o filtro escolhido.</td></tr>
-      <?php endif; ?>
     </tbody>
   </table>
 </div>

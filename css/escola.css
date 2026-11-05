@@ -60,8 +60,10 @@ a:hover { color: var(--uva); }
 .sidebar {
   background: linear-gradient(180deg, #2C7DA0 0%, #3A8FB7 45%, #52B788 100%) !important;
   box-shadow: 4px 0 18px rgba(43, 58, 85, .18);
+  /* Só o topo é arredondado. Com raio embaixo aparecia uma cunha do fundo
+     entre a curva do menu e o canto reto do rodapé (que começa em left:60px). */
   border-top-right-radius: var(--raio-grande);
-  border-bottom-right-radius: var(--raio-grande);
+  border-bottom-right-radius: 0;
 }
 
 .sidebar::-webkit-scrollbar-track { background: rgba(0, 0, 0, .12); }
@@ -204,20 +206,45 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 
 .table {
   background: var(--papel);
-  border-radius: var(--raio);
-  overflow: hidden;
   box-shadow: var(--sombra);
+  /* SEM overflow:hidden e SEM border-radius na tabela: os dois recortavam o
+     menu "Opções" e os botões das células de canto. O arredondamento é feito
+     nas células dos cantos, logo abaixo. */
+  overflow: visible;
+  border-radius: 0;
 }
-.table > thead {
-  background: linear-gradient(90deg, var(--ceu) 0%, #6FC3DF 100%);
+
+/* Cantos arredondados sem criar contexto de recorte. */
+.table > thead > tr:first-child > th:first-child { border-top-left-radius: var(--raio); }
+.table > thead > tr:first-child > th:last-child  { border-top-right-radius: var(--raio); }
+.table > tbody > tr:last-child > td:first-child  { border-bottom-left-radius: var(--raio); }
+.table > tbody > tr:last-child > td:last-child   { border-bottom-right-radius: var(--raio); }
+
+/* O degradê vai na LINHA, não no thead: as classes .table-light do Bootstrap
+   pintam o fundo de cada th com --bs-table-bg (#f8f9fa) por cima do thead, e o
+   texto branco ficava invisível. Aqui o th fica transparente. */
+.table > thead > tr {
+  background: linear-gradient(90deg, var(--ceu-esc) 0%, var(--ceu) 100%);
 }
-.table > thead th {
+.table > thead > tr > th,
+.table-light > thead > tr > th {
+  background-color: transparent !important;
+  --bs-table-bg: transparent;
+  --bs-table-color: #fff;
   color: #fff !important;
   font-weight: 800;
   border: none !important;
   padding: .8rem .6rem;
   white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .18);
 }
+/* Setas de ordenação do DataTables visíveis no fundo azul. */
+.table > thead > tr > th.sorting::before,
+.table > thead > tr > th.sorting::after,
+.table > thead > tr > th.sorting_asc::before,
+.table > thead > tr > th.sorting_asc::after,
+.table > thead > tr > th.sorting_desc::before,
+.table > thead > tr > th.sorting_desc::after { color: #fff; opacity: .85; }
 .table > tbody > tr { vertical-align: middle; }
 .table > tbody > tr:hover { background: #F3F9FF !important; }
 .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: #FAFCFF; }
@@ -566,4 +593,205 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
    exemplo sem internet —, cai no Nunito e depois na fonte do sistema. */
 h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num {
   font-family: 'Fredoka', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ============================================================================
+   DATATABLES E MENU "OPÇÕES" — correções de recorte
+   ----------------------------------------------------------------------------
+   Causas encontradas medindo no navegador:
+   1. O .dataTables_wrapper usa .row com margens negativas e ficava 12px mais
+      largo que o container. Como .content tem overflow-x:hidden, esses 12px
+      eram cortados — justo a coluna "Opções" da direita.
+   2. Em janelas estreitas com o menu expandido, a tabela não encolhia e o botão
+      "Opções" chegava a 81px fora do conteúdo: cortado e inacessível.
+   3. .table com overflow:hidden + border-radius recortava células de canto.
+   Solução: nada transborda (a tabela rola dentro do próprio invólucro) e o menu
+   suspenso usa Popper em estratégia "fixed" para escapar de qualquer recorte.
+   ============================================================================ */
+
+/* 1. Anula as margens negativas que faziam o wrapper transbordar. */
+.dataTables_wrapper > .row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  --bs-gutter-x: 0;
+}
+.dataTables_wrapper > .row > [class^="col-"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.dataTables_wrapper {
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: .5rem;
+}
+
+/* 2. A tabela rola na horizontal dentro do invólucro, em vez de vazar.
+      Assim o .content nunca precisa cortar nada. */
+.table-responsive,
+.table-responsive-sm,
+.table-responsive-md,
+.table-responsive-lg,
+.table-responsive-xl,
+.table-responsive-xxl {
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: 2px;
+  /* Em telas largas a tabela cabe (as margens negativas do wrapper foram
+     anuladas acima), então NÃO criamos contexto de recorte: qualquer
+     overflow != visible cortaria o menu "Opções" na vertical. */
+  overflow: visible;
+}
+
+/* Só em telas estreitas a tabela precisa rolar na horizontal. Aí o invólucro
+   recorta, mas o DataTables Responsive já recolhe as colunas e o menu fica
+   curto graças à altura máxima definida abaixo. */
+@media (max-width: 991.98px) {
+  .table-responsive,
+  .table-responsive-sm,
+  .table-responsive-md,
+  .table-responsive-lg,
+  .table-responsive-xl,
+  .table-responsive-xxl { overflow-x: auto; }
+}
+
+/* Menu nunca mais alto que a janela: rola por dentro em vez de ser cortado. */
+.dropdown-menu {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto !important;
+}
+
+/* Folga extra no fim do conteúdo para a paginação nunca ficar sob o rodapé
+   fixo (42px de altura). */
+.content { padding-bottom: 96px; }
+
+/* 3. Menu suspenso acima do rodapé (1400) e do menu lateral (1500). */
+.dropdown-menu {
+  z-index: 1600 !important;
+  /* O posicionamento é feito em js/tabela.js (position:fixed). Aqui só a
+     aparência; o overflow-y vem por estilo inline quando o menu abre. */
+  background: var(--papel) !important;
+  border: 2px solid var(--borda) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--sombra-alta) !important;
+  padding: .35rem !important;
+  min-width: 190px;
+}
+.dropdown-menu .dropdown-item {
+  color: var(--tinta) !important;
+  font-weight: 700;
+  font-size: .87rem;
+  border-radius: 10px;
+  padding: .5rem .7rem;
+}
+.dropdown-menu .dropdown-item:hover,
+.dropdown-menu .dropdown-item:focus {
+  background: #EAF4FD !important;
+  color: var(--ceu-esc) !important;
+}
+.dropdown-menu .dropdown-item i { width: 18px; text-align: center; opacity: .75; }
+/* O botão Inativar/Reativar dentro do menu tinha pouco contraste no fundo
+   escuro antigo; agora o menu é claro e o botão fica legível. */
+.dropdown-menu form .btn {
+  font-size: .8rem;
+  color: var(--tinta) !important;
+  border-color: var(--borda) !important;
+  background: #F7FAFF !important;
+}
+.dropdown-menu form .btn:hover {
+  background: var(--coral) !important;
+  border-color: var(--coral) !important;
+  color: #fff !important;
+}
+.dropdown-menu li + li { margin-top: 1px; }
+
+/* 4. Controles do DataTables com a cara do tema e sem cortar. */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  padding: .25rem 0 .75rem;
+  color: var(--tinta);
+  font-weight: 700;
+}
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+  border: 2px solid var(--borda) !important;
+  border-radius: 12px !important;
+  padding: .35rem .6rem !important;
+  margin: 0 .4rem !important;
+  background: #fff;
+  color: var(--tinta);
+  min-width: 74px;
+}
+.dataTables_wrapper .dataTables_filter input { min-width: 200px; }
+.dataTables_wrapper .dataTables_length select:focus,
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: var(--ceu) !important;
+  box-shadow: 0 0 0 .2rem rgba(78, 168, 222, .18) !important;
+  outline: none;
+}
+.dataTables_wrapper .dataTables_info {
+  color: var(--tinta-sua);
+  font-weight: 700;
+  font-size: .85rem;
+  padding-top: .9rem !important;
+}
+.dataTables_wrapper .dataTables_paginate {
+  padding-top: .6rem !important;
+}
+.dataTables_wrapper .dataTables_paginate .pagination {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+/* Sobrescreve o azul-escuro do tabela.css pela paleta da escola. */
+.dataTables_wrapper .dataTables_paginate .pagination .page-link {
+  background: #fff !important;
+  color: var(--ceu-esc) !important;
+  border: 2px solid var(--borda) !important;
+  border-radius: 12px !important;
+  font-weight: 800;
+  padding: .4rem .8rem !important;
+  margin: 0 !important;
+}
+.dataTables_wrapper .dataTables_paginate .pagination .page-item.active .page-link,
+.dataTables_wrapper .dataTables_paginate .pagination li.active > a.page-link {
+  background: var(--ceu) !important;
+  border-color: var(--ceu) !important;
+  color: #fff !important;
+}
+.dataTables_wrapper .dataTables_paginate .pagination .page-link:hover {
+  background: var(--ceu-esc) !important;
+  border-color: var(--ceu-esc) !important;
+  color: #fff !important;
+}
+.dataTables_wrapper .dataTables_paginate .pagination .page-item.disabled .page-link {
+  background: #F4F7FB !important;
+  color: #B4C0D3 !important;
+  border-color: var(--borda) !important;
+}
+
+/* Cabeçalho fixo do DataTables (FixedHeader) acompanhando o menu lateral. */
+table.dataTable.fixedHeader-floating,
+table.dataTable.fixedHeader-locked {
+  left: 70px !important;
+  width: calc(100% - 95px) !important;
+  background: var(--papel) !important;
+  box-shadow: var(--sombra);
+}
+body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
+  left: 220px !important;
+  width: calc(100% - 245px) !important;
+}
+
+/* No celular o menu lateral some da esquerda e o rodapé ocupa a largura toda. */
+@media (max-width: 768px) {
+  .content { padding-bottom: 110px; }
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter { text-align: left; }
+  .dataTables_wrapper .dataTables_filter input { min-width: 0; width: 100%; margin-left: 0 !important; }
+  .dataTables_wrapper .dataTables_paginate { text-align: left; }
+  .dataTables_wrapper .dataTables_paginate .pagination .page-link {
+    padding: .35rem .6rem !important; font-size: .8rem;
+  }
+  table.dataTable.fixedHeader-floating,
+  table.dataTable.fixedHeader-locked { left: 0 !important; width: 100% !important; }
 }

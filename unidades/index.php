@@ -35,7 +35,7 @@ if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'
 
 <div class="table-responsive-sm">
 
-	<table name="item" id="item" class="table table-light table-striped table-sm " style="vertical-align: middle;">
+	<table name="item" id="item" data-vazio="Nenhum registro encontrado." class="table table-light table-striped table-sm " style="vertical-align: middle;">
 		<thead class="text-sm-center">
 			<tr>
 				<th width="5%">ID</th>
@@ -84,11 +84,7 @@ if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'
 
 				<?php }
 				sqlsrv_free_stmt($stmt_indice);
-			} else { ?>
-				<tr>
-					<td colspan="6">Nenhum registro encontrado.</td>
-				</tr>
-			<?php }; ?>
+			} ?>
 		</tbody>
 	</table>
 </div>

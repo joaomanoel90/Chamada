@@ -34,7 +34,7 @@
 </form>
 
 <div class="table-responsive-sm">
-  <table id="item" class="table table-light table-striped table-sm align-middle">
+  <table id="item" data-vazio="Nenhum aluno encontrado." class="table table-light table-striped table-sm align-middle">
     <thead class="text-sm-center">
       <tr>
         <th width="10%">Matrícula</th>
@@ -87,9 +87,6 @@
         </td>
       </tr>
       <?php endforeach; ?>
-      <?php if (!$alunos): ?>
-        <tr><td colspan="7" class="text-center py-3">Nenhum aluno encontrado.</td></tr>
-      <?php endif; ?>
     </tbody>
   </table>
 </div>
