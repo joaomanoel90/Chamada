@@ -21,16 +21,15 @@ if (isset($_SESSION['usuarioId'])) {
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <img src="https://cdn-icons-png.flaticon.com/128/3649/3649291.png" alt="Produtos" />
+        <img src="<?php echo BASEURL; ?>images/brasao.png" alt="Brasão" style="width:48px" />
         <h2>Prefeitura de Angatuba</h2>
       </div>
 
       <!-- Links da Sidebar -->
-      <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
-      <a class="nav-link text-white" id="pedidos" href="<?php echo BASEURL; ?>pedidos/index.php"><i class="fas fa-shopping-basket	"></i> <span>Pedidos</span></a>
+      <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
 
       <hr class="border-light">
-      <p class="text-white-50 small mb-1 px-2">CHAMADA DE ALUNOS</p>
+      <p class="text-white-50 small mb-1 px-2">CHAMADA</p>
       <a class="nav-link text-white" id="chamada" href="<?php echo BASEURL; ?>chamada/index.php"><i class="fas fa-clipboard-user"></i> <span>Chamada do Dia</span></a>
       <a class="nav-link text-white" id="alunos" href="<?php echo BASEURL; ?>alunos/index.php"><i class="fas fa-child-reaching"></i> <span>Alunos</span></a>
       <a class="nav-link text-white" id="observacoes" href="<?php echo BASEURL; ?>observacoes/index.php"><i class="far fa-comment-dots"></i> <span>Observações</span></a>
@@ -68,7 +67,7 @@ if (isset($_SESSION['usuarioId'])) {
 
     <script>
       let showingAlert = false;
-      const title = '<?php echo 'Educação' ?>';
+      const title = '<?php echo 'Chamada de Alunos' ?>';
       const messages = 'Prefeitura de Angatuba';
 
       const changeTitle = setInterval(() => {
@@ -114,5 +113,3 @@ if (isset($_SESSION['usuarioId'])) {
         sidebar.classList.toggle('active');
       });
     </script>
-
-  </body>

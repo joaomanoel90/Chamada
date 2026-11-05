@@ -1,7 +1,11 @@
 # Módulo Chamada de Alunos — SupriADM
 
-Módulo de chamada, observações e relatório anual de desenvolvimento, integrado ao
-sistema **SupriADM** da Prefeitura Municipal de Angatuba.
+Módulo de chamada, observações e relatório anual de desenvolvimento da
+Prefeitura Municipal de Angatuba.
+
+O repositório era originalmente uma cópia do **SupriADM** (almoxarifado/pedidos).
+Os módulos de estoque foram removidos — veja [`LIMPEZA.md`](LIMPEZA.md) — e hoje
+o sistema é só de chamada.
 
 Foi escrito seguindo os padrões que já existem no projeto: PHP procedural,
 SQL Server via `sqlsrv`, Bootstrap 5 + DataTables, e a estrutura
@@ -62,11 +66,11 @@ periodos/        turmas/        alunos/        feriados/
 chamada/         observacoes/   relatorios/
 ```
 
-### Passo 3 — menu
+### Passo 3 — menu e dashboard
 
-Os arquivos `inc/header.php` e `inc/header2.php` já foram atualizados com o bloco
-**CHAMADA DE ALUNOS**. Se você tiver versões locais modificadas, aplique apenas o
-bloco de links — o restante do arquivo não foi alterado.
+`inc/header.php` e `inc/header2.php` já têm o menu só da chamada, e `index.php`
+com `processa/dashboard_processa.php` formam o dashboard da chamada (pendências
+do dia, frequência do mês, próximos feriados, observações recentes).
 
 ### Passo 4 — primeiro uso
 
@@ -201,3 +205,5 @@ transações nas gravações.
   rodar primeiro em uma base de homologação.
 - As listas de alunos e turmas usam DataTables (paginação no navegador). Para
   volumes muito grandes, vale migrar para paginação no servidor.
+- `usuarios/`, `unidades/` e `conta/` têm referências a arquivos CSS/JS locais que
+  não existem no repositório; funcionam pelo CDN do `inc/tema.php`. Ver `LIMPEZA.md`.

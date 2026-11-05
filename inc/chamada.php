@@ -1,7 +1,7 @@
 <?php
 /* ============================================================================
    MÓDULO CHAMADA DE ALUNOS — funções compartilhadas
-   SupriADM / Prefeitura Municipal de Angatuba
+   Sistema de Chamada de Alunos / Prefeitura Municipal de Angatuba
 
    Requer que config.php e DBAPI já tenham sido carregados.
    Reaproveita TB_UNIDADES, TB_USUARIOS e TB_ACESSO do sistema.

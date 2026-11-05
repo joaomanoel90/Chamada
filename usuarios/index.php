@@ -85,8 +85,6 @@ include(HEADER_TEMPLATE);
 												class="far fa-edit"></i> Editar </a></li>
 									<li><a href="acesso.php?id=<?php echo $row['ID']; ?>" class="dropdown-item"><i
 												class="far fa-check-square	"></i> Acesso Unidades </a></li>
-									<li><a href="acesso_almoxarifado.php?id=<?php echo $row['ID']; ?>" class="dropdown-item text-primary"><i
-												class="fas fa-cart-arrow-down"></i> Acesso Almox. (Pedidos) </a></li>
 								</ul>
 							</div>
 

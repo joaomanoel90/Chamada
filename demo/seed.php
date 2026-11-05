@@ -28,7 +28,7 @@ foreach ($usuarios as $u) {
         ->execute([$u[0], $senha, $u[1], $u[2]]);
 }
 // vínculos usuário <-> unidade (TB_ACESSO)
-// a gestão também precisa de vínculo: o dashboard do SupriADM filtra por TB_ACESSO
+// a gestão também precisa de vínculo: as telas filtram por TB_ACESSO
 $vinculos = [[2,1],[2,3],[3,2],[4,4],[4,5]];
 for ($un = 1; $un <= count($unidades); $un++) { $vinculos[] = [1, $un]; }
 foreach ($vinculos as $v) {
@@ -144,15 +144,6 @@ foreach ($alunosPorTurma as $idTurma => $ids) {
             $obs++;
         }
     }
-}
-
-// Pedidos fictícios só para o dashboard do SupriADM não ficar zerado na demo.
-$statusPedido = ['Aberto','Em Análise','Em Separação','Finalizado','Cancelado'];
-for ($i = 0; $i < 40; $i++) {
-    $mes = mt_rand(2,10);
-    $pdo->prepare('INSERT INTO TB_PEDIDOS (ID_Unidade, Status, DataCadastro) VALUES (?,?,?)')
-        ->execute([mt_rand(1,count($unidades)), $statusPedido[mt_rand(0,4)],
-                   sprintf('%04d-%02d-%02d 09:00:00', $ano, $mes, mt_rand(1,28))]);
 }
 
 foreach ($pdo->query('SELECT COUNT(*) FROM TB_UNIDADES') as $r) $u = $r[0];

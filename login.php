@@ -242,7 +242,7 @@ include(TEMA_TEMPLATE);
 
       <img src="images/brasao.png" alt="Brasão Prefeitura">
 
-      <h1>SupriADM</h1>
+      <h1>Chamada de Alunos</h1>
 
       <p>Prefeitura Municipal de Angatuba</p>
 
