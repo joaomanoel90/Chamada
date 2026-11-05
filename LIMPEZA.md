@@ -4,7 +4,10 @@ Registro do que foi removido para deixar o repositório apenas com o sistema de
 **Chamada de Alunos**. O repositório nasceu como uma cópia do **SupriADM**
 (gestão de almoxarifado e pedidos), e a maior parte do conteúdo não era usada.
 
-**Tamanho: 14 MB → 1,4 MB** (762 KB sem a pasta `demo/`).
+**Tamanho: 14 MB → 746 KB.**
+
+A limpeza foi feita em duas etapas: primeiro os módulos de estoque, depois a
+remoção do ambiente de demonstração e a consolidação dos scripts de banco.
 
 ---
 
@@ -71,7 +74,6 @@ Registro do que foi removido para deixar o repositório apenas com o sistema de
 - `unidades/`, `usuarios/`, `conta/` — cadastro de unidades, professores e troca de senha.
 - `css/style.css`, `css/tabela.css`, `css/accessibility.css`,
   `js/tabela.js`, `js/mask.js`, `js/main.js`, `js/accessibility.js` — todos em uso.
-- `demo/` — ambiente de teste sem SQL Server, conforme combinado.
 - `images/brasao.png` — usado no login, na sidebar e no rodapé.
 
 ## 6. Verificação
@@ -100,3 +102,77 @@ neste repositório (`css/all.min.css`, `css/dataTables.bootstrap5.min.css`,
 telas funcionam porque `inc/tema.php` já carrega tudo via CDN; os links locais
 geram 404 no console. Ficaram como estavam para não alterar o comportamento
 atual — vale limpar essas referências em uma próxima passada.
+
+---
+
+# Segunda etapa — script único e remoção da demo
+
+## 9. Ambiente de demonstração removido
+
+A pasta `demo/` foi excluída por decisão do usuário:
+
+| Arquivo | O que era |
+|---|---|
+| `bootstrap.php`, `sqlsrv_shim.php` | adaptador que emulava `sqlsrv_*` sobre PDO/SQLite |
+| `schema.sql`, `seed.php` | schema SQLite e dados fictícios |
+| `router.php` | roteador do servidor embutido do PHP |
+| `testes.py` | bateria de 40 verificações |
+| `demo.sqlite`, `sess_*` | base e sessões geradas (não versionadas) |
+
+**Consequência:** o sistema agora exige SQL Server real para rodar. Não há mais
+como subir um preview sem o banco.
+
+## 10. Scripts de banco consolidados em um só
+
+Removidos:
+
+```
+sql_inicial/TB_UNIDADES.sql
+sql_inicial/TB_USUARIOS.sql
+sql_inicial/TB_ACESSO.sql
+sql_inicial/VIEW_ACESSOS_USUARIOS.sql
+sql_inicial/Modulo Chamada/MODULO_CHAMADA.sql
+```
+
+Substituídos por **`sql_inicial/INSTALACAO_COMPLETA.sql`**, que cria banco,
+10 tabelas, chaves, índices, view e dados iniciais, de forma idempotente.
+
+### Bugs do schema original corrigidos no script novo
+
+1. **`VIEW_ACESSOS_USUARIOS` nunca era criada.** O arquivo antigo continha apenas
+   um `SELECT`, sem `CREATE VIEW`. Como `inc/functions.php` e
+   `usuarios/processa/acesso_processa.php` consultam essa view, a tela de acesso
+   por unidade quebrava numa base recém-instalada. Agora há `CREATE OR ALTER VIEW`.
+2. **`TB_USUARIOS.EMAIL` não existia.** A coluna era usada em 4 comandos SQL de
+   `usuarios/`, mas estava ausente do schema — editar usuário gerava erro. O
+   script cria a coluna e a adiciona em bases antigas.
+3. **`TB_USUARIOS.ATIVO` vinha `NULL`** no seed original. Agora é `1`, e registros
+   antigos com `NULL` são normalizados.
+4. **`CPF` era `nvarchar(11)`**, mas o formato `000.000.000-00` tem 14 caracteres.
+   Ampliado para `nvarchar(14)`.
+5. **Feriados duplicados de abrangência geral.** Um `UNIQUE (DATA, ID_UNIDADE)`
+   comum não impede duplicatas quando `ID_UNIDADE` é `NULL` no SQL Server. Foram
+   criados dois índices filtrados, cobrindo os dois casos.
+6. **Falta justificada com texto em branco.** O `CHECK` agora rejeita
+   justificativa vazia ou só com espaços, não apenas `NULL`.
+
+### Validação do script
+
+- **Sintaxe T-SQL:** analisada com parser (dialeto `tsql`), 6.877 nós de árvore,
+  zero trechos não interpretados.
+- **Lógica do schema:** 17/17 verificações passaram em execução equivalente —
+  ordem de criação das tabelas, chaves estrangeiras, unicidade de matrícula,
+  turma, CPF e vínculo, bloqueio de chamada duplicada no mesmo dia, `CHECK` de
+  status e de justificativa, e os índices filtrados de feriado.
+- **Não executado em SQL Server real:** o ambiente não tinha o SGBD. Rode em
+  homologação antes da produção.
+
+## 11. Estado final
+
+16 pastas, 746 KB:
+
+```
+alunos  chamada  conta  css  feriados  images  inc  js
+observacoes  periodos  processa  relatorios  sql_inicial  turmas
+unidades  usuarios
+```

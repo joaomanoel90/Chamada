@@ -1,0 +1,549 @@
+/* ============================================================================
+   CHAMADA DE ALUNOS — PREFEITURA MUNICIPAL DE ANGATUBA
+   SCRIPT COMPLETO DE INSTALAÇÃO DO BANCO DE DADOS
+   ----------------------------------------------------------------------------
+   SGBD     : Microsoft SQL Server 2019 ou superior (inclui Azure SQL)
+   Banco    : db_chamada
+   Driver   : sqlsrv (PHP 8.x)
+
+   Este é o ÚNICO script necessário. Cria banco, tabelas, chaves, índices,
+   view e os dados iniciais.
+
+   É IDEMPOTENTE: pode ser executado novamente sem apagar dados existentes.
+   Nenhuma tabela é dropada. Nenhum registro existente é sobrescrito.
+
+   ----------------------------------------------------------------------------
+   COMO EXECUTAR
+   ----------------------------------------------------------------------------
+   1. Abra o SQL Server Management Studio (SSMS) ou o Azure Data Studio.
+   2. Conecte-se com um login que tenha permissão de criar banco e tabelas.
+   3. Abra este arquivo e execute (F5).
+      - Se o banco ainda não existe, ele é criado.
+      - Se já existe, apenas os objetos que faltam são criados.
+   4. Ao final, o script imprime um relatório de verificação.
+   5. Ajuste config.php com host, usuário e senha do banco.
+
+   ----------------------------------------------------------------------------
+   CORREÇÕES EM RELAÇÃO AOS SCRIPTS ANTIGOS
+   ----------------------------------------------------------------------------
+   - VIEW_ACESSOS_USUARIOS: o arquivo antigo continha apenas um SELECT, sem
+     CREATE VIEW. A view nunca era criada, e por isso
+     inc/functions.php::usuario_tem_acesso_unidade() e
+     usuarios/processa/acesso_processa.php falhavam. Aqui ela é criada de fato.
+   - TB_USUARIOS.EMAIL: a coluna era usada em 4 comandos SQL de usuarios/ mas
+     não existia no schema. Aqui ela é criada (e adicionada em bases antigas).
+   - TB_USUARIOS.ATIVO: o registro inicial tinha ATIVO = NULL. Aqui é 1, e os
+     registros antigos com NULL são normalizados.
+
+   ----------------------------------------------------------------------------
+   SEGURANÇA — LEIA
+   ----------------------------------------------------------------------------
+   O sistema atual guarda senhas em MD5 sem salt (valida.php). Este script
+   mantém MD5 por compatibilidade. O usuário administrador inicial é criado
+   com a senha temporária:
+
+        Trocar@2026
+
+   TROQUE ESSA SENHA NO PRIMEIRO ACESSO, em "Alterar Senha".
+   Recomenda-se migrar o sistema para password_hash() / password_verify().
+   ============================================================================ */
+
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+GO
+
+/* ============================================================================
+   1. BANCO DE DADOS
+   ============================================================================ */
+IF DB_ID(N'db_chamada') IS NULL
+BEGIN
+    PRINT 'Criando o banco db_chamada...';
+    EXEC (N'CREATE DATABASE [db_chamada] COLLATE Latin1_General_CI_AS');
+END
+ELSE
+    PRINT 'Banco db_chamada já existe. Prosseguindo.';
+GO
+
+USE [db_chamada];
+GO
+
+PRINT '----------------------------------------------------------------';
+PRINT 'Instalando o schema de Chamada de Alunos em db_chamada';
+PRINT '----------------------------------------------------------------';
+GO
+
+/* ============================================================================
+   2. TB_UNIDADES — creches e escolas
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_UNIDADES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_UNIDADES (
+        id            int IDENTITY(1,1) NOT NULL,
+        unidade       nvarchar(255) NOT NULL,
+        data_cadastro datetime      NOT NULL CONSTRAINT DF_UNIDADES_DATA DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_UNIDADES PRIMARY KEY CLUSTERED (id)
+    );
+    PRINT '  + TB_UNIDADES criada';
+END
+ELSE
+    PRINT '  = TB_UNIDADES já existe';
+GO
+
+/* ============================================================================
+   3. TB_USUARIOS — gestão e professores
+      NIVEL: 1 e 2 = gestão | 3 = professor/unidade
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_USUARIOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_USUARIOS (
+        ID       int IDENTITY(1,1) NOT NULL,
+        NOME     nvarchar(255) NOT NULL,
+        SENHA    nvarchar(255) NOT NULL,
+        NIVEL    int           NOT NULL CONSTRAINT DF_USUARIOS_NIVEL DEFAULT (3),
+        CPF      nvarchar(14)  NOT NULL,
+        EMAIL    nvarchar(150) NULL,
+        CREATED  datetime      NOT NULL CONSTRAINT DF_USUARIOS_CREATED DEFAULT (GETDATE()),
+        MODIFIED datetime      NULL,
+        ATIVO    bit           NOT NULL CONSTRAINT DF_USUARIOS_ATIVO DEFAULT (1),
+        USUARIO  int           NULL,
+        CONSTRAINT PK_TB_USUARIOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_USUARIOS_CPF UNIQUE (CPF),
+        CONSTRAINT CK_USUARIOS_NIVEL CHECK (NIVEL IN (1, 2, 3))
+    );
+    PRINT '  + TB_USUARIOS criada';
+END
+ELSE
+BEGIN
+    PRINT '  = TB_USUARIOS já existe';
+
+    -- Bases antigas não tinham EMAIL, mas o código usa.
+    IF COL_LENGTH('dbo.TB_USUARIOS', 'EMAIL') IS NULL
+    BEGIN
+        ALTER TABLE dbo.TB_USUARIOS ADD EMAIL nvarchar(150) NULL;
+        PRINT '    + coluna EMAIL adicionada';
+    END
+
+    -- O seed antigo deixava ATIVO como NULL.
+    UPDATE dbo.TB_USUARIOS SET ATIVO = 1 WHERE ATIVO IS NULL;
+    IF @@ROWCOUNT > 0 PRINT '    + registros com ATIVO nulo normalizados para 1';
+
+    -- CPF era nvarchar(11), mas o formato com pontos e traço tem 14 caracteres.
+    IF EXISTS (SELECT 1 FROM sys.columns
+               WHERE object_id = OBJECT_ID('dbo.TB_USUARIOS')
+                 AND name = 'CPF' AND max_length < 28)
+    BEGIN
+        ALTER TABLE dbo.TB_USUARIOS ALTER COLUMN CPF nvarchar(14) NOT NULL;
+        PRINT '    + coluna CPF ampliada para 14 caracteres';
+    END
+END
+GO
+
+/* ============================================================================
+   4. TB_ACESSO — vínculo usuário <-> unidade
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_ACESSO', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_ACESSO (
+        id            int IDENTITY(1,1) NOT NULL,
+        id_usuario    int      NOT NULL,
+        id_unidade    int      NOT NULL,
+        ativo         bit      NOT NULL CONSTRAINT DF_ACESSO_ATIVO DEFAULT (1),
+        data_cadastro datetime NOT NULL CONSTRAINT DF_ACESSO_DATA DEFAULT (GETDATE()),
+        desativado    datetime NULL,
+        CONSTRAINT PK_TB_ACESSO PRIMARY KEY CLUSTERED (id),
+        CONSTRAINT UQ_ACESSO_USUARIO_UNIDADE UNIQUE (id_usuario, id_unidade),
+        CONSTRAINT FK_ACESSO_USUARIO FOREIGN KEY (id_usuario) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_ACESSO_UNIDADE FOREIGN KEY (id_unidade) REFERENCES dbo.TB_UNIDADES (id)
+    );
+    CREATE INDEX IX_ACESSO_USUARIO ON dbo.TB_ACESSO (id_usuario, ativo);
+    PRINT '  + TB_ACESSO criada';
+END
+ELSE
+    PRINT '  = TB_ACESSO já existe';
+GO
+
+/* ============================================================================
+   5. TB_PERIODOS — Manhã, Tarde, Integral
+      Horários como nvarchar(5) 'HH:MM': evita o driver sqlsrv devolver
+      objetos DateTime para colunas time, e a comparação lexicográfica
+      de 'HH:MM' é equivalente à comparação de horários.
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_PERIODOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_PERIODOS (
+        ID          int IDENTITY(1,1) NOT NULL,
+        NOME        nvarchar(60) NOT NULL,
+        HORA_INICIO nvarchar(5)  NOT NULL,
+        HORA_FIM    nvarchar(5)  NOT NULL,
+        ATIVO       bit          NOT NULL CONSTRAINT DF_PERIODOS_ATIVO DEFAULT (1),
+        CREATED     datetime     NOT NULL CONSTRAINT DF_PERIODOS_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_PERIODOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_PERIODOS_NOME UNIQUE (NOME),
+        CONSTRAINT CK_PERIODOS_HORA CHECK (HORA_FIM > HORA_INICIO)
+    );
+    PRINT '  + TB_PERIODOS criada';
+END
+ELSE
+    PRINT '  = TB_PERIODOS já existe';
+GO
+
+/* ============================================================================
+   6. TB_TURMAS
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_TURMAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_TURMAS (
+        ID           int IDENTITY(1,1) NOT NULL,
+        ID_UNIDADE   int          NOT NULL,
+        NOME         nvarchar(80) NOT NULL,
+        ANO_LETIVO   int          NOT NULL,
+        ID_PERIODO   int          NOT NULL,
+        ID_PROFESSOR int          NULL,
+        CAPACIDADE   int          NOT NULL CONSTRAINT DF_TURMAS_CAP DEFAULT (20),
+        ATIVO        bit          NOT NULL CONSTRAINT DF_TURMAS_ATIVO DEFAULT (1),
+        CREATED      datetime     NOT NULL CONSTRAINT DF_TURMAS_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_TURMAS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_TURMAS UNIQUE (ID_UNIDADE, NOME, ANO_LETIVO),
+        CONSTRAINT FK_TURMAS_UNIDADE   FOREIGN KEY (ID_UNIDADE)   REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT FK_TURMAS_PERIODO   FOREIGN KEY (ID_PERIODO)   REFERENCES dbo.TB_PERIODOS (ID),
+        CONSTRAINT FK_TURMAS_PROFESSOR FOREIGN KEY (ID_PROFESSOR) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_TURMAS_ANO CHECK (ANO_LETIVO BETWEEN 2000 AND 2100),
+        CONSTRAINT CK_TURMAS_CAP CHECK (CAPACIDADE BETWEEN 1 AND 500)
+    );
+    CREATE INDEX IX_TURMAS_PROFESSOR ON dbo.TB_TURMAS (ID_PROFESSOR);
+    CREATE INDEX IX_TURMAS_UNIDADE   ON dbo.TB_TURMAS (ID_UNIDADE, ANO_LETIVO);
+    PRINT '  + TB_TURMAS criada';
+END
+ELSE
+    PRINT '  = TB_TURMAS já existe';
+GO
+
+/* ============================================================================
+   7. TB_ALUNOS
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_ALUNOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_ALUNOS (
+        ID             int IDENTITY(1,1) NOT NULL,
+        ID_TURMA       int           NOT NULL,
+        MATRICULA      nvarchar(30)  NOT NULL,
+        NOME           nvarchar(150) NOT NULL,
+        NASCIMENTO     date          NOT NULL,
+        DATA_MATRICULA date          NOT NULL,
+        RESPONSAVEL    nvarchar(150) NOT NULL,
+        TELEFONE       nvarchar(30)  NOT NULL,
+        EMAIL          nvarchar(150) NULL,
+        ATIVO          bit           NOT NULL CONSTRAINT DF_ALUNOS_ATIVO DEFAULT (1),
+        CREATED        datetime      NOT NULL CONSTRAINT DF_ALUNOS_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_ALUNOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_ALUNOS_MATRICULA UNIQUE (MATRICULA),
+        CONSTRAINT FK_ALUNOS_TURMA FOREIGN KEY (ID_TURMA) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT CK_ALUNOS_NASC CHECK (NASCIMENTO >= '1900-01-01')
+    );
+    CREATE INDEX IX_ALUNOS_TURMA ON dbo.TB_ALUNOS (ID_TURMA, ATIVO);
+    CREATE INDEX IX_ALUNOS_NOME  ON dbo.TB_ALUNOS (NOME);
+    PRINT '  + TB_ALUNOS criada';
+END
+ELSE
+    PRINT '  = TB_ALUNOS já existe';
+GO
+
+/* ============================================================================
+   8. TB_FERIADOS
+      TIPO = INTEGRAL: bloqueia o dia todo.
+      TIPO = PARCIAL : HORA_INICIO/HORA_FIM guardam a faixa SEM AULA; bloqueia
+                       só as turmas cujo período cruza essa faixa.
+      ID_UNIDADE NULL = vale para todas as unidades.
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_FERIADOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_FERIADOS (
+        ID          int IDENTITY(1,1) NOT NULL,
+        DATA        date          NOT NULL,
+        DESCRICAO   nvarchar(150) NOT NULL,
+        TIPO        nvarchar(10)  NOT NULL,
+        HORA_INICIO nvarchar(5)   NULL,
+        HORA_FIM    nvarchar(5)   NULL,
+        ID_UNIDADE  int           NULL,
+        CREATED     datetime      NOT NULL CONSTRAINT DF_FERIADOS_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_FERIADOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_FERIADOS_UNIDADE FOREIGN KEY (ID_UNIDADE) REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT CK_FERIADOS_TIPO CHECK (TIPO IN ('INTEGRAL', 'PARCIAL')),
+        CONSTRAINT CK_FERIADOS_HORA CHECK (
+            TIPO = 'INTEGRAL'
+            OR (HORA_INICIO IS NOT NULL AND HORA_FIM IS NOT NULL AND HORA_FIM > HORA_INICIO)
+        )
+    );
+
+    -- Um feriado por data e abrangência. Índice filtrado porque o SQL Server
+    -- trata NULL como distinto em UNIQUE comum, o que permitiria duplicar
+    -- feriados de abrangência "todas as unidades".
+    CREATE UNIQUE INDEX UQ_FERIADOS_DATA_TODAS
+        ON dbo.TB_FERIADOS (DATA) WHERE ID_UNIDADE IS NULL;
+    CREATE UNIQUE INDEX UQ_FERIADOS_DATA_UNIDADE
+        ON dbo.TB_FERIADOS (DATA, ID_UNIDADE) WHERE ID_UNIDADE IS NOT NULL;
+
+    PRINT '  + TB_FERIADOS criada';
+END
+ELSE
+    PRINT '  = TB_FERIADOS já existe';
+GO
+
+/* ============================================================================
+   9. TB_CHAMADA
+      STATUS: P = Presente | A = Atraso | F = Falta | J = Falta justificada
+      P e A contam como presença no cálculo de frequência.
+      J exige justificativa (garantido por CHECK).
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_CHAMADA', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_CHAMADA (
+        ID            int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO      int           NOT NULL,
+        DATA          date          NOT NULL,
+        STATUS        nvarchar(1)   NOT NULL,
+        JUSTIFICATIVA nvarchar(500) NULL,
+        ID_USUARIO    int           NOT NULL,
+        CREATED       datetime      NOT NULL CONSTRAINT DF_CHAMADA_CREATED DEFAULT (GETDATE()),
+        MODIFIED      datetime      NULL,
+        CONSTRAINT PK_TB_CHAMADA PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_CHAMADA_ALUNO_DATA UNIQUE (ID_ALUNO, DATA),
+        CONSTRAINT FK_CHAMADA_ALUNO   FOREIGN KEY (ID_ALUNO)   REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_CHAMADA_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_CHAMADA_STATUS CHECK (STATUS IN ('P', 'F', 'J', 'A')),
+        CONSTRAINT CK_CHAMADA_JUST CHECK (
+            STATUS <> 'J' OR (JUSTIFICATIVA IS NOT NULL AND LTRIM(RTRIM(JUSTIFICATIVA)) <> '')
+        )
+    );
+    CREATE INDEX IX_CHAMADA_DATA ON dbo.TB_CHAMADA (DATA);
+    PRINT '  + TB_CHAMADA criada';
+END
+ELSE
+    PRINT '  = TB_CHAMADA já existe';
+GO
+
+/* ============================================================================
+   10. TB_OBSERVACOES — observações do professor por aluno
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_OBSERVACOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_OBSERVACOES (
+        ID         int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO   int           NOT NULL,
+        DATA       date          NOT NULL,
+        CATEGORIA  nvarchar(40)  NOT NULL,
+        TEXTO      nvarchar(max) NOT NULL,
+        ID_USUARIO int           NOT NULL,
+        CREATED    datetime      NOT NULL CONSTRAINT DF_OBS_CREATED DEFAULT (GETDATE()),
+        MODIFIED   datetime      NULL,
+        CONSTRAINT PK_TB_OBSERVACOES PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_OBS_ALUNO   FOREIGN KEY (ID_ALUNO)   REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_OBS_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID)
+    );
+    CREATE INDEX IX_OBS_ALUNO_DATA ON dbo.TB_OBSERVACOES (ID_ALUNO, DATA);
+    PRINT '  + TB_OBSERVACOES criada';
+END
+ELSE
+    PRINT '  = TB_OBSERVACOES já existe';
+GO
+
+/* ============================================================================
+   11. TB_RELATORIOS_ANUAIS — parecer final por aluno/ano
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_RELATORIOS_ANUAIS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_RELATORIOS_ANUAIS (
+        ID              int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO        int           NOT NULL,
+        ANO             int           NOT NULL,
+        PARECER         nvarchar(max) NULL,
+        ENCAMINHAMENTOS nvarchar(max) NULL,
+        ID_USUARIO      int           NOT NULL,
+        CREATED         datetime      NOT NULL CONSTRAINT DF_REL_CREATED DEFAULT (GETDATE()),
+        MODIFIED        datetime      NULL,
+        CONSTRAINT PK_TB_RELATORIOS_ANUAIS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_REL_ALUNO_ANO UNIQUE (ID_ALUNO, ANO),
+        CONSTRAINT FK_REL_ALUNO   FOREIGN KEY (ID_ALUNO)   REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_REL_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_REL_ANO CHECK (ANO BETWEEN 2000 AND 2100)
+    );
+    PRINT '  + TB_RELATORIOS_ANUAIS criada';
+END
+ELSE
+    PRINT '  = TB_RELATORIOS_ANUAIS já existe';
+GO
+
+/* ============================================================================
+   12. VIEW_ACESSOS_USUARIOS
+       Corrige o script antigo, que trazia só o SELECT e nunca criava a view.
+       Usada por inc/functions.php e usuarios/processa/acesso_processa.php.
+   ============================================================================ */
+CREATE OR ALTER VIEW dbo.VIEW_ACESSOS_USUARIOS
+AS
+    SELECT
+        A.id            AS ID_ACESSO,
+        U.NOME          AS NOME_USUARIO,
+        UN.unidade      AS NOME_UNIDADE,
+        A.ativo         AS ATIVO,
+        A.desativado    AS DESATIVADO,
+        A.id_usuario    AS ID_USUARIO,
+        A.id_unidade    AS ID_UNIDADE
+    FROM dbo.TB_ACESSO A
+    INNER JOIN dbo.TB_USUARIOS U  ON U.ID = A.id_usuario
+    INNER JOIN dbo.TB_UNIDADES UN ON UN.id = A.id_unidade;
+GO
+PRINT '  + VIEW_ACESSOS_USUARIOS criada/atualizada';
+GO
+
+/* ============================================================================
+   13. DADOS INICIAIS — PERÍODOS
+   ============================================================================ */
+IF NOT EXISTS (SELECT 1 FROM dbo.TB_PERIODOS)
+BEGIN
+    INSERT INTO dbo.TB_PERIODOS (NOME, HORA_INICIO, HORA_FIM) VALUES
+        (N'Manhã',    '07:00', '12:00'),
+        (N'Tarde',    '13:00', '18:00'),
+        (N'Integral', '07:00', '18:00');
+    PRINT '  + períodos padrão inseridos (Manhã, Tarde, Integral)';
+END
+ELSE
+    PRINT '  = períodos já cadastrados';
+GO
+
+/* ============================================================================
+   14. DADOS INICIAIS — UNIDADES DA REDE MUNICIPAL
+       Insere apenas as que ainda não existem, comparando pelo nome.
+   ============================================================================ */
+DECLARE @unidades TABLE (id int IDENTITY(1,1), nome nvarchar(255));
+
+INSERT INTO @unidades (nome) VALUES
+    (N'EMEF "SECRETARIA DE EDUCAÇÃO"'),
+    (N'NISC "RECRIANÇA"'),
+    (N'EMEIF “PROFA. MARIA INÊZ DOS SANTOS”'),
+    (N'EMEIF “PROF. AFFONSO BASILE” - PEBI'),
+    (N'EMEIF “PROF. AFFONSO BASILE” - PEBII'),
+    (N'EMEIF “MARIA SALETE BASILE SALES”'),
+    (N'EMEIF "PROFA.DIVA MORAES CAMARGO PUCCI"'),
+    (N'EMEIF "FAZENDA POLENGHI"'),
+    (N'EMEIF "BAIRRO SERRA DA BOA VISTA"'),
+    (N'EMEIF "BAIRRO BATALHEIRA"'),
+    (N'EMEF "PROFA.MARIA ISABEL LOPES DE OLIVEIRA"'),
+    (N'EM “PROFESSORA HERMÍNIA ARAÚJO”'),
+    (N'CMEI “VÓ CARMELA”'),
+    (N'CMEI "VÓ IA"'),
+    (N'CMEI "MENINO JESUS"'),
+    (N'CMEI "CHICA GORDA"'),
+    (N'CEMEIF “VÓ VIRGÍNIA”'),
+    (N'CEMEIF “VÓ JOANINHA”'),
+    (N'CEMEIF "NHÁ NICA"'),
+    (N'EMEF "DR. FORTUNATO DE CAMARGO"');
+
+INSERT INTO dbo.TB_UNIDADES (unidade)
+SELECT u.nome
+FROM @unidades u
+WHERE NOT EXISTS (SELECT 1 FROM dbo.TB_UNIDADES t WHERE t.unidade = u.nome);
+
+PRINT '  + unidades inseridas: ' + CAST(@@ROWCOUNT AS varchar(10));
+GO
+
+/* ============================================================================
+   15. DADOS INICIAIS — USUÁRIO ADMINISTRADOR
+       Criado SOMENTE se a tabela estiver vazia. Nunca sobrescreve usuários.
+
+       CPF   : 398.114.718-94
+       Senha : Trocar@2026   <-- TROQUE NO PRIMEIRO ACESSO
+
+       Para usar outro CPF ou nome, edite os valores abaixo antes de executar.
+   ============================================================================ */
+IF NOT EXISTS (SELECT 1 FROM dbo.TB_USUARIOS)
+BEGIN
+    INSERT INTO dbo.TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, CREATED)
+    VALUES (
+        N'JOÃO MANOEL MEIRA DA SILVA',
+        N'38dfbc214041ed26a5f8271c8b3785cb',   -- MD5 de 'Trocar@2026'
+        1,
+        N'398.114.718-94',
+        NULL,
+        1,
+        GETDATE()
+    );
+
+    DECLARE @novoAdmin int = SCOPE_IDENTITY();
+
+    -- A gestão também precisa de vínculo em TB_ACESSO: as telas filtram por ele.
+    INSERT INTO dbo.TB_ACESSO (id_usuario, id_unidade, ativo)
+    SELECT @novoAdmin, u.id, 1 FROM dbo.TB_UNIDADES u;
+
+    PRINT '  + administrador criado (CPF 398.114.718-94, senha Trocar@2026)';
+    PRINT '    acesso vinculado a ' + CAST(@@ROWCOUNT AS varchar(10)) + ' unidades';
+    PRINT '    *** TROQUE A SENHA NO PRIMEIRO ACESSO ***';
+END
+ELSE
+    PRINT '  = já existem usuários; nenhum administrador foi criado';
+GO
+
+/* ============================================================================
+   16. VERIFICAÇÃO
+   ============================================================================ */
+PRINT '';
+PRINT '================================================================';
+PRINT 'RELATÓRIO DE VERIFICAÇÃO';
+PRINT '================================================================';
+
+SELECT
+    t.name AS Tabela,
+    (SELECT COUNT(*) FROM sys.columns c WHERE c.object_id = t.object_id) AS Colunas,
+    (SELECT COUNT(*) FROM sys.foreign_keys f WHERE f.parent_object_id = t.object_id) AS FKs,
+    (SELECT COUNT(*) FROM sys.indexes i WHERE i.object_id = t.object_id AND i.is_unique = 1) AS IndicesUnicos
+FROM sys.tables t
+WHERE t.name IN ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
+                 'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS')
+ORDER BY t.name;
+
+SELECT
+    (SELECT COUNT(*) FROM dbo.TB_UNIDADES)  AS Unidades,
+    (SELECT COUNT(*) FROM dbo.TB_USUARIOS)  AS Usuarios,
+    (SELECT COUNT(*) FROM dbo.TB_ACESSO)    AS Vinculos,
+    (SELECT COUNT(*) FROM dbo.TB_PERIODOS)  AS Periodos,
+    (SELECT COUNT(*) FROM dbo.TB_TURMAS)    AS Turmas,
+    (SELECT COUNT(*) FROM dbo.TB_ALUNOS)    AS Alunos,
+    (SELECT COUNT(*) FROM dbo.TB_CHAMADA)   AS Chamadas;
+
+IF OBJECT_ID(N'dbo.VIEW_ACESSOS_USUARIOS', N'V') IS NULL
+    PRINT 'ATENÇÃO: a VIEW_ACESSOS_USUARIOS não foi criada!';
+ELSE
+    PRINT 'VIEW_ACESSOS_USUARIOS: OK';
+
+IF (SELECT COUNT(*) FROM sys.tables WHERE name IN
+      ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
+       'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS')) = 10
+    PRINT 'As 10 tabelas estão presentes. Instalação concluída.';
+ELSE
+    PRINT 'ATENÇÃO: alguma tabela está faltando. Revise as mensagens acima.';
+GO
+
+/* ============================================================================
+   PRÓXIMOS PASSOS
+   ----------------------------------------------------------------------------
+   1. Crie um login específico para a aplicação e dê a ele apenas o necessário:
+
+        USE [db_chamada];
+        CREATE USER [user_chamada] FOR LOGIN [user_chamada];
+        ALTER ROLE db_datareader ADD MEMBER [user_chamada];
+        ALTER ROLE db_datawriter ADD MEMBER [user_chamada];
+        GRANT EXECUTE TO [user_chamada];
+
+   2. Ajuste config.php:
+        DB_NAME     -> db_chamada
+        DB_USER     -> user_chamada
+        DB_PASSWORD -> senha do login
+        DB_HOST     -> servidor (ex.: 127.0.0.1 ou SERVER\INSTANCIA)
+        DB_PORT     -> 1433
+        BASEURL     -> caminho no servidor (ex.: /Chamada/)
+
+   3. Acesse /login.php e troque a senha do administrador.
+
+   4. Cadastre, nesta ordem: Períodos (já vem pronto) -> Unidades (já vem com a
+      rede municipal) -> Usuários (professores, com vínculo de unidade) ->
+      Turmas -> Alunos -> Feriados. Depois é só lançar a chamada.
+   ============================================================================ */

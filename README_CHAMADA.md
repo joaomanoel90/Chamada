@@ -44,16 +44,15 @@ que já existe:
 
 ### Passo 1 — banco de dados
 
-Execute no SQL Server, na base `db_chamada`:
+Execute no SQL Server o script único:
 
 ```
-sql_inicial/Modulo Chamada/MODULO_CHAMADA.sql
+sql_inicial/INSTALACAO_COMPLETA.sql
 ```
 
-O script é **idempotente**: pode rodar mais de uma vez sem apagar dados. Ele cria
-7 tabelas e já insere os períodos padrão (Manhã, Tarde e Integral).
-
-Pré-requisito: `TB_UNIDADES`, `TB_USUARIOS` e `TB_ACESSO` já existirem.
+O script é **idempotente**: pode rodar mais de uma vez sem apagar dados. Cria o
+banco `db_chamada`, as 10 tabelas, índices, a view `VIEW_ACESSOS_USUARIOS` e os
+dados iniciais (períodos, as 20 unidades da rede e o administrador).
 
 ### Passo 2 — arquivos
 
@@ -151,34 +150,13 @@ chamada/      index salvar exportar + processa/{index,salvar}
 observacoes/  index add edit formulario + processa/{index,add,edit,salvar}
 relatorios/   index ver salvar exportar + processa/{index,ver,salvar}
 
-sql_inicial/Modulo Chamada/MODULO_CHAMADA.sql
+sql_inicial/INSTALACAO_COMPLETA.sql
 ```
 
 ---
 
-## 5. Demonstração local (sem SQL Server)
 
-A pasta `demo/` permite rodar o módulo em uma máquina sem SQL Server, usando um
-adaptador que emula `sqlsrv_*` sobre SQLite. **Não use em produção.**
-
-```bash
-php demo/seed.php
-php -d auto_prepend_file=$PWD/demo/bootstrap.php \
-    -S 0.0.0.0:8001 -t . demo/router.php
-```
-
-Acesse `http://localhost:8001/Chamada/login.php`:
-
-| Perfil | CPF | Senha |
-|---|---|---|
-| Gestão | `111.111.111-11` | `demo123` |
-| Professor | `222.222.222-22` | `demo123` |
-
-Testes automatizados: `python3 demo/testes.py 8001` — 36 verificações.
-
----
-
-## 6. Segurança — pontos herdados do sistema
+## 5. Segurança — pontos herdados do sistema
 
 O módulo **não alterou** o mecanismo de login para não quebrar o sistema atual.
 Ficam registrados, para decisão futura:
@@ -196,13 +174,14 @@ transações nas gravações.
 
 ---
 
-## 7. Limitações desta entrega
+## 6. Limitações desta entrega
 
-- Validação executada em **PHP 8.4 + SQLite** através do adaptador de
-  demonstração. O caminho de produção (**SQL Server + `sqlsrv`**) não pôde ser
-  executado aqui por falta do servidor e do driver no ambiente.
-- O script `MODULO_CHAMADA.sql` foi escrito para SQL Server 2019+, mas recomenda-se
-  rodar primeiro em uma base de homologação.
+- O ambiente de demonstração (`demo/`, adaptador SQLite) foi **removido** do
+  repositório. Não há mais como rodar o sistema sem SQL Server.
+- O `INSTALACAO_COMPLETA.sql` teve a sintaxe T-SQL validada por parser e a lógica
+  do schema (chaves, unicidade, CHECK e índices filtrados) validada por execução
+  equivalente. Ainda assim, **execute primeiro em homologação**: o SQL Server
+  real não estava disponível no ambiente de desenvolvimento.
 - As listas de alunos e turmas usam DataTables (paginação no navegador). Para
   volumes muito grandes, vale migrar para paginação no servidor.
 - `usuarios/`, `unidades/` e `conta/` têm referências a arquivos CSS/JS locais que
