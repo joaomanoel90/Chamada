@@ -794,6 +794,13 @@ Mesmo com o corpo visível, o relatório não sairia legível. Corrigido em
 | Campo de edição do professor aparecia no papel | Formulário escondido na impressão |
 | Sem espaço para assinatura | Duas linhas ao final |
 
+**Quebra de página conforme o tamanho.** Bloco curto tem de sair inteiro; bloco que
+pode passar de uma página precisa poder continuar, senão o navegador corta na borda.
+Então `.cartao-longo` (`break-inside:auto`) só é aplicado quando o conteúdo é mesmo
+longo: mais de 8 faltas, mais de 4 observações, ou parecer + encaminhamentos acima de
+1.200 caracteres. Com isso a 1ª página fecha em um bloco completo em vez de começar a
+lista de faltas com uma linha solta no pé da folha.
+
 Na tela, o relatório ganhou uma coisa: a lista de faltas virou um cartão próprio,
 com cabeçalho **Data / Situação / Justificativa**. Antes era uma lista solta dentro
 do cartão de frequência, sem título de coluna.

@@ -45,6 +45,9 @@
     hr { border-color: #999 !important; opacity: 1 !important; }
 
     .relatorio-print { display: block !important; }
+    /* <img> é conteúdo, não gráfico de fundo: sai mesmo com a opção
+       "gráficos de fundo" desligada no diálogo de impressão. */
+    .brasao-print { display: inline-block !important; width: 54px; height: auto; margin-bottom: 4pt; }
 
     /* o título da tela é redundante com o timbre do documento */
     header, header + hr { display: none !important; }
@@ -117,7 +120,18 @@
   }
 </style>
 
+<?php
+/* Na impressão, bloco curto tem de sair inteiro; bloco que pode passar de uma
+   página precisa poder continuar, senão o navegador o corta na borda. Por isso
+   .cartao-longo só entra quando o conteúdo é realmente longo. */
+$classeFaltas = count($faltasDetalhadas) > 8 ? ' cartao-longo' : '';
+$classeObs    = count($observacoes) > 4 ? ' cartao-longo' : '';
+$textoParecer = trim((string)($parecer['PARECER'] ?? '')) . trim((string)($parecer['ENCAMINHAMENTOS'] ?? ''));
+$classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
+?>
+
 <div class="relatorio-print text-center mb-3">
+  <img src="<?= BASEURL ?>images/brasao.png" alt="Brasão de Angatuba" class="brasao-print">
   <h4 class="mb-0">Prefeitura Municipal de Angatuba</h4>
   <div>Secretaria Municipal de Educação</div>
   <h5 class="mt-2 mb-0">Relatório Anual de Desenvolvimento — <?= (int)$ano ?></h5>
@@ -214,7 +228,7 @@
          para caber na 1ª página, e a lista podia ser longa num ano inteiro.
          Aqui é um cartão que pode continuar na página seguinte. */ ?>
 <?php if ($faltasDetalhadas): ?>
-<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
+<div class="card<?= $classeFaltas ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="fas fa-calendar-xmark"></i> Faltas e faltas justificadas no ano (<?= count($faltasDetalhadas) ?>)</h5>
     <div class="lista-rolavel">
@@ -235,7 +249,7 @@
 </div>
 <?php endif; ?>
 
-<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
+<div class="card<?= $classeObs ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="far fa-comment-dots"></i> Observações do desenvolvimento (<?= count($observacoes) ?>)</h5>
     <?php if (!$observacoes): ?>
@@ -255,7 +269,7 @@
   </div>
 </div>
 
-<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
+<div class="card<?= $classeParecer ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="fas fa-pen-to-square"></i> Parecer final e encaminhamentos</h5>
     <form method="post" action="salvar.php">
