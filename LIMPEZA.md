@@ -547,3 +547,106 @@ campo, botão ou aviso fora do cartão.
   rodadas anteriores — a correção foi verificada com o adaptador reproduzindo o
   comportamento do servidor, mas a confirmação final é cadastrar uma turma no
   seu servidor.
+
+---
+
+## 16. Scripts para popular e limpar o banco
+
+Pedido: um script para popular o banco. Foram criados dois, mais um guia.
+
+| Arquivo | Função |
+|---|---|
+| `sql_inicial/POPULAR_DEMONSTRACAO.sql` | Insere dados fictícios completos |
+| `sql_inicial/LIMPAR_DEMONSTRACAO.sql` | Remove só esses dados |
+| `sql_inicial/LEIA-ME.md` | Ordem de execução dos 5 scripts e o que esperar |
+
+### Como o script foi construído
+
+**Tudo em uma transação**, com `SET XACT_ABORT ON` e `TRY/CATCH`: se qualquer
+passo falhar, nada é gravado. Os parâmetros (unidades, turmas por unidade, alunos
+por turma, meses de histórico) ficam num bloco `CONFIGURAÇÃO` no começo.
+
+**IDs capturados com `OUTPUT INSERTED.ID`**, nunca com `SELECT SCOPE_IDENTITY()`
+em outra chamada — exatamente o defeito corrigido na seção 15. Aqui o `OUTPUT`
+vai direto para a tabela de marcação: `OUTPUT 'TB_X', INSERTED.ID INTO
+dbo.TB_DEMO_IDS`, set-based, sem laço e sem segunda consulta.
+
+**Marcação para poder desfazer.** Cada registro criado é anotado em
+`dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)`. A limpeza lê essa lista e apaga na ordem
+das chaves estrangeiras, depois derruba a própria tabela de marcação. Assim o
+script não precisa marcar nome de aluno nem de turma com prefixo feio, e ainda
+dá para saber exatamente o que é demonstração.
+
+**Nada de dado real é sobrescrito.** Unidades não são criadas: o script usa as que
+a instalação já cadastrou, preferindo CMEI/CEMEIF/EMEIF. Períodos, turmas, alunos,
+CPF e feriados só são inseridos com `WHERE NOT EXISTS`. Rodar duas vezes não
+duplica: a trava no começo detecta a marcação e sai.
+
+**Faixas reservadas** para não colidir com dado verdadeiro: CPF dos usuários de
+demonstração em `900.000.0xx-xx` (dígitos verificadores inválidos de propósito) e
+matrícula dos alunos em `<ano>9xxxx`.
+
+### Cuidados de T-SQL que valeram a pena
+
+- **`ABS(CHECKSUM(x) % N)` e não `ABS(CHECKSUM(x)) % N`.** O `CHECKSUM` pode
+  devolver −2147483648, cujo `ABS` estoura o `int`. O sorteio de idade, telefone e
+  status usa a primeira forma.
+- **Dia da semana sem depender de idioma.** `DATEPART(WEEKDAY, ...)` muda com
+  `SET DATEFIRST` e com o idioma da sessão. O calendário usa
+  `DATEDIFF(DAY, '19000101', data) % 7 < 5`: 01/01/1900 foi segunda, então o
+  resultado é 0=seg … 6=dom em qualquer configuração.
+- **Variáveis de tabela declaradas todas no topo**, fora dos `IF`. Em T-SQL o
+  escopo é o lote, mas se o `DECLARE` não executar a variável não existe — e o
+  bloco de observações, que roda sempre, usa a tabela de alunos populada dentro
+  do `IF` do histórico.
+- **A tabela de marcação é criada em lote separado**, antes do lote dos `INSERT`,
+  para já existir quando o `OUTPUT ... INTO` for compilado.
+- **Páscoa pelo algoritmo de Meeus/Jones/Butcher**, para Carnaval, Sexta-feira
+  Santa e Corpus Christi saírem certos em qualquer ano. Conferido: 2025-04-20,
+  2026-04-05, 2027-03-28.
+- **Regente único.** Se a turma aproveitada já tiver regente ativo, o nosso entra
+  como `AUXILIAR`, respeitando o índice filtrado `UX_TURMAPROF_REGENTE`. O
+  `ID_PROFESSOR` legado é atualizado a partir do regente que ficou de fato.
+
+### A limpeza e o dado real
+
+A limpeza remove também o que o usuário lançou **dentro das turmas de
+demonstração** durante os testes, porque esses registros dependem das turmas que
+serão apagadas. Antes de apagar qualquer coisa ela verifica se algum usuário de
+demonstração lançou chamada, observação ou relatório em aluno de turma **real**;
+se sim, **para e lista**, em vez de apagar dado real ou quebrar a integridade.
+Também nunca apaga usuário de nível 1, e só apaga período criado pelo script se
+nenhuma turma o estiver usando.
+
+### Um defeito que o teste de tela pegou
+
+A primeira versão datava as observações em `hoje − 17, 34, 51 e 68 dias`. A tela
+de Observações abre filtrando o **mês corrente** (`date('Y-m-01')` até hoje), então
+em novembro todas caíam fora do filtro e a tela abria vazia — parecendo defeito do
+sistema. As observações passaram a ser **mensais**, a mais recente no dia 1º do
+mês corrente, garantindo que a tela abra com conteúdo em qualquer dia do mês.
+
+### Validação
+
+- **sqlfluff tsql**: os dois scripts interpretados por inteiro, **0 nós não
+  interpretados**.
+- **57/57** verificações do conjunto de dados. O SQL Server não roda neste
+  ambiente (Debian 13, 1,9 GB de RAM, abaixo do mínimo), então a lógica de geração
+  foi portada para SQLite com **as mesmas CHECK, UNIQUE e FK do esquema real** —
+  inclusive as que faltavam no esquema de teste e foram acrescentadas
+  (`CK_ALUNOS_NASC`, `CK_FERIADOS_HORA`, os dois índices únicos de feriado e
+  `CK_RETIF_STATUS`). O teste confere integridade referencial, regente único,
+  idade dentro da faixa da turma em 31/03, matrícula e CPF únicos, nenhum fim de
+  semana ou feriado integral com chamada, feriado parcial **com** chamada, hoje em
+  aberto, toda falta justificada com justificativa, e que a limpeza **preserva**
+  turma, aluno, chamada, observação, feriado e período reais criados de propósito
+  no meio dos dados de demonstração.
+- **21/21** verificações de tela com o banco populado: login de professor e de
+  diretor de demonstração, alcance de cada nível, painel de chamada de hoje em
+  aberto, dia anterior confirmado, observações listadas, relatório anual com
+  frequência, feriados com o parcial identificado, admin vendo os 28 usuários.
+- **169/169** da regressão geral do sistema e `php -l` em 98 arquivos, zero erros.
+- Ressalva: a **execução** do T-SQL no SQL Server não foi testada aqui — o que se
+  validou foi a sintaxe (sqlfluff) e o conjunto de dados que o script produz
+  (porta em SQLite com as restrições reais). O `CHECKSUM` foi substituído por
+  `crc32` no teste: os valores sorteados diferem, as faixas e regras não.
