@@ -31,6 +31,14 @@ $observacoes = ch_rows(
     [$id]
 );
 
+/* Transferências: linha do tempo, histórico e o que ainda está aguardando. */
+$vinculos                = tr_vinculos($id);
+$historicoTransferencias = tr_historico_aluno($id);
+$transferenciaPendente   = tr_pendente($id);
+$podeTransferir          = tr_pode_solicitar($aluno);
+/* quem vê esta ficha só porque o aluno já foi da sua escola */
+$apenasHistorico         = !ch_pode_turma($aluno['ID_TURMA']);
+
 $dias = (int)($resumo['DIAS'] ?? 0);
 $presencas = (int)($resumo['P'] ?? 0) + (int)($resumo['A'] ?? 0);
 $frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;

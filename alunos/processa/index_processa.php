@@ -19,7 +19,9 @@ $turmas = ch_rows(
 
 $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.ATIVO,
                CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO,
-               t.NOME AS TURMA, t.ANO_LETIVO, u.unidade AS UNIDADE
+               t.NOME AS TURMA, t.ANO_LETIVO, t.ID_UNIDADE, u.unidade AS UNIDADE,
+               (SELECT COUNT(*) FROM TB_TRANSFERENCIAS tr
+                 WHERE tr.ID_ALUNO = a.ID AND tr.SITUACAO = \'PENDENTE\') AS TRANSF_PENDENTE
         FROM TB_ALUNOS a
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE

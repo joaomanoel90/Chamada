@@ -1,9 +1,36 @@
 <?php require_once('processa/view_processa.php'); ?>
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
-<?php ch_cabecalho($aluno['NOME'], 'fa-child-reaching',
-    '<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a> ' .
-    (ch_gestor() ? '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a>' : '')); ?>
+<?php
+$botoesAluno = '<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a> ';
+if (ch_gestor() && !$apenasHistorico) {
+    $botoesAluno .= '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a> ';
+}
+if ($podeTransferir) {
+    $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a>';
+}
+ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
+?>
+
+<?php if ($apenasHistorico): ?>
+  <div class="alert alert-secondary">
+    <i class="fas fa-clock-rotate-left"></i>
+    Este aluno foi transferido para <b><?= ch_h($aluno['UNIDADE']) ?></b>. Você está vendo o
+    <b>histórico</b> de quando ele estudou na sua escola. A edição e a chamada ficam com a escola atual.
+  </div>
+<?php endif; ?>
+
+<?php if ($transferenciaPendente): ?>
+  <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span>
+      <i class="fas fa-hourglass-half"></i>
+      Transferência para <b><?= ch_h(ch_val('SELECT unidade FROM TB_UNIDADES WHERE id = ?', [(int)$transferenciaPendente['ID_UNIDADE_DESTINO']])) ?></b>
+      aguardando a escola de destino escolher a turma e a data de início.
+      O aluno continua nesta turma até lá.
+    </span>
+    <a class="btn btn-sm btn-outline-dark" href="<?= ch_url('transferencias/ver.php?id=' . (int)$transferenciaPendente['ID']) ?>">Ver transferência</a>
+  </div>
+<?php endif; ?>
 
 <div class="row g-3">
   <div class="col-md-7">
@@ -95,5 +122,21 @@
     </div>
   </div>
 </div>
+
+<?php if (count($vinculos) > 1): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <?php $tituloQuadro = 'Escolas e turmas por período'; include(ABSPATH . 'transferencias/quadro_vinculos.php'); ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($historicoTransferencias): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <?php $historico = $historicoTransferencias; include(ABSPATH . 'transferencias/quadro_historico.php'); ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php include(FOOTER_TEMPLATE); ?>

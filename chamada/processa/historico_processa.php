@@ -25,7 +25,12 @@ $sql = 'SELECT r.ID, r.STATUS_ANTERIOR, r.STATUS_NOVO,
         INNER JOIN TB_CHAMADA c ON c.ID = r.ID_CHAMADA
         INNER JOIN TB_ALUNOS a  ON a.ID = c.ID_ALUNO
         INNER JOIN TB_USUARIOS u ON u.ID = r.ID_USUARIO
-        WHERE a.ID_TURMA = ?';
+        /* A retificação pertence à turma em que o aluno estava no dia da
+           chamada, não à turma em que ele está hoje. */
+        WHERE EXISTS (SELECT 1 FROM VW_ALUNO_VINCULO v
+                      WHERE v.ID_ALUNO = a.ID AND v.ID_TURMA = ?
+                        AND (v.DATA_INICIO IS NULL OR v.DATA_INICIO <= c.DATA)
+                        AND (v.DATA_FIM    IS NULL OR v.DATA_FIM    >= c.DATA))';
 $params = [$turmaId];
 
 if ($data) {

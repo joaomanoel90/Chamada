@@ -200,10 +200,15 @@ INSERT INTO @tipos (nome, idade_min, idade_max, periodo, capacidade) VALUES
 /* ----------------------------------------------------------------------------
    4. Turmas
    ---------------------------------------------------------------------------- */
+/* A capacidade nunca pode ficar abaixo da lotação que o próprio script cria:
+   com @AlunosPorTurma = 18 e a faixa do Berçário I em 15 vagas, a demonstração
+   nascia com turmas "18/15" e nenhuma vaga livre — o que também impedia
+   demonstrar uma transferência. Ficam 2 vagas de folga sobre a lotação. */
 INSERT INTO @planoTurma (id_unidade, nome, id_periodo, capacidade, idade_min, idade_max)
 SELECT u.id, t.nome,
        (SELECT TOP (1) p.ID FROM dbo.TB_PERIODOS p WHERE p.NOME = t.periodo ORDER BY p.ID),
-       t.capacidade, t.idade_min, t.idade_max
+       CASE WHEN t.capacidade > @AlunosPorTurma + 2 THEN t.capacidade ELSE @AlunosPorTurma + 2 END,
+       t.idade_min, t.idade_max
 FROM @unidades u
 CROSS JOIN @tipos t
 WHERE t.ordem <= @TurmasPorUnidade

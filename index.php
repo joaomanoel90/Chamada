@@ -97,6 +97,19 @@ if ($nivel != 1 && $nivel != 2) {
 
 	</div>
 
+	<?php if ($transfAguardando > 0): ?>
+		<div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+			<span>
+				<i class="fas fa-right-left"></i>
+				<b><?= (int)$transfAguardando ?></b> aluno(s) transferidos aguardando a sua escola
+				escolher a turma e a data de início.
+			</span>
+			<a class="btn btn-sm btn-dark" href="<?= ch_url('transferencias/index.php') ?>">
+				<i class="fas fa-door-open"></i> Receber alunos
+			</a>
+		</div>
+	<?php endif; ?>
+
 	<?php if ($bloqueadasHoje > 0): ?>
 		<div class="alert alert-info">
 			<i class="fas fa-circle-info"></i>

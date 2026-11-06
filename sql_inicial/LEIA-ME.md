@@ -6,13 +6,19 @@ se o seu banco tiver outro nome.
 
 | # | Arquivo | Quando usar |
 |---|---------|-------------|
-| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as 12 tabelas, índices, a view, os períodos, as 20 unidades da rede e o usuário administrador. |
+| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as 13 tabelas, índices, as duas views, os períodos, as 20 unidades da rede e o usuário administrador. Já inclui a transferência de alunos. |
 | 2 | `CRIAR_LOGIN_APLICACAO.sql` | **Obrigatório, uma vez.** Cria o login `user_chamada` usado pelo sistema e dá as permissões mínimas. |
 | 3 | `DIAGNOSTICO_LOGIN.sql` | Só se aparecer o erro **18456** ao entrar. Não altera nada, só investiga. |
 | 4 | `POPULAR_DEMONSTRACAO.sql` | **Opcional.** Enche o banco com dados fictícios para você testar o sistema. |
 | 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. |
+| 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria a tabela e a view que faltam. Não altera nenhum dado existente. |
 
-Os scripts 1, 2 e 4 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 podem ser executados mais de uma vez sem duplicar nada.
+
+> **Já tem o sistema em uso?** Rode só o `ATUALIZAR_TRANSFERENCIAS.sql` e copie os
+> arquivos PHP novos. Ele é conferido antes de criar, pode rodar de novo sem
+> medo, e não mexe em aluno, chamada, observação nem parecer. Quem está
+> instalando do zero não precisa dele: o script 1 já traz a mesma seção.
 
 > **Se você recriar ou restaurar o banco**, rode o `CRIAR_LOGIN_APLICACAO.sql` de
 > novo. O login pertence ao servidor, mas o usuário pertence ao banco: depois de
@@ -120,6 +126,42 @@ vez de apagar: resolva aqueles registros e rode de novo.
 
 > Faça backup antes de rodar a limpeza em produção. O script é tudo-ou-nada e
 > desfaz a transação em caso de erro, mas backup é sempre o caminho seguro.
+
+---
+
+## Transferência de aluno entre escolas
+
+O fluxo tem duas etapas, e o banco guarda as duas:
+
+1. **A escola de origem indica o destino.** Em *Alunos → o aluno → Transferir*, o
+   diretor escolhe a escola e informa o motivo (obrigatório). A transferência
+   fica `PENDENTE`. **O aluno não sai da turma** — a chamada continua normal.
+2. **A escola de destino recebe.** Em *Transferências → Aguardando*, a escola
+   escolhe a turma e a **data de início**. Só então o aluno muda de turma e a
+   transferência passa a `CONCLUIDA`.
+
+Uma pendência pode ser cancelada por qualquer uma das duas escolas, com motivo
+obrigatório (`CANCELADA`).
+
+**A data de início é o que separa os períodos.** Até a véspera, o aluno pertence à
+turma de origem; daquele dia em diante, à de destino. A chamada do dia, o CSV e o
+histórico de retificações usam essa data — um registro antigo nunca "muda de
+escola".
+
+**Nada é movido nem apagado.** `TB_CHAMADA`, `TB_OBSERVACOES` e
+`TB_RELATORIOS_ANUAIS` referenciam `ID_ALUNO`, não a turma. O relatório anual
+continua sendo do ano inteiro, e ganha um quadro com as escolas e turmas de cada
+período.
+
+**`VW_ALUNO_VINCULO`** reconstrói essa linha do tempo a partir das transferências
+concluídas. Não há uma segunda tabela de matrícula para manter em sincronia: a
+turma atual fica em `TB_ALUNOS.ID_TURMA` e o resto é derivado. Todo aluno ativo
+tem exatamente um vínculo em aberto — o script de atualização confere isso no
+final e não deve devolver nenhuma linha.
+
+Depois que o aluno sai, a escola de origem continua **consultando** a ficha e o
+relatório de quem foi seu aluno, mas não edita mais: cadastro, observação e
+parecer ficam com a escola atual.
 
 ---
 

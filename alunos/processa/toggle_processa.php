@@ -10,11 +10,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!ch_csrf_ok()) {
+    header('Location: ../index.php');
+    exit;
+}
+
 $id = (int)($_POST['id'] ?? 0);
 $a = ch_row('SELECT ID, NOME, ATIVO FROM TB_ALUNOS WHERE ID = ?', [$id]);
 
+/* Faltava a conferência de alcance: qualquer gestor conseguia inativar aluno
+   de outra escola mandando o ID no POST. */
 if (!$a) {
     ch_flash('Aluno não encontrado.', 'danger');
+} elseif (!ch_pode_aluno_atual($id)) {
+    ch_flash('Este aluno não está na sua escola.', 'danger');
 } else {
     $novo = (int)$a['ATIVO'] === 1 ? 0 : 1;
     if (ch_exec('UPDATE TB_ALUNOS SET ATIVO = ? WHERE ID = ?', [$novo, $id])) {

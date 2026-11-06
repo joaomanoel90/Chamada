@@ -37,6 +37,11 @@ if ($turmaId > 0) {
     $bloqueio = ch_bloqueio_chamada($data, $turma);
     $podeRetificar = ch_pode_retificar($turmaId);
 
+    /* A lista é de quem pertencia à turma NAQUELA data, não de quem pertence
+       hoje. Sem isto, um aluno transferido apareceria na turma nova em datas
+       anteriores à transferência e sumiria do histórico da turma antiga. */
+    $naData = tr_filtro_na_data($turmaId, $data, 'a');
+
     /* CONFIRMADA_EM vira texto no banco: o driver sqlsrv devolveria DateTime. */
     $alunos = ch_rows(
         'SELECT a.ID, a.MATRICULA, a.NOME,
@@ -48,9 +53,9 @@ if ($turmaId > 0) {
          FROM TB_ALUNOS a
          LEFT JOIN TB_CHAMADA c ON c.ID_ALUNO = a.ID AND c.DATA = ?
          LEFT JOIN TB_USUARIOS uc ON uc.ID = c.CONFIRMADA_POR
-         WHERE a.ID_TURMA = ? AND a.ATIVO = 1
+         WHERE a.ATIVO = 1' . $naData['sql'] . '
          ORDER BY a.NOME',
-        [$data, $turmaId]
+        array_merge([$data], $naData['params'])
     );
 
     foreach ($alunos as $a) {
@@ -70,9 +75,9 @@ if ($turmaId > 0) {
         'SELECT o.ID_ALUNO, COUNT(*) AS QTDE
          FROM TB_OBSERVACOES o
          INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-         WHERE a.ID_TURMA = ? AND o.DATA = ?
+         WHERE o.DATA = ?' . $naData['sql'] . '
          GROUP BY o.ID_ALUNO',
-        [$turmaId, $data]
+        array_merge([$data], $naData['params'])
     );
 }
 $obsPorAluno = [];

@@ -38,8 +38,14 @@ if ($bloqueio) {
     exit;
 }
 
-/* Só alunos ativos desta turma. */
-$alunos = ch_rows('SELECT ID, NOME FROM TB_ALUNOS WHERE ID_TURMA = ? AND ATIVO = 1 ORDER BY NOME', [$turmaId]);
+/* Só alunos ativos que pertenciam a esta turma NAQUELA data. Um aluno
+   transferido não pode receber chamada da turma nova em dia anterior ao
+   início, nem da turma antiga em dia posterior à saída. */
+$naData = tr_filtro_na_data($turmaId, $data, 'a');
+$alunos = ch_rows(
+    'SELECT a.ID, a.NOME FROM TB_ALUNOS a WHERE a.ATIVO = 1' . $naData['sql'] . ' ORDER BY a.NOME',
+    $naData['params']
+);
 $validos = [];
 foreach ($alunos as $a) { $validos[(int)$a['ID']] = $a['NOME']; }
 

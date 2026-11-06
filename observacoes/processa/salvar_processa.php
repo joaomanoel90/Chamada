@@ -15,7 +15,9 @@ function observacao_validar($post)
     ];
     $e = [];
 
-    if (!ch_pode_aluno($d['ID_ALUNO'])) { $e[] = 'Selecione um aluno da sua unidade.'; }
+    /* Escrita exige a turma ATUAL: a escola de origem, depois da
+       transferência, fica só com a consulta ao histórico. */
+    if (!ch_pode_aluno_atual($d['ID_ALUNO'])) { $e[] = 'Selecione um aluno da sua unidade.'; }
     if (!$d['DATA']) { $e[] = 'Informe uma data válida.'; }
     elseif ($d['DATA'] > ch_hoje()) { $e[] = 'A data da observação não pode ser futura.'; }
     if (!in_array($d['CATEGORIA'], ch_categorias(), true)) { $e[] = 'Selecione uma categoria válida.'; }

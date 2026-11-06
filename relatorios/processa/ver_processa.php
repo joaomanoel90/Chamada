@@ -8,6 +8,13 @@ $ano     = (int)($_POST['ano'] ?? $_GET['ano'] ?? (int)date('Y'));
 
 $aluno = ch_exige_aluno($alunoId);
 
+/* Transferências: o relatório é do ANO INTEIRO do aluno, mesmo que ele tenha
+   mudado de escola no meio do ano. A chamada, as observações e o parecer já são
+   consultados por ID_ALUNO, então nada precisa ser somado — só explicitar em
+   que escola e turma ele estava em cada período. */
+$vinculosAno = tr_vinculos_no_ano($alunoId, $ano);
+$houveTransferencia = count($vinculosAno) > 1;
+
 $inicio = $ano . '-01-01';
 $fim    = $ano . '-12-31';
 

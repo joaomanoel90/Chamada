@@ -51,7 +51,12 @@
       <tr>
         <td><?= ch_h($row['MATRICULA']) ?></td>
         <td><?= ch_h($row['NOME']) ?></td>
-        <td><?= ch_h($row['TURMA']) ?><br><small class="text-muted"><?= ch_h($row['UNIDADE']) ?></small></td>
+        <td>
+          <?= ch_h($row['TURMA']) ?><br><small class="text-muted"><?= ch_h($row['UNIDADE']) ?></small>
+          <?php if ((int)$row['TRANSF_PENDENTE'] > 0): ?>
+            <br><span class="badge bg-warning text-dark"><i class="fas fa-right-left"></i> Transferência aguardando</span>
+          <?php endif; ?>
+        </td>
         <td><?= ch_h($row['RESPONSAVEL']) ?><br><small class="text-muted"><?= ch_h($row['TELEFONE']) ?></small></td>
         <td class="text-center"><?= ch_h(ch_idade_texto($row['NASCIMENTO'])) ?></td>
         <td class="text-center">
@@ -71,9 +76,13 @@
               <?php endif; ?>
               <li><a class="dropdown-item" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$row['ID']) ?>"><i class="far fa-comment-dots"></i> Nova observação</a></li>
               <li><a class="dropdown-item" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$row['ID'] . '&ano=' . (int)$row['ANO_LETIVO']) ?>"><i class="fas fa-file-lines"></i> Relatório anual</a></li>
+              <?php if (ch_gestor() && (int)$row['ATIVO'] === 1 && ch_pode_unidade((int)$row['ID_UNIDADE'])): ?>
+                <li><a class="dropdown-item" href="<?= ch_url('transferencias/solicitar.php?aluno_id=' . (int)$row['ID']) ?>"><i class="fas fa-right-left"></i> Transferir de escola</a></li>
+              <?php endif; ?>
               <?php if (ch_gestor()): ?>
               <li>
                 <form method="post" action="processa/toggle_processa.php" class="px-3 py-1">
+                  <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
                           onclick="return confirm('Alterar a situação deste aluno?');">

@@ -12,6 +12,10 @@ $d = ['ID_TURMA' => (int)($_GET['turma_id'] ?? 0), 'MATRICULA' => '', 'NOME' => 
       'DATA_MATRICULA' => ch_hoje(), 'RESPONSAVEL' => '', 'TELEFONE' => '', 'EMAIL' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: ' . ch_url('alunos/add.php'));
+        exit;
+    }
     [$d, $erros] = aluno_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());

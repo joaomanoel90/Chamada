@@ -3,10 +3,14 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-function aluno_validar($post, $idAtual = 0)
+/* $turmaFixa > 0 = edição: a turma NÃO vem do formulário. Trocar o aluno de
+   turma/escola é a transferência (transferencias/), que tem duas etapas, data
+   de início e histórico. Um <select> aqui permitia mover o aluno sem registrar
+   nada — e a chamada de datas passadas mudava de turma junto. */
+function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
 {
     $d = [
-        'ID_TURMA'       => (int)($post['id_turma'] ?? 0),
+        'ID_TURMA'       => $turmaFixa > 0 ? (int)$turmaFixa : (int)($post['id_turma'] ?? 0),
         'MATRICULA'      => strip_tags(trim($post['matricula'] ?? '')),
         'NOME'           => strip_tags(trim($post['nome'] ?? '')),
         'NASCIMENTO'     => ch_data_iso($post['nascimento'] ?? ''),
@@ -45,7 +49,10 @@ function aluno_validar($post, $idAtual = 0)
     if (!$e && ch_val('SELECT ID FROM TB_ALUNOS WHERE MATRICULA = ? AND ID <> ?', [$d['MATRICULA'], $idAtual])) {
         $e[] = 'Já existe um aluno com essa matrícula.';
     }
-    if (!$e && $turma) {
+    /* Lotação só interessa quando o aluno está ENTRANDO na turma. Na edição
+       ele já está lá, e conferir de novo impediria corrigir o nome de um aluno
+       numa turma que já estava cheia. */
+    if (!$e && $turma && $turmaFixa === 0) {
         $ocupadas = (int)ch_val('SELECT COUNT(*) FROM TB_ALUNOS WHERE ID_TURMA = ? AND ATIVO = 1 AND ID <> ?',
                                 [$d['ID_TURMA'], $idAtual]);
         if ($ocupadas >= (int)$turma['CAPACIDADE']) {

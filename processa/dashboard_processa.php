@@ -133,3 +133,7 @@ $relatoriosPendentes = (int)ch_val(
      WHERE a.ATIVO = 1 AND t.ANO_LETIVO = ? AND r.ID IS NULL' . $filtro['sql'],
     array_merge([$ano, $ano], $p)
 );
+
+/* Transferências aguardando esta escola: é a primeira tela depois do login,
+   então o aviso precisa estar aqui — não só no menu. */
+$transfAguardando = ch_gestor() ? tr_pendentes_recebidas() : 0;

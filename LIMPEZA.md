@@ -832,3 +832,130 @@ Regressão: `testa_sistema_real.py` **26/26**, `regressao.py` **169/169**, `php 
 gerar o PDF com o CSS de **tela**. Os primeiros PDFs de teste saíam com a interface
 impressa por causa disso — não era defeito do sistema. É preciso chamar
 `emulate_media(media='print')` antes de gerar.
+
+---
+
+## 19. Transferência de aluno entre escolas e turmas
+
+### O que havia antes
+
+A turma do aluno era um `<select>` no formulário de edição. Trocar de escola era
+possível, mas era uma troca cega:
+
+- não ficava registrado **quem** mudou, **quando**, nem **por quê**;
+- não havia **data de efeito**: como `TB_CHAMADA`, `TB_OBSERVACOES` e
+  `TB_RELATORIOS_ANUAIS` referenciam `ID_ALUNO`, e a chamada do dia listava por
+  `TB_ALUNOS.ID_TURMA`, o aluno **sumia da turma antiga e aparecia na nova
+  inclusive em datas anteriores à troca**. O histórico mudava de escola junto;
+- não havia como a escola de destino participar da decisão;
+- o módulo de alunos estava **sem CSRF** em todos os formulários;
+- `alunos/processa/toggle_processa.php` não conferia alcance: qualquer gestor
+  inativava aluno de outra escola mandando o ID no POST.
+
+### O fluxo novo, em duas etapas
+
+Como a rede trabalha:
+
+| Etapa | Quem | Onde | O que decide |
+|---|---|---|---|
+| 1 | Gestão da escola **de origem** | *Alunos → o aluno → Transferir* | a **escola de destino** e o **motivo** (obrigatório) |
+| 2 | Gestão da escola **de destino** | *Transferências → Aguardando* | a **turma** e a **data de início** |
+
+Entre as duas etapas a transferência fica `PENDENTE` e **o aluno não sai do
+lugar**: a chamada segue normal na turma atual. Qualquer uma das pontas pode
+cancelar a pendência, com motivo obrigatório.
+
+`SITUACAO` é `PENDENTE`, `CONCLUIDA` ou `CANCELADA`, e três `CHECK` no banco
+impedem estado coerente pela metade: concluída sem turma/data/autor, pendente com
+turma já escolhida, cancelada sem motivo. Um índice único **filtrado**
+(`UX_TRANSFER_PENDENTE`) permite no máximo uma pendência por aluno, sem limitar o
+histórico de concluídas.
+
+### A data de início, e por que ela resolve o histórico
+
+Até a **véspera** do início o aluno pertence à turma de origem; daquele dia em
+diante, à de destino. Quem aplica isso é a `VW_ALUNO_VINCULO`, que reconstrói os
+períodos a partir das transferências concluídas:
+
+```
+ID_ALUNO | ID_TURMA | DATA_INICIO | DATA_FIM
+    2    |    1     |    NULL     | 2026-09-30     <- desde a matrícula
+    2    |    5     | 2026-10-01  | NULL           <- até hoje
+```
+
+`DATA_INICIO NULL` = desde o início; `DATA_FIM NULL` = período em aberto. Aluno
+sem transferência tem uma linha só, com a turma atual.
+
+A chamada do dia, o CSV e o histórico de retificações passaram a usar
+`tr_filtro_na_data()` em vez de `a.ID_TURMA = ?`. Assim um registro antigo nunca
+muda de escola, e a turma antiga não consegue lançar chamada de quem já saiu.
+
+**Não há segunda fonte de verdade.** A turma atual continua em
+`TB_ALUNOS.ID_TURMA`; o resto é derivado. Nada de chamada, observação ou parecer é
+movido ou apagado — as três tabelas referenciam `ID_ALUNO`. O relatório anual
+segue sendo do ano inteiro e ganha o quadro *Escolas e turmas em <ano>*.
+
+### Leitura e escrita são permissões diferentes
+
+Este foi o ponto delicado. Para a escola de origem continuar consultando quem foi
+seu aluno, `ch_pode_aluno()` / `ch_exige_aluno()` passaram a aceitar quem já teve
+vínculo com o aluno. Isso **amplia leitura** — e por isso vieram junto:
+
+- `ch_pode_aluno_atual()` e `ch_exige_aluno_atual()`, que exigem a turma **atual**;
+- usadas em editar aluno, lançar/editar observação, gravar parecer e inativar.
+
+Sem essa separação, a escola de origem conseguia **editar** o aluno depois de
+transferido — foi exatamente o que o teste acusou (71/72) antes da correção.
+
+### Outros pontos
+
+- A turma saiu do formulário de edição (virou texto só de leitura, com link para
+  a transferência) e o `UPDATE` de edição **nem toca** em `ID_TURMA`.
+- A conferência de lotação só roda quando o aluno está **entrando** na turma.
+  Antes ela também rodava na edição, e impedia corrigir o nome de um aluno numa
+  turma já cheia.
+- CSRF em `add`, `edit` e `toggle` de alunos, e em todos os formulários novos.
+- `ch_afetadas()` devolve quantas linhas o `UPDATE` atingiu. Aceitar e cancelar
+  usam `WHERE ID = ? AND SITUACAO = 'PENDENTE'`: se outra pessoa tratou a
+  transferência um instante antes, nenhuma linha muda e a tela avisa em vez de
+  gravar por cima. `ch_exec()` devolve `true` mesmo com zero linhas.
+- Aviso de pendências no **menu** (contador) e no **painel inicial** da escola de
+  destino, que é onde a pessoa cai depois do login.
+- O select de escolas de destino **não** aplica o alcance do usuário de
+  propósito: o diretor precisa indicar uma escola que não é a dele. Só a escola
+  atual do aluno é excluída.
+- `POPULAR_DEMONSTRACAO.sql` criava turmas com lotação acima da capacidade
+  (18 alunos em turma de 15). Além de mostrar "18/15" na tela, deixava o banco de
+  demonstração sem vaga para testar transferência. A capacidade agora é sempre
+  maior que a lotação criada, com 2 vagas de folga.
+
+### Como foi verificado
+
+`.harness/testa_transferencias.py` — **76/76** no SQL Server real, conferindo o
+banco depois de cada ação: as duas etapas, aluno parado durante a pendência,
+chamada antes/depois da data, CSV, tentativa de lançar chamada na turma antiga,
+os seis campos da linha do tempo, relatório com as duas escolas, quem vê e quem
+edita depois da saída, cancelamento, permissões de professor e de terceira
+escola, e as quatro travas do banco (índice filtrado + três CHECK).
+
+`.harness/telas_transferencia.py` — **25/25**: as sete telas novas em 1440 px e
+390 px sem estouro horizontal, nenhum erro de JavaScript, e o PDF do aluno
+transferido com o quadro de escolas (3 páginas, 4.228 caracteres).
+
+Regressão: `verifica_real.py` **44/44**, `testa_limpeza_real.py` **27/27**,
+`testa_sistema_real.py` **26/26**, `verifica_impressao.py` **37/37**,
+`regressao.py` **169/169**, `verifica4.py` **32/32**, `testa_popular.py` **57/57**,
+`verifica_telas.py` **21/21**. Escopo de variáveis T-SQL: 0 problemas nos 6
+scripts. `sqlfluff`: 0 trechos não interpretados. `php -l`: **111 arquivos, 0
+erros**.
+
+### Duas armadilhas de ambiente que custaram tempo
+
+1. **`config.php` do repositório tem a senha vazia**, de propósito. Copiar a árvore
+   para o ambiente de teste sem reaplicar a senha derruba o login com **18456** —
+   que parece problema de permissão do banco, mas é senha em branco. O refresh
+   agora é `atualiza_app_real.sh`, que faz o lint, copia e reaplica a senha.
+2. **Aspas simples de T-SQL dentro de string PHP de aspas simples.** O subquery
+   `... SITUACAO = 'PENDENTE'` quebrou o arquivo inteiro, e o sintoma na tela era
+   "falha de permissão", não erro de sintaxe. O refresh roda `php -l` **antes** de
+   copiar, e aborta se algum arquivo estiver quebrado.

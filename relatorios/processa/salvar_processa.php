@@ -13,7 +13,7 @@ $ano     = (int)($_POST['ano'] ?? 0);
 $parecer = trim(strip_tags($_POST['parecer'] ?? ''));
 $encam   = trim(strip_tags($_POST['encaminhamentos'] ?? ''));
 
-if (!ch_pode_aluno($alunoId)) {
+if (!ch_pode_aluno_atual($alunoId)) {
     ch_flash('Você não tem acesso a esse aluno.', 'danger');
     header('Location: index.php');
     exit;

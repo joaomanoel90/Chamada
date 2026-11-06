@@ -1,5 +1,7 @@
 <form action="<?= $acao ?>" method="post">
-  <?php if (!empty($id)): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
+  <?= ch_csrf_campo() ?>
+  <?php $editando = !empty($id); ?>
+  <?php if ($editando): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
 
   <?php if ($erros): ?>
     <div class="alert alert-danger"><ul class="mb-0"><?php foreach ($erros as $e): ?><li><?= ch_h($e) ?></li><?php endforeach; ?></ul></div>
@@ -8,15 +10,28 @@
   <div class="row g-3">
     <div class="form-group col-md-8">
       <label class="fw-bold">Turma</label>
-      <select name="id_turma" class="form-select" required>
-        <option value="">Selecione...</option>
-        <?php foreach ($turmasDisponiveis as $t): ?>
-          <option value="<?= (int)$t['ID'] ?>" <?= (int)$d['ID_TURMA'] === (int)$t['ID'] ? 'selected' : '' ?>>
-            <?= ch_h($t['UNIDADE']) ?> — <?= ch_h($t['NOME']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
-            [<?= (int)$t['OCUPADAS'] ?>/<?= (int)$t['CAPACIDADE'] ?>]
-          </option>
-        <?php endforeach; ?>
-      </select>
+      <?php if ($editando): ?>
+        <?php $atual = null; foreach ($turmasDisponiveis as $t) { if ((int)$t['ID'] === (int)$d['ID_TURMA']) { $atual = $t; break; } } ?>
+        <input type="text" class="form-control" disabled
+               value="<?= $atual
+                    ? ch_h($atual['UNIDADE']) . ' — ' . ch_h($atual['NOME']) . ' (' . (int)$atual['ANO_LETIVO'] . ')'
+                    : 'Turma #' . (int)$d['ID_TURMA'] ?>">
+        <div class="form-text">
+          Para mudar o aluno de escola ou turma, use
+          <a href="<?= ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) ?>">Transferir aluno</a>.
+          A transferência registra o motivo, a data de início e mantém o histórico.
+        </div>
+      <?php else: ?>
+        <select name="id_turma" class="form-select" required>
+          <option value="">Selecione...</option>
+          <?php foreach ($turmasDisponiveis as $t): ?>
+            <option value="<?= (int)$t['ID'] ?>" <?= (int)$d['ID_TURMA'] === (int)$t['ID'] ? 'selected' : '' ?>>
+              <?= ch_h($t['UNIDADE']) ?> — <?= ch_h($t['NOME']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
+              [<?= (int)$t['OCUPADAS'] ?>/<?= (int)$t['CAPACIDADE'] ?>]
+            </option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
     </div>
     <div class="form-group col-md-4">
       <label class="fw-bold">Matrícula</label>

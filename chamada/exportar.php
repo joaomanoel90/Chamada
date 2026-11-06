@@ -13,12 +13,13 @@ if (!ch_pode_turma($turmaId)) {
 }
 
 $turma = ch_turma($turmaId);
+$naData = tr_filtro_na_data($turmaId, $data, 'a');
 $linhas = ch_rows(
     'SELECT a.MATRICULA, a.NOME, ISNULL(c.STATUS, \'\') AS STATUS, ISNULL(c.JUSTIFICATIVA, \'\') AS JUSTIFICATIVA
      FROM TB_ALUNOS a
      LEFT JOIN TB_CHAMADA c ON c.ID_ALUNO = a.ID AND c.DATA = ?
-     WHERE a.ID_TURMA = ? AND a.ATIVO = 1 ORDER BY a.NOME',
-    [$data, $turmaId]
+     WHERE a.ATIVO = 1' . $naData['sql'] . ' ORDER BY a.NOME',
+    array_merge([$data], $naData['params'])
 );
 
 $nomeArquivo = 'chamada_' . preg_replace('/[^A-Za-z0-9]+/', '_', $turma['NOME']) . '_' . $data . '.csv';

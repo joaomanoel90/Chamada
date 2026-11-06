@@ -224,6 +224,18 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
   </div>
 </div>
 
+<?php if ($houveTransferencia): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <?php $vinculos = $vinculosAno; $tituloQuadro = 'Escolas e turmas em ' . (int)$ano;
+          include(ABSPATH . 'transferencias/quadro_vinculos.php'); ?>
+    <p class="text-muted mt-2 mb-0"><small>
+      Os totais deste relatório são do ano inteiro do aluno, somando os períodos acima.
+    </small></p>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php /* Cartão próprio: dentro do resumo ele deixava aquele bloco alto demais
          para caber na 1ª página, e a lista podia ser longa num ano inteiro.
          Aqui é um cartão que pode continuar na página seguinte. */ ?>

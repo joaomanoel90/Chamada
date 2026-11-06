@@ -24,8 +24,12 @@ $ch_links_chamada = [
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
     ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  true],
 ];
+/* O contador de transferências só é consultado para quem pode tratá-las. */
+$ch_transf_aguardando = $ch_gestor ? tr_pendentes_recebidas() : 0;
+
 $ch_links_cadastros = [
     ['alunos',   'Alunos',   'fas fa-child-reaching', 'alunos/index.php',   true],
+    ['transferencias', 'Transferências', 'fas fa-right-left', 'transferencias/index.php', $ch_gestor, $ch_transf_aguardando],
     ['turmas',   'Turmas',   'fas fa-children',       'turmas/index.php',   $ch_gestor],
     ['periodos', 'Períodos', 'fas fa-clock',          'periodos/index.php', $ch_gestor],
     // Feriados é leitura para todos: o professor precisa saber que dia não
@@ -35,14 +39,21 @@ $ch_links_cadastros = [
     ['usuarios', 'Usuários', 'fas fa-users',          'usuarios/index.php', $ch_admin],
 ];
 
-/** Um item do menu. O title aparece como dica quando o menu está recolhido. */
+/** Um item do menu. O title aparece como dica quando o menu está recolhido.
+    O 6º elemento, opcional, é um contador (ex.: transferências aguardando). */
 function ch_menu_item($item)
 {
     [$id, $rotulo, $icone, $caminho, $pode] = $item;
     if (!$pode) return;
+    $badge = '';
+    if (!empty($item[5])) {
+        $n = (int)$item[5];
+        $badge = ' <span class="badge bg-warning text-dark ms-1">' . $n . '</span>';
+        $rotulo .= ' (' . $n . ' aguardando)';
+    }
     echo '<a class="nav-link text-white" id="' . ch_h($id) . '" href="' . ch_h(BASEURL . $caminho)
        . '" title="' . ch_h($rotulo) . '"><i class="' . ch_h($icone) . '"></i> <span>'
-       . ch_h($rotulo) . '</span></a>' . "\n";
+       . ch_h($item[1]) . '</span>' . $badge . '</a>' . "\n";
 }
 ?>
 

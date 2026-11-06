@@ -80,6 +80,23 @@ function ch_exec($sql, $params = [])
 }
 
 /**
+ * UPDATE/DELETE que devolve QUANTAS linhas foram atingidas (-1 se falhou).
+ * Use quando a cláusula WHERE carrega uma condição de estado e você precisa
+ * saber se ganhou a corrida — por exemplo aceitar uma transferência que outro
+ * usuário pode ter aceitado um instante antes:
+ *   UPDATE ... WHERE ID = ? AND SITUACAO = 'PENDENTE'
+ * ch_exec() devolve true mesmo quando nenhuma linha foi alterada.
+ */
+function ch_afetadas($sql, $params = [])
+{
+    $stmt = ch_q($sql, $params);
+    if ($stmt === false) return -1;
+    $n = sqlsrv_rows_affected($stmt);
+    sqlsrv_free_stmt($stmt);
+    return $n;
+}
+
+/**
  * INSERT que devolve o ID gerado, ou 0 se falhou.
  *
  * O SQL precisa trazer "OUTPUT INSERTED.ID" antes do VALUES. NÃO use
@@ -356,14 +373,44 @@ function ch_aluno($idAluno)
 function ch_pode_aluno($idAluno)
 {
     $a = ch_aluno($idAluno);
+    if (!$a) return false;
+    if (ch_pode_turma($a['ID_TURMA'])) return true;
+
+    /* Transferido: a escola de origem continua podendo CONSULTAR o histórico
+       de quem já foi seu aluno. Isto só amplia leitura — editar aluno, lançar
+       chamada e escrever parecer continuam exigindo a turma atual. */
+    return tr_aluno_ja_no_alcance($idAluno);
+}
+
+/** Só a escola em que o aluno está HOJE. É a permissão das telas que ESCREVEM:
+    editar cadastro, lançar observação, gravar parecer. Depois de uma
+    transferência a escola de origem fica só com a consulta ao histórico. */
+function ch_pode_aluno_atual($idAluno)
+{
+    $a = ch_aluno($idAluno);
     return $a && ch_pode_turma($a['ID_TURMA']);
+}
+
+/** Como ch_exige_aluno, mas exige a turma atual — para escrita. */
+function ch_exige_aluno_atual($idAluno)
+{
+    $a = ch_aluno($idAluno);
+    if (!$a || !ch_pode_turma($a['ID_TURMA'])) {
+        ch_flash('Este aluno não está mais na sua escola. Só a escola atual pode alterar o cadastro.', 'danger');
+        header('Location: ' . BASEURL . 'alunos/index.php');
+        exit;
+    }
+    return $a;
 }
 
 /** Bloqueia o acesso a aluno fora do alcance do usuário. */
 function ch_exige_aluno($idAluno)
 {
     $a = ch_aluno($idAluno);
-    if (!$a || !ch_pode_turma($a['ID_TURMA'])) {
+    /* Usa ch_pode_aluno, e não ch_pode_turma direto: depois de uma
+       transferência a escola de origem ainda pode CONSULTAR a ficha de quem
+       foi seu aluno. As telas de escrita continuam exigindo a turma atual. */
+    if (!$a || !ch_pode_aluno($idAluno)) {
         ch_flash('Aluno não encontrado ou fora do seu alcance.', 'danger');
         header('Location: ' . BASEURL . 'alunos/index.php');
         exit;
@@ -643,3 +690,11 @@ function ch_mes_nome($n)
               'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     return $meses[(int)$n] ?? '';
 }
+
+/* ============================================================================
+   TRANSFERÊNCIAS
+   Carregadas aqui para que qualquer tela que já use estes helpers também tenha
+   as regras de transferência à mão. O arquivo só define funções, e não inclui
+   este de volta — não há ciclo.
+   ============================================================================ */
+require_once(__DIR__ . '/transferencias.php');

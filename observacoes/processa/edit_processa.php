@@ -10,7 +10,7 @@ $atual = ch_row('SELECT o.ID, o.ID_ALUNO, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
                         CONVERT(varchar(10), o.DATA, 23) AS DATA
                  FROM TB_OBSERVACOES o WHERE o.ID = ?', [$id]);
 
-if (!$atual || !ch_pode_aluno($atual['ID_ALUNO'])) {
+if (!$atual || !ch_pode_aluno_atual($atual['ID_ALUNO'])) {
     ch_flash('Observação não encontrada.', 'danger');
     header('Location: index.php');
     exit;
