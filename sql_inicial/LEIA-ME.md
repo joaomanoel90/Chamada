@@ -14,6 +14,17 @@ se o seu banco tiver outro nome.
 
 Os scripts 1, 2 e 4 podem ser executados mais de uma vez sem duplicar nada.
 
+> **Se você recriar ou restaurar o banco**, rode o `CRIAR_LOGIN_APLICACAO.sql` de
+> novo. O login pertence ao servidor, mas o usuário pertence ao banco: depois de
+> um `DROP DATABASE` ou de restaurar um backup em outra instância, o
+> `user_chamada` existe no servidor e não no banco, e o sistema mostra
+> *"Erro na conexão com SQL Server"*.
+
+> **Driver ODBC:** o sistema foi testado com o **ODBC Driver 17**. O Driver 18
+> liga a criptografia por padrão e exige `TrustServerCertificate` no
+> `inc/database.php`, que hoje não é enviado. Se você usa o 18 e a conexão falhar
+> com erro de certificado, é esse o motivo.
+
 ---
 
 ## Dados de demonstração
@@ -83,6 +94,14 @@ o script mostra uma tabela com o nome e o CPF de cada usuário criado.
   **31/03 do ano letivo**, como manda a regra de matrícula. Por isso, em novembro,
   uma criança do Berçário I pode aparecer com 1 ou 2 anos: ela tinha até 1 ano na
   data de corte e fez aniversário durante o ano. Não é erro.
+
+### Foi testado em SQL Server de verdade
+
+Os cinco scripts foram executados num **SQL Server 2022** real, lote por lote, e o
+sistema foi exercitado nele pelo driver **`sqlsrv`** com **ODBC Driver 17**:
+cadastrar turma com equipe, trocar regente, lançar e confirmar chamada, retificar
+com motivo, observação, relatório, usuário, liberação de unidade, feriado parcial
+e exportação de CSV. Tudo passou.
 
 ### Como desfazer
 

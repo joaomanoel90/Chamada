@@ -110,24 +110,32 @@ BEGIN
     PRINT 'Veja a lista abaixo, reatribua ou remova esses registros e rode de novo.';
     PRINT '================================================================';
 
-    SELECT 'Chamada (lançou)' AS Origem, c.ID, c.ID_ALUNO, c.DATA, u.NOME AS Usuario
+    /* @usuarios guarda só o id: o nome vem de TB_USUARIOS */
+    SELECT 'Chamada (lançou)' AS Origem, c.ID, c.ID_ALUNO,
+           CONVERT(varchar(10), c.DATA, 23) AS DATA, us.NOME AS Usuario
     FROM dbo.TB_CHAMADA c
     INNER JOIN @usuarios u ON u.id = c.ID_USUARIO
+    INNER JOIN dbo.TB_USUARIOS us ON us.ID = u.id
     WHERE NOT EXISTS (SELECT 1 FROM @alunos a WHERE a.id = c.ID_ALUNO)
     UNION ALL
-    SELECT 'Chamada (confirmou)', c.ID, c.ID_ALUNO, c.DATA, u.NOME
+    SELECT 'Chamada (confirmou)', c.ID, c.ID_ALUNO,
+           CONVERT(varchar(10), c.DATA, 23), us.NOME
     FROM dbo.TB_CHAMADA c
     INNER JOIN @usuarios u ON u.id = c.CONFIRMADA_POR
+    INNER JOIN dbo.TB_USUARIOS us ON us.ID = u.id
     WHERE NOT EXISTS (SELECT 1 FROM @alunos a WHERE a.id = c.ID_ALUNO)
     UNION ALL
-    SELECT 'Observação', o.ID, o.ID_ALUNO, o.DATA, u.NOME
+    SELECT 'Observação', o.ID, o.ID_ALUNO,
+           CONVERT(varchar(10), o.DATA, 23), us.NOME
     FROM dbo.TB_OBSERVACOES o
     INNER JOIN @usuarios u ON u.id = o.ID_USUARIO
+    INNER JOIN dbo.TB_USUARIOS us ON us.ID = u.id
     WHERE NOT EXISTS (SELECT 1 FROM @alunos a WHERE a.id = o.ID_ALUNO)
     UNION ALL
-    SELECT 'Relatório anual', r.ID, r.ID_ALUNO, NULL, u.NOME
+    SELECT 'Relatório anual', r.ID, r.ID_ALUNO, NULL, us.NOME
     FROM dbo.TB_RELATORIOS_ANUAIS r
     INNER JOIN @usuarios u ON u.id = r.ID_USUARIO
+    INNER JOIN dbo.TB_USUARIOS us ON us.ID = u.id
     WHERE NOT EXISTS (SELECT 1 FROM @alunos a WHERE a.id = r.ID_ALUNO)
     ORDER BY Origem, ID;
     RETURN;
@@ -139,9 +147,15 @@ END
 PRINT '================================================================';
 PRINT 'REMOVENDO DADOS DE DEMONSTRAÇÃO';
 PRINT '================================================================';
-PRINT 'Turmas: '   + CAST((SELECT COUNT(*) FROM @turmas)   AS varchar(10));
-PRINT 'Alunos: '   + CAST((SELECT COUNT(*) FROM @alunos)   AS varchar(10));
-PRINT 'Usuários: ' + CAST((SELECT COUNT(*) FROM @usuarios) AS varchar(10));
+/* PRINT só aceita expressão escalar — subconsulta não é permitida.
+   Por isso a contagem vai primeiro para uma variável. */
+DECLARE @nTurmas int, @nAlunos int, @nUsuarios int;
+SELECT @nTurmas = COUNT(*) FROM @turmas;
+SELECT @nAlunos = COUNT(*) FROM @alunos;
+SELECT @nUsuarios = COUNT(*) FROM @usuarios;
+PRINT 'Turmas: '   + CAST(@nTurmas   AS varchar(10));
+PRINT 'Alunos: '   + CAST(@nAlunos   AS varchar(10));
+PRINT 'Usuários: ' + CAST(@nUsuarios AS varchar(10));
 
 BEGIN TRY
 BEGIN TRANSACTION;

@@ -650,3 +650,100 @@ mês corrente, garantindo que a tela abra com conteúdo em qualquer dia do mês.
   validou foi a sintaxe (sqlfluff) e o conjunto de dados que o script produz
   (porta em SQLite com as restrições reais). O `CHECKSUM` foi substituído por
   `crc32` no teste: os valores sorteados diferem, as faixas e regras não.
+
+---
+
+## 17. Dois erros de T-SQL que só apareceram no servidor — e o SQL Server de teste
+
+O usuário executou o `POPULAR_DEMONSTRACAO.sql` e recebeu:
+
+```
+[42000] É necessário declarar a variável escalar "@g". (137)
+... "@i", "@h", "@mes", "@pascoa"
+```
+
+Erro de **compilação**: o lote inteiro nem chegou a executar, então nada foi
+gravado. Três defeitos foram corrigidos nesta rodada, todos invisíveis ao
+sqlfluff (que valida sintaxe, não semântica) e à porta em SQLite.
+
+### 1. Variável usada no próprio DECLARE que a declara
+
+```sql
+DECLARE @g int = (@b - @f + 1) / 3, @h int = (19 * @a + @b - @d - @g + 15) % 30;
+```
+
+No T-SQL a variável só entra em escopo **depois que o comando DECLARE inteiro
+termina**. Agrupar várias num só comando é permitido, mas um inicializador não
+pode depender de outro do mesmo comando. O `@g` "não existia" para o `@h`, o `@i`
+e o `@k` não existiam para o `@l`, e o resto caiu em cascata (`@h`, `@mes`,
+`@pascoa`). Corrigido: **uma variável por DECLARE** no algoritmo da Páscoa.
+
+### 2. PRINT não aceita subconsulta
+
+```sql
+PRINT 'Turmas: ' + CAST((SELECT COUNT(*) FROM @turmas) AS varchar(10));
+```
+
+`PRINT` exige expressão escalar — subconsulta dá o erro 1046. A contagem passou a
+ir primeiro para uma variável.
+
+### 3. Coluna inexistente na variável de tabela
+
+Na lista de bloqueios da limpeza, `@usuarios` guarda só o `id`, mas o SELECT
+pedia `u.NOME`. Faltava juntar `dbo.TB_USUARIOS`. Corrigido nos quatro ramos do
+`UNION ALL`, e a data passou por `CONVERT(varchar(10), ..., 23)` para o `UNION`
+não misturar tipos.
+
+### O SQL Server de teste — a fraqueza das rodadas anteriores foi resolvida
+
+Consegui instalar **SQL Server 2022 real** neste ambiente (Debian 13, 1982 MB de
+RAM, abaixo do mínimo de 2000 — o motor sobe com `MSSQL_MEMORY_LIMIT_MB=1024`),
+com o **driver `sqlsrv` de verdade** e o **ODBC Driver 17**, o mesmo do servidor de
+produção. O passo a passo está em `/home/user/.harness/COMO-TESTAR-SQLSERVER.md`,
+fora do repositório.
+
+Detalhes que custaram tempo: o `sqlservr` pede OpenLDAP 2.5 e o Debian 13 traz a
+2.6 (as duas bibliotecas ficam em `/opt/mssql-libs`, usadas só por ele via
+`LD_LIBRARY_PATH`, e fora da home porque o usuário `mssql` não lê uma home 0700);
+e o Driver **18** não serve, porque liga criptografia por padrão e o
+`inc/database.php` não envia `TrustServerCertificate`.
+
+Com isso, os cinco scripts foram **executados** e o sistema foi exercitado no
+banco real:
+
+| Verificação | Resultado |
+|---|---|
+| `INSTALACAO_COMPLETA.sql` | 25 lotes, 0 erros |
+| `POPULAR_DEMONSTRACAO.sql` | 5 lotes, 0 erros |
+| `CRIAR_LOGIN_APLICACAO.sql` | 12 lotes, 0 erros |
+| `DIAGNOSTICO_LOGIN.sql` | 8 lotes, 0 erros |
+| `LIMPAR_DEMONSTRACAO.sql` | 0 erros, nos 3 cenários |
+| `verifica_real.py` — dados gerados | **44/44** |
+| `testa_limpeza_real.py` — limpeza e trava | **27/27** |
+| `testa_sistema_real.py` — sistema pelo `sqlsrv` | **26/26** |
+| `verifica_escopo.py` — escopo de variáveis | 0 problemas |
+
+O teste do sistema cobre justamente os dois defeitos das seções 15 e 16: cadastrar
+turma com equipe (**o `SCOPE_IDENTITY`**) e liberar unidade para o diretor
+(**o `DBCC CHECKIDENT`**). Ambos gravaram corretamente no servidor real. Também
+passaram: trocar regente mantendo um só, lançar e confirmar chamada, retificar com
+motivo e histórico, observação, relatório anual, feriado parcial e CSV com BOM.
+
+Os três testes recriam o banco do zero a cada execução, então são repetíveis e
+independentes da ordem.
+
+### Verificador de escopo
+
+`/home/user/.harness/verifica_escopo.py` foi escrito para pegar essa classe de
+erro sem precisar do servidor: divide o arquivo em lotes no `GO`, acompanha os
+`DECLARE` em ordem e acusa variável usada no inicializador do próprio comando,
+variável nunca declarada e variável usada em lote diferente. Foi conferido contra
+o trecho quebrado original: reproduz exatamente os `@g`, `@i` e `@k` do relato.
+
+### Achado operacional
+
+**Recriar ou restaurar o banco desfaz o mapeamento do login.** O `CREATE LOGIN` é
+do servidor; o `CREATE USER` é do banco. Depois de um `DROP DATABASE` o
+`user_chamada` existe no servidor e não no banco, e o sistema mostra "Erro na
+conexão com SQL Server". É preciso rodar `CRIAR_LOGIN_APLICACAO.sql` de novo.
+Isso está anotado no `sql_inicial/LEIA-ME.md`, junto com a ressalva do Driver 18.

@@ -395,10 +395,22 @@ WHERE a.ATIVO = 1;
        ID_UNIDADE NULL = vale para toda a rede.
    ---------------------------------------------------------------------------- */
 /* Páscoa (Meeus/Jones/Butcher), para Carnaval, Sexta-feira Santa e Corpus Christi */
-DECLARE @a int = @AnoLetivo % 19, @b int = @AnoLetivo / 100, @c int = @AnoLetivo % 100;
-DECLARE @d int = @b / 4, @e int = @b % 4, @f int = (@b + 8) / 25;
-DECLARE @g int = (@b - @f + 1) / 3, @h int = (19 * @a + @b - @d - @g + 15) % 30;
-DECLARE @i int = @c / 4, @k int = @c % 4, @l int = (32 + 2 * @e + 2 * @i - @h - @k) % 7;
+/* ATENÇÃO: uma variável por DECLARE. No T-SQL a variável só entra em escopo
+   DEPOIS que o comando DECLARE inteiro termina, então
+       DECLARE @g int = ..., @h int = (... @g ...);
+   falha com "É necessário declarar a variável escalar @g". Agrupar só é seguro
+   quando os inicializadores não dependem uns dos outros. */
+DECLARE @a int = @AnoLetivo % 19;
+DECLARE @b int = @AnoLetivo / 100;
+DECLARE @c int = @AnoLetivo % 100;
+DECLARE @d int = @b / 4;
+DECLARE @e int = @b % 4;
+DECLARE @f int = (@b + 8) / 25;
+DECLARE @g int = (@b - @f + 1) / 3;
+DECLARE @h int = (19 * @a + @b - @d - @g + 15) % 30;
+DECLARE @i int = @c / 4;
+DECLARE @k int = @c % 4;
+DECLARE @l int = (32 + 2 * @e + 2 * @i - @h - @k) % 7;
 DECLARE @m int = (@a + 11 * @h + 22 * @l) / 451;
 DECLARE @mes int = (@h + @l - 7 * @m + 114) / 31;
 DECLARE @dia int = ((@h + @l - 7 * @m + 114) % 31) + 1;
