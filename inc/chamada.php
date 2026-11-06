@@ -340,6 +340,59 @@ function ch_exige_aluno($idAluno)
     return $a;
 }
 
+/* ------------------------------------------------------------------ CSRF */
+
+/** Token CSRF da sessão, criado no primeiro uso. */
+function ch_csrf_token()
+{
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/** Campo oculto pronto para colocar dentro do <form>. */
+function ch_csrf_campo()
+{
+    return '<input type="hidden" name="csrf_token" value="' . ch_h(ch_csrf_token()) . '">';
+}
+
+/** Confere o token do POST. Devolve false (e avisa) em vez de encerrar, para
+    quem chamou poder decidir o destino do redirecionamento. */
+function ch_csrf_ok()
+{
+    $enviado = $_POST['csrf_token'] ?? '';
+    if (!is_string($enviado) || $enviado === '' || !hash_equals(ch_csrf_token(), $enviado)) {
+        ch_flash('O formulário expirou. Recarregue a página e tente de novo.', 'danger');
+        return false;
+    }
+    return true;
+}
+
+/* --------------------------------------------------------------- CPF */
+
+/** Mantém apenas os dígitos. */
+function ch_digitos($s)
+{
+    return preg_replace('/\D+/', '', (string)$s);
+}
+
+/** 11 dígitos -> 000.000.000-00. Se não tiver 11, devolve o texto como veio.
+    O login compara o CPF digitado (com máscara) com o que está gravado, por
+    isso o cadastro precisa gravar sempre no mesmo formato. */
+function ch_cpf_mask($s)
+{
+    $d = ch_digitos($s);
+    if (strlen($d) !== 11) return trim((string)$s);
+    return substr($d, 0, 3) . '.' . substr($d, 3, 3) . '.' . substr($d, 6, 3) . '-' . substr($d, 9, 2);
+}
+
+/** Rótulo do nível de acesso. */
+function ch_nivel_nome($n)
+{
+    return [1 => 'Administrador', 2 => 'Diretor', 3 => 'Professor'][(int)$n] ?? 'Indefinido';
+}
+
 /* ------------------------------------------------------------ mensagens */
 
 function ch_flash($texto, $tipo = 'success')

@@ -1,81 +1,86 @@
 <?php
-require_once('../config.php');
-require_once(DBAPI);
+/* ============================================================================
+   EDITAR USUÁRIO
+   ----------------------------------------------------------------------------
+   Acrescentado o que faltava: trava de administrador AQUI no processador (antes
+   a checagem ficava no edit.php depois do cabeçalho, quando o header() já não
+   tinha efeito — um professor conseguia alterar usuários por URL direta),
+   conferência do CSRF, validação dos campos e proteção para o administrador não
+   se rebaixar nem se desativar sozinho e ficar trancado fora do sistema.
+   ============================================================================ */
+require_once(__DIR__ . '/comum.php'); // prelude + usuario_validar()
 
-$conn = open_database();
+$id = (int)($_GET['id'] ?? 0);
+if ($id <= 0) {
+    header('Location: index.php');
+    exit;
+}
 
-if (isset($_GET['id']) && !empty($_GET['id'])) {
+$usuario = ch_row('SELECT * FROM TB_USUARIOS WHERE ID = ?', [$id]);
+if (!$usuario) {
+    ch_flash('Usuário não encontrado.', 'warning');
+    header('Location: index.php');
+    exit;
+}
 
-    $id = $_GET['id'];
+$erros = [];
+$d = [
+    'nome'  => $usuario['NOME'],
+    'email' => $usuario['EMAIL'] ?? '',
+    'cpf'   => $usuario['CPF'],
+    'nivel' => (int)$usuario['NIVEL'],
+    'ativo' => (int)($usuario['ATIVO'] ?? 1),
+];
 
-    // Busca o usuário
-    $sql = "SELECT * FROM TB_USUARIOS WHERE ID = ?";
-    $params = array($id);
-
-    $stmt = sqlsrv_query($conn, $sql, $params);
-
-    if ($stmt === false) {
-        die(print_r(sqlsrv_errors(), true));
-    }
-
-    $rows = sqlsrv_has_rows($stmt);
-
-    if (!$rows) {
-        header("Location: index.php");
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: edit.php?id=' . $id);
         exit;
     }
 
-    // Atualização
-    if (!empty($_POST)) {
+    $erros = usuario_validar($_POST, $d, $id);
 
-        $nome  = $_POST['nome'] ?? '';
-        $senha = $_POST['senha'] ?? '';
-        $cpf   = $_POST['cpf'] ?? '';
-        $email = $_POST['email'] ?? '';
+    // O próprio administrador não pode perder o acesso sem querer.
+    if ($id === ch_uid()) {
+        if ($d['nivel'] !== 1) $erros[] = 'Você não pode alterar o seu próprio nível de acesso.';
+        if (!$d['ativo'])      $erros[] = 'Você não pode desativar o seu próprio usuário.';
+    }
 
-        if (!empty($senha)) {
+    // Não deixa a rede ficar sem nenhum administrador ativo.
+    if (!$erros && ($d['nivel'] !== 1 || !$d['ativo'])) {
+        $outros = (int)ch_val(
+            'SELECT COUNT(*) FROM TB_USUARIOS WHERE NIVEL = 1 AND ISNULL(ATIVO, 1) = 1 AND ID <> ?',
+            [$id]
+        );
+        if ($outros === 0) {
+            $erros[] = 'Este é o único administrador ativo. Cadastre outro administrador antes de alterá-lo.';
+        }
+    }
 
-            $senha = md5($senha);
-
-            $sql = "UPDATE TB_USUARIOS 
-                    SET NOME = ?, 
-                        SENHA = ?, 
-                        CPF = ?, 
-                        MODIFIED = GETDATE(), 
-                        EMAIL = ? 
-                    WHERE ID = ?";
-
-            $params = array(
-                $nome,
-                $senha,
-                $cpf,
-                $email,
-                $id
+    if (!$erros) {
+        $senha = trim($_POST['senha'] ?? '');
+        if ($senha !== '') {
+            $ok = ch_exec(
+                'UPDATE TB_USUARIOS
+                    SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, MODIFIED = GETDATE()
+                  WHERE ID = ?',
+                [$d['nome'], md5($senha), $d['nivel'], $d['cpf'],
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $id]
             );
         } else {
-
-            $sql = "UPDATE TB_USUARIOS 
-                    SET NOME = ?, 
-                        CPF = ?, 
-                        MODIFIED = GETDATE(), 
-                        EMAIL = ? 
-                    WHERE ID = ?";
-
-            $params = array(
-                $nome,
-                $cpf,
-                $email,
-                $id
+            $ok = ch_exec(
+                'UPDATE TB_USUARIOS
+                    SET NOME = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, MODIFIED = GETDATE()
+                  WHERE ID = ?',
+                [$d['nome'], $d['nivel'], $d['cpf'],
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $id]
             );
         }
-
-        $stmt = sqlsrv_query($conn, $sql, $params);
-
-        if ($stmt === false) {
-            die(print_r(sqlsrv_errors(), true));
+        if ($ok) {
+            ch_flash('Usuário "' . $d['nome'] . '" atualizado.' . ($senha !== '' ? ' A senha foi alterada.' : ''));
+            header('Location: index.php');
+            exit;
         }
-
-        header("Location: index.php");
-        exit;
+        $erros[] = 'Não foi possível gravar as alterações. Tente novamente.';
     }
 }

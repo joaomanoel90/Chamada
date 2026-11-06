@@ -1,112 +1,42 @@
 <?php
+/* ============================================================================
+   NOVO USUÁRIO
+   ----------------------------------------------------------------------------
+   Este arquivo era uma cópia do processador de EDIÇÃO: exigia ?id= na URL e
+   mandava de volta para a listagem quando não havia id — ou seja, o botão
+   "Novo Usuário" nunca abria o formulário. E no POST fazia UPDATE em vez de
+   INSERT, sem gravar o nível. Reescrito como cadastro.
+   ============================================================================ */
+require_once(__DIR__ . '/comum.php');
 
-require_once('../config.php');
-require_once(DBAPI);
-
-$conn = open_database();
-
-// Verifica se o ID foi informado
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    header("Location: index.php");
-    exit;
-}
-
-$id = $_GET['id'];
-
-// Busca o usuário com parâmetro SQL
-$sql = "SELECT * FROM TB_USUARIOS WHERE ID = ?";
-$params = [$id];
-
-$stmt = sqlsrv_query($conn, $sql, $params);
-
-if ($stmt === false) {
-    die(print_r(sqlsrv_errors(), true));
-}
-
-// Verifica se o usuário existe
-if (!sqlsrv_has_rows($stmt)) {
-    header("Location: index.php");
-    exit;
-}
-
-
-// ======================================================
-// ATUALIZAÇÃO DO USUÁRIO
-// ======================================================
+$erros = [];
+$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // Recebe e limpa os dados
-    $nome  = strip_tags(trim($_POST['nome'] ?? ''));
-    $cpf   = trim($_POST['cpf'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $senha = trim($_POST['senha'] ?? '');
-
-    // Validações básicas
-    if (empty($nome)) {
-        die('O nome é obrigatório.');
+    if (!ch_csrf_ok()) {
+        header('Location: add.php');
+        exit;
     }
 
-    if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        die('E-mail inválido.');
+    $erros = usuario_validar($_POST, $d, 0);
+
+    if (!$erros) {
+        $ok = ch_exec(
+            'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, CREATED, USUARIO)
+             VALUES (?, ?, ?, ?, ?, ?, GETDATE(), ?)',
+            [$d['nome'], md5(trim($_POST['senha'])), $d['nivel'], $d['cpf'],
+             $d['email'] !== '' ? $d['email'] : null, $d['ativo'], ch_uid()]
+        );
+        if ($ok) {
+            ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');
+            if ($d['nivel'] === 2) {
+                ch_flash('Agora libere as unidades deste diretor em "Acesso Unidades".', 'info');
+            } elseif ($d['nivel'] === 3) {
+                ch_flash('Agora inclua este professor na equipe de uma turma.', 'info');
+            }
+            header('Location: index.php');
+            exit;
+        }
+        $erros[] = 'Não foi possível gravar o usuário. Tente novamente.';
     }
-
-
-    // ==================================================
-    // COM SENHA
-    // ==================================================
-
-    if (!empty($senha)) {
-
-        // Mantendo MD5 para compatibilidade com o sistema atual
-        $senha = md5($senha);
-
-        $sql = "UPDATE TB_USUARIOS
-                SET
-                    NOME = ?,
-                    SENHA = ?,
-                    CPF = ?,
-                    MODIFIED = GETDATE(),
-                    EMAIL = ?
-                WHERE ID = ?";
-
-        $params = [
-            $nome,
-            $senha,
-            $cpf,
-            $email,
-            $id
-        ];
-    } else {
-
-        // Não altera a senha se o campo estiver vazio
-        $sql = "UPDATE TB_USUARIOS
-                SET
-                    NOME = ?,
-                    CPF = ?,
-                    MODIFIED = GETDATE(),
-                    EMAIL = ?
-                WHERE ID = ?";
-
-        $params = [
-            $nome,
-            $cpf,
-            $email,
-            $id
-        ];
-    }
-
-
-    // Executa o UPDATE
-    $stmt = sqlsrv_query($conn, $sql, $params);
-
-    // Verifica erro no UPDATE
-    if ($stmt === false) {
-        die(print_r(sqlsrv_errors(), true));
-    }
-
-
-    // Redireciona após atualizar
-    header("Location: index.php");
-    exit;
 }

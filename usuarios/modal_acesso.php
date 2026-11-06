@@ -2,6 +2,7 @@
 <div class="modal fade" id="acesso-modal" tabindex="-1" aria-labelledby="acessoModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <form method="post" action="processa/delete_acesso_processa.php">
+      <?= ch_csrf_campo() ?>
       <div class="modal-content">
         <div class="modal-header bg-danger text-white">
           <h5 class="modal-title" id="acessoModalLabel">Confirmação de Exclusão</h5>

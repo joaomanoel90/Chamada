@@ -1,10 +1,13 @@
 <?php
-require_once('../config.php');
+require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
+require_once(ABSPATH . 'inc/chamada.php');
+ch_db();
+ch_require_admin();          // antes só o acesso.php checava, depois do header
 
 $conn = open_database();
 
-$id = $_GET['id'] ?? null;
+$id = (int)($_GET['id'] ?? 0);
 
 function adjustIdentitySeed($conn) {
 
@@ -62,6 +65,7 @@ if ($id) {
     // 🔹 ADICIONAR TODAS
     // ============================
     if (isset($_POST['add_all'])) {
+        if (!ch_csrf_ok()) { header('Location: acesso.php?id=' . $id); exit; }
 
         $sql_insert_all = "
             INSERT INTO TB_ACESSO (id_usuario, id_unidade, ativo)
@@ -89,6 +93,7 @@ if ($id) {
     // 🔹 ADICIONAR INDIVIDUAL
     // ============================
     if (!empty($_POST['unidade'])) {
+        if (!ch_csrf_ok()) { header('Location: acesso.php?id=' . $id); exit; }
 
         $id_unidade = strip_tags(trim($_POST['unidade']));
 

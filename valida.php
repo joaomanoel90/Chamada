@@ -64,13 +64,22 @@ if (isset($_POST['cpf']) && isset($_POST['senha'])) {
 
 	if ($resultado === true) {
 
-		while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+		$row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
-			$_SESSION['usuarioId'] = $row['ID'];
-			$_SESSION['usuarioNome'] = $row['NOME'];
-			$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
-			$_SESSION['usuarioCPF'] = $row['CPF'];
+		/* Usuário desativado não entra. ISNULL porque registros antigos podem
+		   ter ATIVO nulo — nesses casos considera ativo, para não trancar
+		   ninguém para fora depois da atualização do banco. */
+		if ((int)($row['ATIVO'] ?? 1) !== 1) {
+			sqlsrv_free_stmt($stmt);
+			$_SESSION['loginErro'] = "Usuário inativo. Procure a administração da rede.";
+			header("Location: login.php");
+			exit;
 		}
+
+		$_SESSION['usuarioId'] = $row['ID'];
+		$_SESSION['usuarioNome'] = $row['NOME'];
+		$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
+		$_SESSION['usuarioCPF'] = $row['CPF'];
 
 		if (
 			$_SESSION['usuarioNiveisAcessoId'] == "1" ||

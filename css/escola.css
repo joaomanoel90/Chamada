@@ -795,3 +795,111 @@ body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
   table.dataTable.fixedHeader-floating,
   table.dataTable.fixedHeader-locked { left: 0 !important; width: 100% !important; }
 }
+
+/* ============================================================================
+   SIDEBAR RECOLHIDO — alinhamento do ícone ativo e rótulos das seções
+   ----------------------------------------------------------------------------
+   Dois problemas medidos no navegador com o menu recolhido (60px):
+
+   1. O ícone do item selecionado ficava 2px à direita do centro da faixa
+      amarela. A faixa tem 44px (60 - 8 - 8 de margem) e padding de 12px de
+      cada lado, sobrando 20px de miolo; mas o style.css dá min-width:24px ao
+      <i>. O ícone não cabia no miolo e avançava 4px para a direita, deixando
+      o centro em 32px contra 30px da faixa.
+   2. Os rótulos "CHAMADA" e "CADASTROS" continuavam aparecendo cortados
+      ("CHAMA", "CADAS"), porque só os <span> dos links é que eram ocultados.
+
+   Solução: recolhido, o link centraliza o conteúdo e o <span> sai do fluxo;
+   os rótulos ficam com altura zero. Expandido, tudo volta ao normal.
+   ============================================================================ */
+
+/* O botão ☰ adiciona .active no sidebar. No style.css essa classe só tinha
+   efeito dentro do @media de celular (onde abre a gaveta) e o botão ficava
+   display:none no desktop — ou seja, no computador o botão não existia e o
+   menu só abria passando o mouse. Agora ele também fixa o menu no desktop. */
+@media (min-width: 769px) {
+  .sidebar.active { width: 220px; }
+  body:has(.sidebar.active) .content { margin-left: 220px; width: calc(100% - 220px); }
+  body:has(.sidebar.active) .footer-custom { left: 220px; }
+
+  /* Posição no pé do trilho: em cima (top:12px) ele cobriria o brasão. */
+  .toggle-btn {
+    display: flex;
+    top: auto;
+    bottom: 54px;
+    left: 9px;
+    width: 42px;
+    height: 42px;
+  }
+  /* Reserva o espaço do botão para nenhum item do menu ficar embaixo dele. */
+  .sidebar { padding-bottom: 108px; }
+}
+
+/* --- estado RECOLHIDO (sem hover e sem .active) --- */
+
+.sidebar:not(:hover):not(.active) .nav-link {
+  justify-content: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* O <i> precisa poder encolher: o min-width:24px do style.css era a causa do
+   desalinhamento. Com flex fixo de 22px e o link centralizado, o centro do
+   ícone coincide com o centro da faixa amarela. */
+.sidebar .nav-link i {
+  min-width: 0;
+  flex: 0 0 22px;
+  width: 22px;
+  text-align: center;
+}
+
+/* Recolhido o texto sai do fluxo (não só transparente), senão ele empurra o
+   ícone para a esquerda dentro do link centralizado. */
+.sidebar:not(:hover):not(.active) .nav-link span {
+  display: none;
+}
+
+/* Sem o deslocamento do hover: com o menu fechado ele tirava o ícone do
+   centro da faixa outra vez. */
+.sidebar:not(:hover):not(.active) .nav-link:hover {
+  transform: none;
+}
+
+/* Rótulos das seções: escondidos e sem ocupar altura quando recolhido. */
+.sidebar p.small {
+  overflow: hidden;
+  white-space: nowrap;
+  max-height: 0;
+  opacity: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  transition: opacity .2s ease, max-height .2s ease;
+}
+
+.sidebar:hover p.small,
+.sidebar.active p.small {
+  max-height: 24px;
+  opacity: .85;
+  margin-bottom: .25rem !important;
+  padding-left: .5rem !important;
+  padding-right: .5rem !important;
+}
+
+/* Nome da prefeitura acompanha os rótulos. */
+.sidebar:not(:hover):not(.active) .sidebar-header h2 {
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Expandido, o link volta a alinhar à esquerda com o texto. */
+.sidebar:hover .nav-link,
+.sidebar.active .nav-link {
+  justify-content: flex-start;
+}
+
+/* Acessibilidade: o contorno do foco não pode ser recortado pelo overflow. */
+.sidebar .nav-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}

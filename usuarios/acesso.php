@@ -27,6 +27,7 @@ if (!empty($_GET['id'])) {
 
 <!-- 🔹 FORMULÁRIO NORMAL -->
 <form action="acesso.php?id=<?php echo $id; ?>" method="post">
+    <?= ch_csrf_campo() ?>
     <hr />
 
     <div class="row">
@@ -63,6 +64,7 @@ if (!empty($_GET['id'])) {
     </div>
 
     <form action="acesso.php?id=<?php echo $id; ?>" method="post" style="margin:0;">
+        <?= ch_csrf_campo() ?>
         <button type="submit" name="add_all" class="btn btn-danger"
             onclick="return confirm('Tem certeza que deseja adicionar TODAS as unidades? Essa ação pode gerar muitos acessos.')">
             Adicionar Todas

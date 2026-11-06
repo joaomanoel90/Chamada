@@ -317,3 +317,129 @@ mantida.
   confirmação de presença e formulário de equipe.
 - Mesma ressalva da seção 12: testes sobre o adaptador `sqlsrv`→SQLite em
   `/tmp`, **não** em SQL Server real nem em PHP 8.5.12.
+
+---
+
+## 14. Menu lateral, cadastro de usuários e permissões
+
+Três relatos de uso: o ícone selecionado desalinhado da faixa amarela com o menu
+recolhido, os rótulos de seção aparecendo cortados, e o cadastro de usuários sem
+abrir.
+
+### Cadastro de usuários não abria
+
+`usuarios/processa/add_processa.php` era uma **cópia do processador de edição**:
+
+```php
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    header("Location: index.php");   // "Novo Usuário" não tem id -> volta
+    exit;
+}
+```
+
+Como `add.php` não tem `id`, o botão **Novo Usuário** sempre voltava para a
+listagem. E no POST o arquivo fazia `UPDATE`, não `INSERT`, e nunca gravava o
+`NIVEL`. **Bug pré-existente**, presente desde o `Initial commit` (`83b7f43`).
+
+Reescrito como cadastro: `INSERT` com nome, senha, nível, CPF, e-mail, situação,
+data e autor. A validação ficou em `usuarios/processa/comum.php`, separada do
+`add_processa.php` de propósito — aquele executa o INSERT quando incluído, então
+o `edit_processa.php` não pode reaproveitá-lo para pegar só a função de validar,
+senão uma edição também cadastraria outro usuário.
+
+O CPF passou a ser gravado **com máscara** (`000.000.000-00`), porque o login
+compara o texto digitado com o que está no banco; sem isso o usuário cadastrado
+não conseguiria entrar. A conferência de duplicidade compara apenas os dígitos,
+para que `12345678901` e `123.456.789-01` não passem por pessoas diferentes.
+
+### Permissões que estavam só na aparência
+
+- `usuarios/edit.php` e `acesso.php` checavam o nível **depois** de incluir o
+  cabeçalho. Como a página já tinha começado a sair, o `header()` não tinha
+  efeito e a tela era renderizada — e o processador, que roda antes, não checava
+  nada: um professor conseguia alterar usuários por URL direta. A trava
+  (`ch_require_admin()`) foi para o processador de todas as telas do módulo.
+- Nenhum formulário do módulo conferia o token CSRF, embora o `add.php` gerasse
+  um. Agora todos conferem, via `ch_csrf_ok()`.
+- `delete_acesso_processa.php` redirecionava para `$_SERVER['HTTP_REFERER']`,
+  valor que vem do navegador. O destino agora é sempre uma tela do sistema.
+- O login não olhava o campo `ATIVO`: usuário desativado continuava entrando.
+  `valida.php` passou a barrar, com `ISNULL(ATIVO,1)` para não trancar registros
+  antigos que tenham o campo nulo.
+- Duas proteções novas contra ficar sem acesso: o administrador não altera o
+  próprio nível nem se desativa, e o último administrador ativo não pode ser
+  rebaixado.
+
+### Menu lateral: dois menus que divergiam
+
+`inc/header.php` tinha o menu completo e `inc/header2.php` um reduzido, escolhido
+por nível (`ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2`). Funcionava, mas
+os dois arquivos mantinham cópias separadas da mesma lista, e o reduzido mostrava
+ao **diretor** o link *Usuários*, que é só do administrador — o link levava a um
+bloqueio.
+
+Os dois cabeçalhos passaram a incluir **`inc/sidebar.php`**, fonte única, com os
+links filtrados por nível e conferidos contra a trava real de cada módulo:
+
+| Item | Quem vê | Trava do módulo |
+|---|---|---|
+| Dashboard, Chamada, Observações, Relatório Anual | todos | filtro por turma/unidade |
+| Alunos, Feriados | todos (leitura) | cadastro/edição exigem gestão |
+| Turmas, Períodos, Unidades | gestão (1 e 2) | `ch_require_gestor()` |
+| Usuários | administrador (1) | `ch_require_admin()` |
+
+Medido seguindo todos os links do menu com quatro usuários: antes o diretor tinha
+**1 link barrado**; agora **0 em todos os níveis**, e o professor mantém os mesmos
+7 itens de antes.
+
+### Ícone ativo desalinhado
+
+Com o menu recolhido a faixa amarela tem 44 px (60 − 8 − 8 de margem) e padding
+de 12 px de cada lado, sobrando 20 px de miolo — mas `style.css` dá
+`min-width: 24px` ao `<i>`. O ícone não cabia e avançava 4 px, deixando o centro
+em 32 px contra 30 px da faixa: **2 px de desvio**.
+
+Recolhido, o link agora centraliza o conteúdo, o `<i>` tem largura fixa de 22 px
+sem `min-width`, e o `<span>` sai do fluxo (só transparentar não resolvia: o texto
+invisível continuava empurrando o ícone). Desvio medido: **0 px**. O
+`translateX(3px)` do hover também foi desligado no estado recolhido, porque
+tirava o ícone do centro outra vez.
+
+### Rótulos cortados e o botão ☰
+
+- `CHAMADA` e `CADASTROS` só tinham `opacity` nos `<span>` dos links; os `<p>`
+  ficavam visíveis e cortados. Agora têm altura zero quando recolhido e voltam
+  ao expandir. O `<p>` vazio do fim do menu (só comentários PHP e um `<br>`) foi
+  removido.
+- O botão ☰ adicionava a classe `.active`, mas essa classe só tinha regra dentro
+  do `@media` de celular e o botão era `display:none` no desktop: no computador
+  ele não existia. Agora aparece no pé do trilho — em cima cobriria o brasão — e
+  fixa o menu aberto, lembrando a escolha entre telas via `localStorage`. O
+  `padding-bottom` do menu reserva o espaço para nenhum item ficar embaixo dele.
+- O item ativo era marcado comparando `link.href.includes(location.pathname)`, o
+  que só funcionava na listagem: em `usuarios/add.php` nada ficava aceso. Agora
+  compara o **módulo**, então o menu continua marcado nas telas de cadastro.
+- `var projeto1Prefixo = <?php echo BASEURL; ?>;` saía sem aspas e virava uma
+  expressão regular em JavaScript, não uma string. Corrigido nos dois cabeçalhos.
+
+### Validação desta rodada
+
+- `php -l` em **98 arquivos**: zero erros. `node --check` nos JS.
+- **44/44** verificações das correções (menu por nível, cadastro, validações,
+  login do usuário novo, travas, alinhamento, rótulos, ☰).
+- **16/16** das proteções novas (último administrador, usuário inativo, CSRF,
+  edição gravando sem duplicar).
+- **216/216** da varredura de layout em 4 larguras — as correções da seção 13
+  continuam de pé.
+- **22/22** de regressão: gaveta do menu no celular (390 px), chamada,
+  retificação, equipe, acesso a unidades e **27 telas sem aviso de PHP**.
+- Mesma ressalva: adaptador `sqlsrv`→SQLite em `/tmp`, **não** SQL Server real
+  nem PHP 8.5.12.
+
+### Pendência anotada, não corrigida
+
+`js/accessibility.js` é servido como arquivo estático, mas tem
+`<?php echo ... ?>` dentro de strings. É JavaScript válido — o texto do PHP é
+que fica literal —, então os nomes dos cookies de zoom e contraste saem iguais
+para todos os usuários, em vez de um por usuário. Não afeta as três correções
+desta rodada; fica registrado para uma passada futura.
