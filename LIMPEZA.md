@@ -443,3 +443,107 @@ tirava o ícone do centro outra vez.
 que fica literal —, então os nomes dos cookies de zoom e contraste saem iguais
 para todos os usuários, em vez de um por usuário. Não afeta as três correções
 desta rodada; fica registrado para uma passada futura.
+
+---
+
+## 15. Turma que não salvava, tela de usuários cortada e ajustes do menu
+
+Quatro relatos: "Não foi possível salvar a turma", a tela de cadastro de usuários
+cortada, o texto do menu aberto aparecendo só com o mouse em cima, e o botão ☰
+visível em telas grandes.
+
+### "Não foi possível salvar a turma" — defeito de SQL Server
+
+`turmas/processa/add_processa.php` gravava a turma e buscava o ID gerado em uma
+**segunda chamada**:
+
+```php
+$ok = ch_exec('INSERT INTO TB_TURMAS (...) VALUES (?, ...)');
+$novoId = $ok ? (int)ch_val('SELECT SCOPE_IDENTITY() AS ID') : 0;
+```
+
+`SCOPE_IDENTITY()` vale apenas dentro do **mesmo lote** do INSERT. Cada
+`sqlsrv_query` é um lote novo — e com parâmetros o driver ainda usa
+`sp_executesql`, que é outro escopo. Na segunda chamada a função devolve **NULL**,
+`$novoId` ficava 0, a transação era desfeita e a tela mostrava a mensagem genérica.
+Ou seja: **no SQL Server o cadastro de turma nunca funcionou**, desde que a equipe
+por turma foi introduzida (`c8fea72`).
+
+Correção: o próprio INSERT devolve o ID, com `OUTPUT INSERTED.ID`, lido pela nova
+função `ch_insert_id()`. Nada de segunda consulta.
+
+```php
+$novoId = ch_insert_id(
+    'INSERT INTO TB_TURMAS (...) OUTPUT INSERTED.ID VALUES (?, ...)', [...]);
+```
+
+**Por que os testes não pegaram:** o adaptador `sqlsrv`→SQLite traduzia
+`SCOPE_IDENTITY()` para `last_insert_rowid()`, que é da sessão e não do lote —
+funcionava no teste e falhava no servidor. O adaptador passou a traduzir para
+`NULL`, como o SQL Server faz, e o defeito foi reproduzido antes de corrigir.
+O arquivo do adaptador agora avisa, no cabeçalho, que o SQLite não reproduz o
+comportamento de escopo do servidor.
+
+A mensagem de erro também deixou de ser cega: quando quem está logado é
+administrador, o texto traz o detalhe devolvido pelo banco (`ch_erro_sql()`), para
+não ser preciso adivinhar na próxima vez.
+
+### DBCC CHECKIDENT sem permissão
+
+`usuarios/processa/acesso_processa.php` chamava `adjustIdentitySeed()` depois de
+cada acesso gravado: `SELECT MAX(id)` seguido de `DBCC CHECKIDENT ... RESEED`.
+Dois problemas:
+
+1. `DBCC CHECKIDENT` exige permissão de ALTER na tabela. O usuário da aplicação
+   recebe só `db_datareader`, `db_datawriter` e `EXECUTE`
+   (`sql_inicial/CRIAR_LOGIN_APLICACAO.sql`), então a chamada falhava — e o código
+   dava `die()` em qualquer erro que não fosse o aviso `01000`, quebrando a
+   liberação de unidades para o diretor.
+2. Resemear IDENTITY numa tabela em uso pode gerar chave duplicada com duas
+   pessoas gravando ao mesmo tempo.
+
+A função foi removida. Coluna IDENTITY se incrementa sozinha; não há o que
+ajustar depois de um INSERT comum.
+
+### Tela de cadastro de usuários cortada
+
+`css/escola.css` define `.card-escola` com `overflow: hidden` e **sem padding** —
+o recuo interno mora em `.card-escola-corpo`. As telas novas de usuário usavam só
+`.card-escola`, então a linha de campos do Bootstrap (`.row`, com margens
+`0 -12px`) avançava 12 px para fora do cartão em cada lado e era **cortada** pelo
+`overflow: hidden`.
+
+Correção: o conteúdo das duas telas foi para dentro de `.card-escola-corpo`, como
+já fazia `turmas/formulario.php`. Medido em 1024, 1280, 1440 e 1920 px: nenhum
+campo, botão ou aviso fora do cartão.
+
+### Texto do menu aberto e o botão ☰
+
+- O `style.css` deixa o texto dos links e o nome da prefeitura com `opacity: 0` e
+  só zera isso em `.sidebar:hover`. Com o menu fixado pela classe `.active`, o
+  texto continuava invisível até passar o mouse. Agora `.sidebar:hover` **e**
+  `.sidebar.active` mostram o texto.
+- O botão ☰ tinha sido liberado no desktop na rodada anterior. Voltou a ser
+  **só de tela pequena** (até 768 px), onde o menu é uma gaveta que começa
+  fechada; no computador o menu abre passando o mouse. O estado "fixado" guardado
+  no navegador só é restaurado no celular e é desfeito ao ampliar a janela — sem
+  isso, um menu fixado no celular ficaria aberto para sempre no desktop, sem
+  botão para fechar.
+
+### Validação desta rodada
+
+- `php -l` em **98 arquivos**: zero erros. `node --check` nos JS.
+- **32/32** verificações dirigidas aos quatro relatos: cadastrar turma com equipe
+  de dois professores, trocar o regente, conferir o regente único e o histórico
+  preservado, nenhuma tela de usuário cortada em 4 larguras, ☰ oculto em
+  1024/1440/1920 e visível em 768/390, texto visível com a gaveta aberta.
+- **169/169** da regressão geral: layout em 4 larguras, chamada e retificação,
+  equipe, cadastro e travas de usuários, nenhum link de menu barrado em 4 níveis
+  e **27 telas sem aviso de PHP**.
+- O ambiente de teste passou a ficar em `/home/user/.harness`, **fora do
+  repositório**, para não ser perdido a cada reinício do sandbox.
+- Ressalva de sempre: adaptador `sqlsrv`→SQLite, **não** SQL Server real nem
+  PHP 8.5.12. Justamente por isso o defeito do `SCOPE_IDENTITY` escapou das
+  rodadas anteriores — a correção foi verificada com o adaptador reproduzindo o
+  comportamento do servidor, mas a confirmação final é cadastrar uma turma no
+  seu servidor.

@@ -9,38 +9,13 @@ $conn = open_database();
 
 $id = (int)($_GET['id'] ?? 0);
 
-function adjustIdentitySeed($conn) {
-
-    $sql_max_id = 'SELECT MAX(id) AS max_id FROM TB_ACESSO';
-    $stmt_max_id = sqlsrv_query($conn, $sql_max_id);
-
-    if ($stmt_max_id === false) {
-        die("Erro ao recuperar o maior ID: " . print_r(sqlsrv_errors(), true));
-    }
-
-    $row = sqlsrv_fetch_array($stmt_max_id, SQLSRV_FETCH_ASSOC);
-    $max_id = $row['max_id'];
-
-    if ($max_id === null) {
-        $sql_checkident = "DBCC CHECKIDENT ('TB_ACESSO', RESEED, 1)";
-    } else {
-        $sql_checkident = "DBCC CHECKIDENT ('TB_ACESSO', RESEED, $max_id)";
-    }
-
-    $stmt_checkident = sqlsrv_query($conn, $sql_checkident);
-
-    if ($stmt_checkident === false) {
-
-        $errors = sqlsrv_errors();
-
-        // 🔥 IGNORA WARNING 01000
-        foreach ($errors as $error) {
-            if ($error['SQLSTATE'] != '01000') {
-                die("Erro ao executar DBCC CHECKIDENT: " . print_r($errors, true));
-            }
-        }
-    }
-}
+/* REMOVIDO: adjustIdentitySeed(), que rodava SELECT MAX(id) + DBCC CHECKIDENT
+   RESEED depois de cada acesso gravado. Dois problemas: (1) DBCC CHECKIDENT
+   exige permissão de ALTER na tabela, e o usuário da aplicação tem só
+   db_datareader/db_datawriter — a chamada falhava e o código dava die(),
+   quebrando a liberação de unidades; (2) resemear IDENTITY numa tabela em uso
+   pode gerar chave duplicada com dois usuários gravando ao mesmo tempo.
+   Coluna IDENTITY já se incrementa sozinha: não há nada para ajustar. */
 
 if ($id) {
 
@@ -82,9 +57,6 @@ if ($id) {
         $params = array($id, $id);
         sqlsrv_query($conn, $sql_insert_all, $params);
 
-        // 🔧 AJUSTA IDENTITY (se necessário)
-        adjustIdentitySeed($conn);
-
         header("Location: acesso.php?id=" . $id);
         exit;
     }
@@ -117,9 +89,6 @@ if ($id) {
 
         $params_insert = array($id, $id_unidade);
         sqlsrv_query($conn, $sql_insert, $params_insert);
-
-        // 🔧 AJUSTA IDENTITY (se necessário)
-        adjustIdentitySeed($conn);
 
         header("Location: acesso.php?id=" . $id);
         exit;

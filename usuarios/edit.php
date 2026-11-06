@@ -7,6 +7,7 @@
 <?= usuario_erros_html($erros) ?>
 
 <div class="card-escola">
+ <div class="card-escola-corpo">
   <div class="d-flex align-items-center gap-3 mb-3">
     <span class="avatar-prof"><?= ch_h(ch_iniciais($d['nome'])) ?></span>
     <div>
@@ -74,6 +75,7 @@
       <?php endif; ?>
     </div>
   </form>
+</div>
 </div>
 
 <script>

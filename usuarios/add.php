@@ -19,6 +19,7 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
 <?php endif; ?>
 
 <div class="card-escola">
+ <div class="card-escola-corpo">
   <form action="add.php" method="post" id="userForm">
     <?= ch_csrf_campo() ?>
 
@@ -74,6 +75,7 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
       <a href="index.php" class="btn btn-outline-secondary">Cancelar</a>
     </div>
   </form>
+</div>
 </div>
 
 <script>

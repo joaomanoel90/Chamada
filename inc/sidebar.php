@@ -107,10 +107,18 @@ function ch_menu_item($item)
           botao.title = ligado ? 'Recolher o menu' : 'Manter o menu aberto';
         }
 
+        /* A gaveta fixada só faz sentido no celular. No computador o menu
+           abre no hover e o botão fica escondido, então não restaura estado
+           nenhum — senão um "fixado" gravado no celular deixaria o menu
+           aberto para sempre no desktop, sem botão para fechar. */
+        function ehCelular() { return window.matchMedia('(max-width: 768px)').matches; }
+
         document.addEventListener('DOMContentLoaded', function () {
           marcaAtivo();
           var fixado = false;
-          try { fixado = localStorage.getItem('ch_sidebar_fixado') === '1'; } catch (e) {}
+          if (ehCelular()) {
+            try { fixado = localStorage.getItem('ch_sidebar_fixado') === '1'; } catch (e) {}
+          }
           aplicaFixado(fixado);
         });
 
@@ -118,6 +126,12 @@ function ch_menu_item($item)
           var ligado = !sidebar.classList.contains('active');
           aplicaFixado(ligado);
           try { localStorage.setItem('ch_sidebar_fixado', ligado ? '1' : '0'); } catch (e) {}
+        });
+
+        /* Ao sair da faixa do celular, desfaz a gaveta para o menu voltar ao
+           comportamento de hover. */
+        window.addEventListener('resize', function () {
+          if (!ehCelular() && sidebar.classList.contains('active')) aplicaFixado(false);
         });
       })();
     </script>

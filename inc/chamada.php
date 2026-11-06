@@ -79,6 +79,37 @@ function ch_exec($sql, $params = [])
     return true;
 }
 
+/**
+ * INSERT que devolve o ID gerado, ou 0 se falhou.
+ *
+ * O SQL precisa trazer "OUTPUT INSERTED.ID" antes do VALUES. NÃO use
+ * SELECT SCOPE_IDENTITY() em outra chamada: SCOPE_IDENTITY() só vale dentro do
+ * mesmo lote do INSERT, e cada sqlsrv_query é um lote novo (com parâmetros o
+ * driver ainda usa sp_executesql, que é outro escopo). Chamado separado, ele
+ * devolve NULL no SQL Server — foi o que impediu o cadastro de turma.
+ */
+function ch_insert_id($sql, $params = [])
+{
+    $stmt = ch_q($sql, $params);
+    if ($stmt === false) return 0;
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+    return $row ? (int)reset($row) : 0;
+}
+
+/** Última mensagem de erro do banco, para diagnóstico. Vazio se não houve. */
+function ch_erro_sql()
+{
+    if (!function_exists('sqlsrv_errors')) return '';
+    $e = sqlsrv_errors();
+    if (!$e) return '';
+    $m = [];
+    foreach ($e as $x) {
+        if (!empty($x['message'])) $m[] = trim($x['message']);
+    }
+    return implode(' | ', array_unique($m));
+}
+
 /* ------------------------------------------------------------------ sessão */
 
 function ch_uid()

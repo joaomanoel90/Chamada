@@ -817,22 +817,10 @@ body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
    efeito dentro do @media de celular (onde abre a gaveta) e o botão ficava
    display:none no desktop — ou seja, no computador o botão não existia e o
    menu só abria passando o mouse. Agora ele também fixa o menu no desktop. */
-@media (min-width: 769px) {
+/* O ☰ é só para telas pequenas, onde o menu é uma gaveta que começa fechada.
+   No computador o menu abre passando o mouse, e o botão fica escondido. */
+@media (max-width: 768px) {
   .sidebar.active { width: 220px; }
-  body:has(.sidebar.active) .content { margin-left: 220px; width: calc(100% - 220px); }
-  body:has(.sidebar.active) .footer-custom { left: 220px; }
-
-  /* Posição no pé do trilho: em cima (top:12px) ele cobriria o brasão. */
-  .toggle-btn {
-    display: flex;
-    top: auto;
-    bottom: 54px;
-    left: 9px;
-    width: 42px;
-    height: 42px;
-  }
-  /* Reserva o espaço do botão para nenhum item do menu ficar embaixo dele. */
-  .sidebar { padding-bottom: 108px; }
 }
 
 /* --- estado RECOLHIDO (sem hover e sem .active) --- */
@@ -896,6 +884,16 @@ body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
 .sidebar:hover .nav-link,
 .sidebar.active .nav-link {
   justify-content: flex-start;
+}
+
+/* O style.css deixa o texto e o nome da prefeitura com opacity:0 e só zera
+   isso no :hover. Com o menu fixado pela classe .active o texto continuava
+   invisível até passar o mouse. Aqui os dois estados mostram o texto. */
+.sidebar:hover .nav-link span,
+.sidebar.active .nav-link span,
+.sidebar:hover .sidebar-header h2,
+.sidebar.active .sidebar-header h2 {
+  opacity: 1;
 }
 
 /* Acessibilidade: o contorno do foco não pode ser recortado pelo overflow. */

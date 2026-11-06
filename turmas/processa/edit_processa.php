@@ -49,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         sqlsrv_rollback(ch_db());
-        $erros[] = 'Não foi possível atualizar a turma.';
+        $detalhe = ch_erro_sql();
+        $erros[] = 'Não foi possível atualizar a turma.'
+                 . (ch_admin() && $detalhe !== '' ? ' Detalhe do banco: ' . $detalhe : '');
     }
 }

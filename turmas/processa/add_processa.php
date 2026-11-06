@@ -17,14 +17,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
 
-        $ok = ch_exec(
+        /* OUTPUT INSERTED.ID no próprio INSERT. Antes o código fazia
+           SELECT SCOPE_IDENTITY() em outra chamada, que no SQL Server é outro
+           lote/escopo e devolve NULL — a turma nunca era gravada. */
+        $novoId = ch_insert_id(
             'INSERT INTO TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ID_PERIODO, ID_PROFESSOR, CAPACIDADE)
+             OUTPUT INSERTED.ID
              VALUES (?, ?, ?, ?, ?, ?)',
             [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ID_PERIODO'],
              $d['ID_PROFESSOR'] > 0 ? $d['ID_PROFESSOR'] : null, $d['CAPACIDADE']]
         );
-
-        $novoId = $ok ? (int)ch_val('SELECT SCOPE_IDENTITY() AS ID') : 0;
+        $ok = $novoId > 0;
 
         if ($ok && $novoId > 0) {
             $ok = turma_equipe_salvar($novoId, $d['PROFESSORES'], $d['REGENTE']);
@@ -39,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         sqlsrv_rollback(ch_db());
-        $erros[] = 'Não foi possível salvar a turma.';
+        $detalhe = ch_erro_sql();
+        $erros[] = 'Não foi possível salvar a turma.'
+                 . (ch_admin() && $detalhe !== '' ? ' Detalhe do banco: ' . $detalhe : '');
     }
 }
