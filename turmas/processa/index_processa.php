@@ -39,12 +39,16 @@ if ($turmas) {
     $ids = array_map(function ($t) { return (int)$t['ID']; }, $turmas);
     $ph = implode(',', array_fill(0, count($ids), '?'));
     $membros = ch_rows(
-        "SELECT tp.ID_TURMA, tp.PAPEL, u.NOME
+        "SELECT tp.ID_TURMA, tp.PAPEL, tp.TURNO, u.NOME,
+                CONVERT(varchar(10), tp.DATA_FIM, 23) AS DATA_FIM
          FROM TB_TURMA_PROFESSORES tp
          INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
          WHERE tp.ID_TURMA IN ({$ph}) AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
-         ORDER BY CASE tp.PAPEL WHEN 'REGENTE' THEN 0 ELSE 1 END, u.NOME",
-        $ids
+           AND (tp.PAPEL <> 'SUBSTITUTO'
+                OR (? >= tp.DATA_INICIO AND ? <= tp.DATA_FIM))
+         ORDER BY CASE tp.PAPEL WHEN 'REGENTE' THEN 0 WHEN 'AUXILIAR' THEN 1 ELSE 2 END,
+                  CASE tp.TURNO WHEN 'MANHA' THEN 0 WHEN 'TARDE' THEN 1 ELSE 2 END, u.NOME",
+        array_merge($ids, [ch_hoje(), ch_hoje()])
     );
     foreach ($membros as $m) {
         $equipePorTurma[(int)$m['ID_TURMA']][] = $m;

@@ -12,7 +12,12 @@ da rede municipal (creches e escolas).
 - **Chamada diária** por turma, com Presente, Falta, Falta justificada e Atraso
 - **Confirmação única** por aluno/dia: depois de confirmada, a presença só muda por
   **retificação com motivo obrigatório** e histórico auditável
-- **Equipe por turma** com vários professores e um regente
+- **Equipe por turma** com vários professores, **um responsável por turno**
+  (manhã e tarde podem ser pessoas diferentes) e apoio que pode ficar o dia todo
+- **Substituto com prazo**: entra com data de início, data de fim e o professor
+  que está cobrindo; fora do prazo não vê a turma
+- **Saúde do aluno**: alergias, restrições alimentares e medicação, com alerta na
+  tela de chamada e no relatório impresso
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
@@ -131,18 +136,34 @@ O vínculo do **professor** é por turma: **Turmas → Editar → Equipe da turm
 Ao incluir o professor na equipe, ele já alcança a turma — não é obrigatório
 vínculo em `TB_ACESSO` para isso.
 
-## Equipe da turma (vários professores)
+## Equipe da turma (por turno, com substituto)
 
 Uma turma pode ter **quantos professores forem necessários**. Em
-**Turmas → Editar → Equipe da turma**:
+**Turmas → Editar → Equipe da turma**, cada linha diz quem é, o papel e o turno:
 
-- marque todos os professores que atendem a turma;
-- escolha **um regente** (se nenhum for escolhido, o primeiro marcado assume);
-- todos os marcados lançam chamada, registram observações e retificam presenças;
-- quem não está marcado **não vê** a turma.
+| Papel | Regra |
+|---|---|
+| **Responsável** | Um por turno. Pode haver um pela **manhã** e outro pela **tarde**. Quem é **integral** responde pelos dois, e por isso não divide a responsabilidade com alguém de turno específico. |
+| **Apoio** | Acompanha a turma sem ser o responsável. Em **integral**, é o professor de apoio que fica o dia todo. |
+| **Substituto** | Cobre um professor da equipe entre duas datas, com motivo. Herda o turno de quem substitui. |
+
+- O turno vem preenchido com o **turno de trabalho do professor** (cadastrado em
+  *Usuários*), mas pode ser mudado por turma: é padrão, não trava.
+- Todos os que estão na equipe lançam chamada, registram observações e retificam
+  presenças; quem não está **não vê** a turma.
+- O **substituto** só vê a turma dentro do prazo. Antes de começar e depois de
+  terminar, volta a não ver — sem precisar remover ninguém da equipe. Quem está
+  sendo coberto continua na equipe.
 
 Ao remover alguém da equipe, o vínculo é **desativado**, não apagado — o
 histórico do que a pessoa lançou permanece intacto.
+
+## Saúde do aluno
+
+Em **Alunos → Editar → Saúde e alimentação**: **alergias**, **restrições
+alimentares** e **medicação e cuidados de saúde**. O que estiver preenchido
+aparece no alto da tela de chamada, dentro do cartão do aluno, na ficha e no
+relatório anual impresso. Aluno sem registro não gera aviso.
 
 ## Chamada: confirmar uma vez, depois retificar
 
@@ -186,11 +207,11 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_USUARIOS` | gestão e professores |
 | `TB_ACESSO` | vínculo usuário ↔ unidade |
 | `TB_PERIODOS` | Manhã, Tarde, Integral |
-| `TB_TURMAS` | turmas por unidade e ano letivo (`ID_PROFESSOR` é legado, espelha o regente) |
+| `TB_TURMAS` | turmas por unidade e ano letivo (`ID_PROFESSOR` é legado, espelha um dos responsáveis) |
 | `TB_ALUNOS` | alunos e responsáveis |
 | `TB_FERIADOS` | feriados integrais e parciais |
 | `TB_CHAMADA` | presença por aluno/dia, com data e autor da confirmação |
-| `TB_TURMA_PROFESSORES` | equipe da turma (vários professores, um regente) |
+| `TB_TURMA_PROFESSORES` | equipe da turma: papel, turno e prazo do substituto |
 | `TB_CHAMADA_RETIFICACOES` | histórico de retificações, com motivo e autor |
 | `TB_OBSERVACOES` | observações de desenvolvimento |
 | `TB_RELATORIOS_ANUAIS` | parecer e encaminhamentos por aluno/ano |

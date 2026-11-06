@@ -16,7 +16,17 @@ if ($id <= 0) {
     exit;
 }
 
-$usuario = ch_row('SELECT * FROM TB_USUARIOS WHERE ID = ?', [$id]);
+/* CREATED e MODIFIED saem como TEXTO. O sqlsrv devolve objeto DateTime para
+   coluna datetime, e a tela faz substr((string)...): no SQL Server real isso
+   derrubava a página com "Object of class DateTime could not be converted to
+   string". Converter no SELECT é a regra do projeto para datas. */
+$usuario = ch_row(
+    'SELECT ID, NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, USUARIO, TURNO,
+            CONVERT(varchar(10), CREATED, 23)  AS CREATED,
+            CONVERT(varchar(10), MODIFIED, 23) AS MODIFIED
+     FROM TB_USUARIOS WHERE ID = ?',
+    [$id]
+);
 if (!$usuario) {
     ch_flash('Usuário não encontrado.', 'warning');
     header('Location: index.php');
@@ -30,6 +40,7 @@ $d = [
     'cpf'   => $usuario['CPF'],
     'nivel' => (int)$usuario['NIVEL'],
     'ativo' => (int)($usuario['ATIVO'] ?? 1),
+    'turno' => $usuario['TURNO'] ?? '',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -62,18 +73,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($senha !== '') {
             $ok = ch_exec(
                 'UPDATE TB_USUARIOS
-                    SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, MODIFIED = GETDATE()
+                    SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
                   WHERE ID = ?',
                 [$d['nome'], md5($senha), $d['nivel'], $d['cpf'],
-                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $id]
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
             );
         } else {
             $ok = ch_exec(
                 'UPDATE TB_USUARIOS
-                    SET NOME = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, MODIFIED = GETDATE()
+                    SET NOME = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
                   WHERE ID = ?',
                 [$d['nome'], $d['nivel'], $d['cpf'],
-                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $id]
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
             );
         }
         if ($ok) {

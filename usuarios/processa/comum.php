@@ -28,6 +28,11 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $d['ativo'] = !empty($post['ativo']) ? 1 : 0;
     $senha      = trim($post['senha'] ?? '');
 
+    /* Turno de trabalho. Só faz sentido para professor: diretor e administrador
+       não têm turno, e guardar um valor ali só confundiria a montagem da equipe. */
+    $turno = strtoupper(trim((string)($post['turno'] ?? '')));
+    $d['turno'] = ($d['nivel'] === 3 && isset(eq_turnos()[$turno])) ? $turno : null;
+
     if ($d['nome'] === '' || mb_strlen($d['nome']) < 3) {
         $erros[] = 'Informe o nome completo (ao menos 3 letras).';
     } elseif (mb_strlen($d['nome']) > 255) {
@@ -48,6 +53,12 @@ function usuario_validar($post, &$d, $idAtual = 0)
 
     if (!in_array($d['nivel'], [1, 2, 3], true)) {
         $erros[] = 'Escolha o nível de acesso.';
+    }
+
+    /* O turno é o padrão ao montar a equipe, não uma obrigação: deixamos em
+       branco quem ainda não teve o turno definido, e a gestão escolhe na turma. */
+    if ($d['nivel'] === 3 && $turno !== '' && !isset(eq_turnos()[$turno])) {
+        $erros[] = 'Turno inválido. Escolha manhã, tarde ou integral.';
     }
 
     if ($idAtual === 0 && $senha === '') {

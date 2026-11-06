@@ -66,6 +66,29 @@
     </div>
   </div>
 
+
+  <div class="card-escola mt-4">
+    <div class="card-escola-titulo"><i class="fas fa-heart-pulse"></i> Saúde e alimentação</div>
+    <div class="card-escola-corpo">
+      <p class="text-muted mb-3">
+        Preencha só o que a família informou ou o que consta no laudo. O que estiver aqui
+        aparece <strong>em destaque na tela de chamada</strong> e no relatório do aluno, para
+        quem está na sala ver antes de servir a merenda ou dar qualquer medicamento.
+        Deixe em branco quando não houver nada a registrar.
+      </p>
+      <div class="row g-3">
+<?php foreach (eq_saude_campos() as $campo => $def): ?>
+        <div class="form-group col-md-4">
+          <label class="fw-bold"><i class="fas <?= $def['icone'] ?> text-<?= $def['cor'] ?>"></i> <?= ch_h($def['rotulo']) ?></label>
+          <textarea class="form-control" name="<?= strtolower($campo) ?>" rows="4" maxlength="1000"
+                    placeholder="<?= $campo === 'ALERGIAS' ? 'Ex.: alergia a leite de vaca e a amendoim.' : ($campo === 'RESTRICOES_ALIMENTARES' ? 'Ex.: sem lactose.' : 'Ex.: usa bombinha em caso de crise.') ?>"><?= ch_h($d[$campo] ?? '') ?></textarea>
+          <small class="text-muted"><?= ch_h($def['ajuda']) ?></small>
+        </div>
+<?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+
   <div class="col-auto my-4">
     <a href="index.php" class="btn btn-outline-success">Cancelar</a>
     <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> <?= $rotuloBotao ?></button>

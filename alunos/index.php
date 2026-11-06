@@ -50,7 +50,13 @@
       <?php foreach ($alunos as $row): ?>
       <tr>
         <td><?= ch_h($row['MATRICULA']) ?></td>
-        <td><?= ch_h($row['NOME']) ?></td>
+        <td>
+          <?= ch_h($row['NOME']) ?>
+          <?php if (eq_tem_saude($row)): ?>
+            <i class="fas fa-heart-pulse text-<?= eq_tem_alergia($row) ? 'danger' : 'warning' ?>"
+               title="<?= ch_h(eq_saude_resumo($row)) ?>"></i>
+          <?php endif; ?>
+        </td>
         <td>
           <?= ch_h($row['TURMA']) ?><br><small class="text-muted"><?= ch_h($row['UNIDADE']) ?></small>
           <?php if ((int)$row['TRANSF_PENDENTE'] > 0): ?>

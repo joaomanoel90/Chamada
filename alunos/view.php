@@ -76,6 +76,23 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
   </div>
 </div>
 
+<?php if (eq_tem_saude($aluno)): ?>
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="fas fa-heart-pulse text-danger"></i> Saúde e alimentação</h5>
+        <?= eq_caixa_saude($aluno) ?>
+        <p class="text-muted small mb-0">
+          Informação registrada pela escola a partir do que a família informou.
+          Aparece também na tela de chamada e no relatório anual.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <div class="row g-3 mt-1">
   <div class="col-md-6">
     <div class="card border-0 shadow-sm rounded-4">

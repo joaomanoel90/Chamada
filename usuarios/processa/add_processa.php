@@ -22,10 +22,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$erros) {
         $ok = ch_exec(
-            'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, CREATED, USUARIO)
-             VALUES (?, ?, ?, ?, ?, ?, GETDATE(), ?)',
+            'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, TURNO, CREATED, USUARIO)
+             VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)',
             [$d['nome'], md5(trim($_POST['senha'])), $d['nivel'], $d['cpf'],
-             $d['email'] !== '' ? $d['email'] : null, $d['ativo'], ch_uid()]
+             $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], ch_uid()]
         );
         if ($ok) {
             ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');

@@ -212,11 +212,10 @@ function ch_turmas_ids()
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    $rows = ch_rows(
-        'SELECT ID_TURMA FROM TB_TURMA_PROFESSORES WHERE ID_USUARIO = ? AND ATIVO = 1',
-        [ch_uid()]
-    );
-    $cache = array_map(function ($r) { return (int)$r['ID_TURMA']; }, $rows ?: []);
+    /* Vai para inc/equipe.php: o substituto só alcança a turma dentro do prazo
+       da substituição. Como todas as telas de professor passam por aqui, o
+       prazo vale de uma vez para chamada, observações, relatório e retificação. */
+    $cache = eq_turmas_ids_em(ch_uid(), ch_hoje());
     return $cache;
 }
 
@@ -296,37 +295,22 @@ function ch_turma($idTurma)
 /** Equipe da turma: todos os professores ativos, regente primeiro. */
 function ch_turma_professores($idTurma)
 {
-    return ch_rows(
-        "SELECT tp.ID_USUARIO, tp.PAPEL, u.NOME
-         FROM TB_TURMA_PROFESSORES tp
-         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
-         WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
-         ORDER BY CASE tp.PAPEL WHEN 'REGENTE' THEN 0 ELSE 1 END, u.NOME",
-        [(int)$idTurma]
-    );
+    /* Só quem vale hoje: substituto com prazo vencido não aparece como equipe. */
+    return eq_equipe_em($idTurma, ch_hoje());
 }
 
 /** Nomes da equipe em uma linha, para exibição em listagens. */
 function ch_turma_equipe_texto($idTurma)
 {
-    $eq = ch_turma_professores($idTurma);
-    if (!$eq) return '';
-    $partes = [];
-    foreach ($eq as $m) {
-        $partes[] = $m['NOME'] . ($m['PAPEL'] === 'REGENTE' ? ' (regente)' : '');
-    }
-    return implode(', ', $partes);
+    /* Agora com papel e turno: "Ana (responsável · manhã), Bruno (apoio)". */
+    return eq_texto($idTurma, ch_hoje());
 }
 
 /** O usuário faz parte da equipe desta turma? */
 function ch_na_equipe($idTurma, $idUsuario = null)
 {
-    $idUsuario = $idUsuario === null ? ch_uid() : (int)$idUsuario;
-    if ($idUsuario <= 0) return false;
-    return (bool)ch_val(
-        'SELECT ID FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ? AND ATIVO = 1',
-        [(int)$idTurma, $idUsuario]
-    );
+    /* Mesmo motivo de ch_turmas_ids(): o prazo do substituto é conferido aqui. */
+    return eq_na_equipe_em($idTurma, $idUsuario, ch_hoje());
 }
 
 /** Acesso à turma: admin = todas; diretor = unidades vinculadas;
@@ -353,6 +337,7 @@ function ch_aluno($idAluno)
 {
     return ch_row(
         'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.EMAIL, a.ATIVO,
+                a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
                 CONVERT(varchar(10), a.NASCIMENTO, 23)     AS NASCIMENTO,
                 CONVERT(varchar(10), a.DATA_MATRICULA, 23) AS DATA_MATRICULA,
                 t.NOME AS TURMA, t.ANO_LETIVO, t.ID_UNIDADE, t.ID_PERIODO,
@@ -698,3 +683,9 @@ function ch_mes_nome($n)
    este de volta — não há ciclo.
    ============================================================================ */
 require_once(__DIR__ . '/transferencias.php');
+
+/* ============================================================================
+   EQUIPE POR TURNO, SUBSTITUTOS E SAÚDE
+   Mesmo arranjo: só define funções, não inclui este arquivo de volta.
+   ============================================================================ */
+require_once(__DIR__ . '/equipe.php');

@@ -8,31 +8,20 @@ ch_require_gestor();
 /** Valida os dados do formulário de turma. Devolve [dados, erros]. */
 function turma_validar($post, $idAtual = 0)
 {
-    /* Equipe: vários professores. O regente é um deles.
-       ID_PROFESSOR continua gravado como legado, sempre igual ao regente. */
-    $professores = array_values(array_unique(array_filter(
-        array_map('intval', (array)($post['professores'] ?? [])),
-        function ($v) { return $v > 0; }
-    )));
-    $regente = (int)($post['regente'] ?? 0);
-
-    /* Se a equipe foi preenchida e nenhum regente veio, assume o primeiro. */
-    if ($professores && !in_array($regente, $professores, true)) {
-        $regente = $professores[0];
-    }
-    if (!$professores) {
-        $regente = 0;
-    }
+    /* Equipe por turno: cada linha diz quem é, o papel e o turno que cobre.
+       O substituto ainda traz prazo e a quem está cobrindo.
+       ID_PROFESSOR continua gravado como legado: é o responsável que cobre o
+       turno da própria turma (ver eq_regente_legado). */
+    $equipe = eq_ler_post($post);
 
     $d = [
         'ID_UNIDADE'   => (int)($post['id_unidade'] ?? 0),
         'NOME'         => strip_tags(trim($post['nome'] ?? '')),
         'ANO_LETIVO'   => (int)($post['ano_letivo'] ?? 0),
         'ID_PERIODO'   => (int)($post['id_periodo'] ?? 0),
-        'ID_PROFESSOR' => $regente,
+        'ID_PROFESSOR' => 0,
         'CAPACIDADE'   => (int)($post['capacidade'] ?? 0),
-        'PROFESSORES'  => $professores,
-        'REGENTE'      => $regente,
+        'EQUIPE'       => $equipe,
     ];
     $e = [];
 
@@ -47,21 +36,16 @@ function turma_validar($post, $idAtual = 0)
     if ($d['ANO_LETIVO'] < 2000 || $d['ANO_LETIVO'] > 2100) {
         $e[] = 'Ano letivo inválido.';
     }
-    if (!ch_val('SELECT ID FROM TB_PERIODOS WHERE ID = ? AND ATIVO = 1', [$d['ID_PERIODO']])) {
+    $periodo = ch_row('SELECT ID, TURNO FROM TB_PERIODOS WHERE ID = ? AND ATIVO = 1', [$d['ID_PERIODO']]);
+    if (!$periodo) {
         $e[] = 'Selecione um período ativo.';
     }
 
-    /* Todos os professores precisam existir e estar ativos. */
-    if ($professores) {
-        $ph = implode(',', array_fill(0, count($professores), '?'));
-        $validos = ch_rows(
-            "SELECT ID FROM TB_USUARIOS WHERE ID IN ({$ph}) AND ISNULL(ATIVO, 1) = 1",
-            $professores
-        );
-        if (count($validos) !== count($professores)) {
-            $e[] = 'Há professor(a) inválido ou inativo na equipe.';
-        }
+    /* Quem está na equipe, com que papel, em que turno e por quanto tempo. */
+    foreach (eq_validar_equipe($equipe) as $msg) {
+        $e[] = $msg;
     }
+    $d['ID_PROFESSOR'] = eq_regente_legado($equipe, $periodo ? $periodo['TURNO'] : 'INTEGRAL');
 
     if ($d['CAPACIDADE'] < 1 || $d['CAPACIDADE'] > 500) {
         $e[] = 'A capacidade deve ficar entre 1 e 500.';
@@ -79,17 +63,25 @@ function turma_validar($post, $idAtual = 0)
     return [$d, $e];
 }
 
-/** Grava a equipe da turma. Deve ser chamado DENTRO de uma transação.
- *  Quem sai da equipe é desativado (não apagado), preservando o histórico. */
-function turma_equipe_salvar($idTurma, $professores, $regente)
+/**
+ * Grava a equipe da turma. Deve ser chamado DENTRO de uma transação.
+ * Quem sai da equipe é desativado (não apagado), preservando o histórico.
+ *
+ * A ordem importa: o índice único filtrado permite um responsável por
+ * (turma, turno). Antes de promover os novos responsáveis é preciso rebaixar
+ * os atuais, senão a troca de duas pessoas de turno bateria no índice no meio
+ * do caminho. Por isso o passo 2 rebaixa todos de uma vez.
+ */
+function turma_equipe_salvar($idTurma, $membros)
 {
     $idTurma = (int)$idTurma;
-    $professores = array_values(array_unique(array_map('intval', (array)$professores)));
+    $membros = array_values((array)$membros);
+    $ids = array_map(function ($m) { return (int)$m['ID_USUARIO']; }, $membros);
 
-    /* Desativa quem não está mais na equipe. */
+    /* 1. Desativa quem não está mais na equipe. */
     $atuais = ch_rows('SELECT ID_USUARIO FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ATIVO = 1', [$idTurma]);
-    foreach ($atuais as $a) {
-        if (!in_array((int)$a['ID_USUARIO'], $professores, true)) {
+    foreach ($atuais ?: [] as $a) {
+        if (!in_array((int)$a['ID_USUARIO'], $ids, true)) {
             if (!ch_exec('UPDATE TB_TURMA_PROFESSORES SET ATIVO = 0 WHERE ID_TURMA = ? AND ID_USUARIO = ?',
                          [$idTurma, (int)$a['ID_USUARIO']])) {
                 return false;
@@ -97,25 +89,43 @@ function turma_equipe_salvar($idTurma, $professores, $regente)
         }
     }
 
-    /* Primeiro zera o regente atual: o índice único filtrado só permite um
-       regente ativo por turma, então não dá para promover o novo antes. */
-    if ($professores) {
-        if (!ch_exec("UPDATE TB_TURMA_PROFESSORES SET PAPEL = 'AUXILIAR' WHERE ID_TURMA = ? AND PAPEL = 'REGENTE'",
-                     [$idTurma])) {
-            return false;
-        }
+    /* 2. Libera os turnos: nenhum responsável ativo até o passo 3.
+       Só REGENTE é rebaixado — mexer no papel de um SUBSTITUTO esbarraria na
+       CHECK que exige prazo para quem é substituto. */
+    if (!ch_exec("UPDATE TB_TURMA_PROFESSORES SET PAPEL = 'AUXILIAR'
+                  WHERE ID_TURMA = ? AND PAPEL = 'REGENTE' AND ATIVO = 1", [$idTurma])) {
+        return false;
     }
 
-    foreach ($professores as $idUsuario) {
-        $papel = ($idUsuario === (int)$regente) ? 'REGENTE' : 'AUXILIAR';
+    /* 3. Grava cada um com papel, turno e, quando for o caso, o prazo. */
+    foreach ($membros as $m) {
+        $papel = $m['PAPEL'];
+        $ehSub = $papel === 'SUBSTITUTO';
+        $subst = $ehSub ? (int)$m['ID_SUBSTITUIDO'] : null;
+        $ini   = $ehSub ? $m['DATA_INICIO'] : null;
+        $fim   = $ehSub ? $m['DATA_FIM'] : null;
+        $mot   = $ehSub ? $m['MOTIVO'] : null;
+
         $existe = ch_val('SELECT ID FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ?',
-                         [$idTurma, $idUsuario]);
+                         [$idTurma, (int)$m['ID_USUARIO']]);
         if ($existe) {
-            $ok = ch_exec('UPDATE TB_TURMA_PROFESSORES SET PAPEL = ?, ATIVO = 1 WHERE ID = ?',
-                          [$papel, (int)$existe]);
+            /* Os campos de substituição vão na MESMA sentença: deixar para
+               depois violaria a CHECK, que exige prazo em substituto e proíbe
+               prazo em quem não é. */
+            $ok = ch_exec(
+                'UPDATE TB_TURMA_PROFESSORES
+                    SET PAPEL = ?, TURNO = ?, ID_SUBSTITUIDO = ?, DATA_INICIO = ?, DATA_FIM = ?,
+                        MOTIVO = ?, ATIVO = 1
+                  WHERE ID = ?',
+                [$papel, $m['TURNO'], $subst, $ini, $fim, $mot, (int)$existe]
+            );
         } else {
-            $ok = ch_exec('INSERT INTO TB_TURMA_PROFESSORES (ID_TURMA, ID_USUARIO, PAPEL, ATIVO) VALUES (?, ?, ?, 1)',
-                          [$idTurma, $idUsuario, $papel]);
+            $ok = ch_exec(
+                'INSERT INTO TB_TURMA_PROFESSORES
+                    (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO, ATIVO)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+                [$idTurma, (int)$m['ID_USUARIO'], $papel, $m['TURNO'], $subst, $ini, $fim, $mot]
+            );
         }
         if (!$ok) return false;
     }
@@ -125,15 +135,19 @@ function turma_equipe_salvar($idTurma, $professores, $regente)
 /** Equipe atual, para preencher o formulário de edição. */
 function turma_equipe_atual($idTurma)
 {
-    $eq = ch_rows('SELECT ID_USUARIO, PAPEL FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ATIVO = 1',
-                  [(int)$idTurma]);
-    $professores = [];
-    $regente = 0;
-    foreach ($eq as $m) {
-        $professores[] = (int)$m['ID_USUARIO'];
-        if ($m['PAPEL'] === 'REGENTE') $regente = (int)$m['ID_USUARIO'];
+    $equipe = [];
+    foreach (eq_equipe($idTurma) as $m) {
+        $equipe[] = [
+            'ID_USUARIO'     => (int)$m['ID_USUARIO'],
+            'PAPEL'          => $m['PAPEL'],
+            'TURNO'          => $m['TURNO'],
+            'ID_SUBSTITUIDO' => (int)($m['ID_SUBSTITUIDO'] ?? 0),
+            'DATA_INICIO'    => (string)($m['DATA_INICIO'] ?? ''),
+            'DATA_FIM'       => (string)($m['DATA_FIM'] ?? ''),
+            'MOTIVO'         => (string)($m['MOTIVO'] ?? ''),
+        ];
     }
-    return ['PROFESSORES' => $professores, 'REGENTE' => $regente];
+    return ['EQUIPE' => $equipe];
 }
 
 /** Opções dos selects do formulário. */
@@ -141,7 +155,7 @@ function turma_opcoes()
 {
     return [
         'unidades' => ch_unidades_opcoes(),
-        'periodos' => ch_rows('SELECT ID, NOME, HORA_INICIO, HORA_FIM FROM TB_PERIODOS WHERE ATIVO = 1 ORDER BY HORA_INICIO'),
-        'professores' => ch_rows('SELECT ID, NOME, NIVEL FROM TB_USUARIOS WHERE ISNULL(ATIVO, 1) = 1 ORDER BY NOME'),
+        'periodos' => ch_rows('SELECT ID, NOME, HORA_INICIO, HORA_FIM, TURNO FROM TB_PERIODOS WHERE ATIVO = 1 ORDER BY HORA_INICIO'),
+        'professores' => eq_professores_opcoes(),
     ];
 }

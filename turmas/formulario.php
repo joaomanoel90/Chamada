@@ -1,4 +1,107 @@
+<?php
+/* ============================================================================
+   FORMULÁRIO DE TURMA
+   ----------------------------------------------------------------------------
+   A equipe deixou de ser "marque os professores e escolha um regente". Agora
+   cada linha diz QUEM, com que PAPEL e em que TURNO — porque uma turma pode ter
+   uma responsável de manhã e outra de tarde, com o professor de apoio o dia
+   todo. O substituto entra na mesma lista, com prazo e dizendo a quem cobre.
+
+   Usado por add.php e edit.php. Espera $d, $op, $erros, $acao, $rotuloBotao.
+   ============================================================================ */
+
+/** Uma linha da equipe. Serve tanto para quem já está na turma quanto para o
+ *  modelo em branco que o JavaScript clona ao adicionar alguém. */
+function turma_linha_equipe($m, $op)
+{
+    $m = array_merge([
+        'ID_USUARIO' => 0, 'PAPEL' => 'AUXILIAR', 'TURNO' => '',
+        'ID_SUBSTITUIDO' => 0, 'DATA_INICIO' => '', 'DATA_FIM' => '', 'MOTIVO' => '',
+    ], (array)$m);
+    $ehSub = $m['PAPEL'] === 'SUBSTITUTO';
+    ob_start();
+    ?>
+    <div class="linha-equipe" data-linha-equipe>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-4">
+          <label class="fw-bold small">Professor(a)</label>
+          <select name="eq_prof[]" class="form-select eq-prof">
+            <option value="">Selecione...</option>
+            <?php foreach ($op['professores'] as $pr): ?>
+              <option value="<?= (int)$pr['ID'] ?>"
+                      data-turno="<?= ch_h($pr['TURNO'] ?? '') ?>"
+                      data-nome="<?= ch_h($pr['NOME']) ?>"
+                      <?= (int)$m['ID_USUARIO'] === (int)$pr['ID'] ? 'selected' : '' ?>>
+                <?= ch_h($pr['NOME']) ?><?= $pr['TURNO'] ? ' — ' . ch_h(eq_turno_rotulo($pr['TURNO'])) : '' ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-6 col-lg-3">
+          <label class="fw-bold small">Papel</label>
+          <select name="eq_papel[]" class="form-select eq-papel">
+            <?php foreach (eq_papeis() as $sigla => $rotulo): ?>
+              <option value="<?= $sigla ?>" <?= $m['PAPEL'] === $sigla ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-6 col-lg-3">
+          <label class="fw-bold small">Turno nesta turma</label>
+          <select name="eq_turno[]" class="form-select eq-turno">
+            <?php foreach (eq_turnos() as $sigla => $rotulo): ?>
+              <option value="<?= $sigla ?>" <?= $m['TURNO'] === $sigla ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-12 col-lg-2 text-lg-end">
+          <button type="button" class="btn btn-outline-danger btn-sm eq-remover w-100">
+            <i class="fas fa-trash"></i> Remover
+          </button>
+        </div>
+      </div>
+
+      <div class="eq-subst mt-2" <?= $ehSub ? '' : 'hidden' ?>>
+        <div class="eq-subst-caixa">
+          <div class="row g-2">
+            <div class="col-12 col-lg-4">
+              <label class="fw-bold small">Substitui quem?</label>
+              <select name="eq_subst[]" class="form-select eq-coberto">
+                <option value="">Selecione...</option>
+                <?php foreach ($op['professores'] as $pr): ?>
+                  <option value="<?= (int)$pr['ID'] ?>" <?= (int)$m['ID_SUBSTITUIDO'] === (int)$pr['ID'] ? 'selected' : '' ?>>
+                    <?= ch_h($pr['NOME']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-6 col-lg-2">
+              <label class="fw-bold small">De</label>
+              <input type="date" name="eq_ini[]" class="form-control eq-ini" value="<?= ch_h($m['DATA_INICIO']) ?>">
+            </div>
+            <div class="col-6 col-lg-2">
+              <label class="fw-bold small">Até</label>
+              <input type="date" name="eq_fim[]" class="form-control eq-fim" value="<?= ch_h($m['DATA_FIM']) ?>">
+            </div>
+            <div class="col-12 col-lg-4">
+              <label class="fw-bold small">Motivo</label>
+              <input type="text" name="eq_motivo[]" class="form-control eq-motivo" maxlength="300"
+                     value="<?= ch_h($m['MOTIVO']) ?>" placeholder="Licença, férias, afastamento...">
+            </div>
+          </div>
+          <div class="form-text mt-1">
+            <i class="fas fa-circle-info"></i>
+            Só entre <strong>De</strong> e <strong>Até</strong> o substituto vê esta turma e lança chamada.
+            Fora desse prazo ele volta a não ver. Quem está sendo substituído continua na equipe.
+          </div>
+        </div>
+      </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+?>
 <form action="<?= $acao ?>" method="post" id="form-turma">
+  <?= ch_csrf_campo() ?>
   <?php if ($id ?? 0): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
 
   <?php if ($erros): ?>
@@ -29,14 +132,15 @@
         </div>
         <div class="form-group col-md-4">
           <label class="fw-bold">Período</label>
-          <select name="id_periodo" class="form-select" required>
+          <select name="id_periodo" id="id_periodo" class="form-select" required>
             <option value="">Selecione...</option>
             <?php foreach ($op['periodos'] as $p): ?>
-              <option value="<?= (int)$p['ID'] ?>" <?= (int)$d['ID_PERIODO'] === (int)$p['ID'] ? 'selected' : '' ?>>
+              <option value="<?= (int)$p['ID'] ?>" data-turno="<?= ch_h($p['TURNO']) ?>" <?= (int)$d['ID_PERIODO'] === (int)$p['ID'] ? 'selected' : '' ?>>
                 <?= ch_h($p['NOME']) ?> (<?= ch_h($p['HORA_INICIO']) ?>–<?= ch_h($p['HORA_FIM']) ?>)
               </option>
             <?php endforeach; ?>
           </select>
+          <small class="text-muted">O turno do período é a referência da equipe.</small>
         </div>
         <div class="form-group col-md-3">
           <label class="fw-bold">Capacidade</label>
@@ -49,54 +153,49 @@
   <div class="card-escola mb-4">
     <div class="card-escola-titulo">
       <i class="fas fa-people-group"></i> Equipe da turma
-      <span class="ms-auto badge bg-light text-dark" id="contador-equipe">0 selecionado(s)</span>
+      <span class="ms-auto badge bg-light text-dark" id="contador-equipe">0 na equipe</span>
     </div>
     <div class="card-escola-corpo">
       <p class="text-muted mb-3">
-        Marque <strong>todos os professores</strong> que atendem esta turma e escolha
-        <strong>um regente</strong>. Todos os marcados poderão lançar a chamada e
-        retificar presenças; quem não estiver marcado não verá a turma.
+        Cada professor entra com o <strong>papel</strong> e o <strong>turno</strong> que cobre nesta turma.
+        Pode haver <strong>um responsável pela manhã e outro pela tarde</strong>; quem fica em
+        <strong>integral</strong> responde pelos dois turnos. O <strong>apoio</strong> acompanha a turma
+        sem ser o responsável — e pode ficar o dia todo.
       </p>
 
-      <input type="text" class="form-control mb-3" id="busca-professor"
-             placeholder="Buscar professor pelo nome..." autocomplete="off">
+      <div class="alert alert-light border mb-3 py-2 small">
+        <i class="fas fa-circle-info text-primary"></i>
+        O turno vem preenchido com o turno de trabalho do professor, mas <strong>pode ser mudado aqui</strong>:
+        é a turma que manda. Todos os que estiverem na lista lançam chamada e retificam presença.
+      </div>
 
       <?php if (!$op['professores']): ?>
         <div class="alert alert-warning mb-0">
-          Nenhum usuário ativo. Cadastre professores em <strong>Usuários</strong> primeiro.
+          Nenhum professor ativo. Cadastre professores em <strong>Usuários</strong> primeiro.
         </div>
       <?php else: ?>
-      <div class="lista-equipe" id="lista-equipe">
-        <?php foreach ($op['professores'] as $pr):
-            $pid = (int)$pr['ID'];
-            $naEquipe = in_array($pid, array_map('intval', (array)($d['PROFESSORES'] ?? [])), true);
-            $ehRegente = (int)($d['REGENTE'] ?? 0) === $pid;
-            $iniciais = ch_iniciais($pr['NOME']);
+
+      <div id="lista-equipe">
+        <?php
+        $equipeAtual = (array)($d['EQUIPE'] ?? []);
+        foreach ($equipeAtual as $m) {
+            echo turma_linha_equipe($m, $op);
+        }
         ?>
-        <div class="item-equipe <?= $naEquipe ? 'ativo' : '' ?>" data-nome="<?= ch_h(mb_strtolower($pr['NOME'])) ?>">
-          <label class="item-equipe-check">
-            <input type="checkbox" name="professores[]" value="<?= $pid ?>"
-                   class="form-check-input chk-prof" <?= $naEquipe ? 'checked' : '' ?>>
-            <span class="avatar-prof"><?= ch_h($iniciais) ?></span>
-            <span class="item-equipe-nome">
-              <?= ch_h($pr['NOME']) ?>
-              <?php if ((int)$pr['NIVEL'] !== 3): ?>
-                <small class="text-muted">· gestão</small>
-              <?php endif; ?>
-            </span>
-          </label>
-          <label class="item-equipe-regente" title="Definir como regente">
-            <input type="radio" name="regente" value="<?= $pid ?>" class="form-check-input rad-regente"
-                   <?= $ehRegente ? 'checked' : '' ?> <?= $naEquipe ? '' : 'disabled' ?>>
-            <span>Regente</span>
-          </label>
-        </div>
-        <?php endforeach; ?>
       </div>
-      <div class="form-text mt-2">
-        <i class="fas fa-circle-info"></i>
-        Se nenhum regente for escolhido, o primeiro professor marcado assume o papel.
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button" class="btn btn-outline-success" id="add-linha-equipe">
+          <i class="fas fa-plus"></i> Adicionar professor
+        </button>
+        <button type="button" class="btn btn-outline-danger" id="add-linha-substituto">
+          <i class="fas fa-user-clock"></i> Adicionar substituto
+        </button>
       </div>
+
+      <div class="alert alert-warning mt-3 mb-0" id="aviso-equipe" hidden></div>
+
+      <template id="modelo-linha-equipe"><?= turma_linha_equipe([], $op) ?></template>
       <?php endif; ?>
     </div>
   </div>
@@ -111,38 +210,163 @@
 (function () {
   var lista = document.getElementById('lista-equipe');
   if (!lista) return;
-  var busca = document.getElementById('busca-professor');
+  var modelo = document.getElementById('modelo-linha-equipe');
   var contador = document.getElementById('contador-equipe');
+  var aviso = document.getElementById('aviso-equipe');
+  var periodo = document.getElementById('id_periodo');
+
+  function turnoDaTurma() {
+    if (!periodo) return 'INTEGRAL';
+    var o = periodo.options[periodo.selectedIndex];
+    return (o && o.getAttribute('data-turno')) || 'INTEGRAL';
+  }
+
+  function cobre(t) { return t === 'INTEGRAL' ? ['MANHA', 'TARDE'] : [t]; }
+
+  function sobrepoe(a, b) {
+    return cobre(a).some(function (x) { return cobre(b).indexOf(x) !== -1; });
+  }
+
+  /* Quem pode ser substituído: os membros fixos da própria equipe. Assim a
+     lista não oferece gente de fora, que o servidor recusaria. */
+  function membrosFixos() {
+    var r = [];
+    lista.querySelectorAll('[data-linha-equipe]').forEach(function (linha) {
+      var prof = linha.querySelector('.eq-prof');
+      var papel = linha.querySelector('.eq-papel');
+      if (prof.value && papel.value !== 'SUBSTITUTO') {
+        var o = prof.options[prof.selectedIndex];
+        r.push({ id: prof.value, nome: o.getAttribute('data-nome') || o.textContent.trim(),
+                 turno: linha.querySelector('.eq-turno').value });
+      }
+    });
+    return r;
+  }
 
   function atualizar() {
-    var marcados = 0;
-    lista.querySelectorAll('.item-equipe').forEach(function (item) {
-      var chk = item.querySelector('.chk-prof');
-      var rad = item.querySelector('.rad-regente');
-      item.classList.toggle('ativo', chk.checked);
-      rad.disabled = !chk.checked;
-      if (!chk.checked && rad.checked) rad.checked = false;
-      if (chk.checked) marcados++;
+    var fixos = membrosFixos();
+    var total = 0;
+
+    lista.querySelectorAll('[data-linha-equipe]').forEach(function (linha) {
+      var prof = linha.querySelector('.eq-prof');
+      var papel = linha.querySelector('.eq-papel');
+      var turno = linha.querySelector('.eq-turno');
+      var bloco = linha.querySelector('.eq-subst');
+      var ehSub = papel.value === 'SUBSTITUTO';
+      if (prof.value) total++;
+
+      bloco.hidden = !ehSub;
+      linha.classList.toggle('eh-substituto', ehSub);
+
+      if (ehSub) {
+        /* Só oferece quem está na equipe como responsável ou apoio. */
+        var sel = linha.querySelector('.eq-coberto');
+        var atual = sel.value;
+        sel.innerHTML = '<option value="">Selecione...</option>';
+        fixos.forEach(function (f) {
+          var op = document.createElement('option');
+          op.value = f.id; op.textContent = f.nome;
+          if (f.id === atual) op.selected = true;
+          sel.appendChild(op);
+        });
+        /* O substituto cobre o turno de quem substitui — não escolhe o dele. */
+        var escolhido = fixos.filter(function (f) { return f.id === sel.value; })[0];
+        if (escolhido) turno.value = escolhido.turno;
+        turno.disabled = true;
+      } else {
+        turno.disabled = false;
+      }
     });
-    /* Garante que sempre haja um regente quando a equipe não está vazia. */
-    if (marcados > 0 && !lista.querySelector('.rad-regente:checked')) {
-      var primeiro = lista.querySelector('.chk-prof:checked');
-      if (primeiro) primeiro.closest('.item-equipe').querySelector('.rad-regente').checked = true;
+
+    contador.textContent = total + ' na equipe';
+    conferirResponsaveis();
+  }
+
+  /* Aviso imediato quando dois responsáveis ficariam no mesmo turno.
+     O servidor confere de novo — isto é só para não deixar salvar à toa. */
+  function conferirResponsaveis() {
+    var resp = [];
+    lista.querySelectorAll('[data-linha-equipe]').forEach(function (linha) {
+      var prof = linha.querySelector('.eq-prof');
+      var papel = linha.querySelector('.eq-papel');
+      if (!prof.value || papel.value !== 'REGENTE') return;
+      var o = prof.options[prof.selectedIndex];
+      resp.push({ nome: o.getAttribute('data-nome') || o.textContent.trim(),
+                  turno: linha.querySelector('.eq-turno').value });
+    });
+
+    var msgs = [];
+    for (var i = 0; i < resp.length; i++) {
+      for (var j = i + 1; j < resp.length; j++) {
+        if (sobrepoe(resp[i].turno, resp[j].turno)) {
+          msgs.push(resp[i].nome + ' e ' + resp[j].nome +
+                    ' ficariam responsáveis pelo mesmo turno. Só pode haver um por turno.');
+        }
+      }
     }
-    contador.textContent = marcados + ' selecionado(s)';
+    if (resp.length === 0) {
+      msgs.push('Nenhum responsável definido. Escolha quem responde pela turma em cada turno.');
+    }
+    if (msgs.length) {
+      aviso.hidden = false;
+      aviso.innerHTML = '<i class="fas fa-triangle-exclamation"></i> ' + msgs.join('<br>');
+    } else {
+      aviso.hidden = true;
+      aviso.innerHTML = '';
+    }
   }
 
-  lista.addEventListener('change', atualizar);
+  /* Ao escolher o professor, o turno de trabalho dele entra como padrão.
+     Se a gestão já mexeu no turno daquela linha, a escolha dela é respeitada. */
+  lista.addEventListener('change', function (ev) {
+    var alvo = ev.target;
+    if (alvo.classList.contains('eq-turno')) {
+      var linha = alvo.closest('[data-linha-equipe]');
+      if (linha) linha.setAttribute('data-turno-mexido', '1');
+    }
+    if (alvo.classList.contains('eq-prof')) {
+      var l = alvo.closest('[data-linha-equipe]');
+      if (l && !l.getAttribute('data-turno-mexido')) {
+        var o = alvo.options[alvo.selectedIndex];
+        var t = o ? o.getAttribute('data-turno') : '';
+        l.querySelector('.eq-turno').value = t || turnoDaTurma();
+      }
+    }
+    atualizar();
+  });
 
-  if (busca) {
-    busca.addEventListener('input', function () {
-      var termo = busca.value.trim().toLowerCase();
-      lista.querySelectorAll('.item-equipe').forEach(function (item) {
-        item.style.display = item.getAttribute('data-nome').indexOf(termo) !== -1 ? '' : 'none';
-      });
-    });
+  lista.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.eq-remover');
+    if (!btn) return;
+    var linha = btn.closest('[data-linha-equipe]');
+    if (linha) linha.remove();
+    atualizar();
+  });
+
+  function novaLinha(papel) {
+    var frag = modelo.content.cloneNode(true);
+    var linha = frag.querySelector('[data-linha-equipe]');
+    if (papel) linha.querySelector('.eq-papel').value = papel;
+    linha.querySelector('.eq-turno').value = turnoDaTurma();
+    lista.appendChild(frag);
+    atualizar();
+    var sel = lista.lastElementChild.querySelector('.eq-prof');
+    if (sel) sel.focus();
   }
 
+  document.getElementById('add-linha-equipe').addEventListener('click', function () { novaLinha('AUXILIAR'); });
+  document.getElementById('add-linha-substituto').addEventListener('click', function () { novaLinha('SUBSTITUTO'); });
+
+  /* Um turno disabled não é enviado no POST. Antes de submeter, liberamos
+     todos: o servidor já força o turno do substituto para o de quem ele cobre. */
+  document.getElementById('form-turma').addEventListener('submit', function () {
+    lista.querySelectorAll('.eq-turno').forEach(function (s) { s.disabled = false; });
+  });
+
+  if (periodo) periodo.addEventListener('change', atualizar);
+
+  /* Turma nova já abre com uma linha em branco, para não parecer vazio. */
+  if (!lista.querySelector('[data-linha-equipe]')) novaLinha('REGENTE');
   atualizar();
 })();
 </script>

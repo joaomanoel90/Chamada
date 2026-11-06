@@ -49,11 +49,23 @@
         <div class="painel-turma-equipe">
           <?php foreach ($equipe as $m): ?>
             <span class="avatar-prof avatar-mini <?= $m['PAPEL'] === 'REGENTE' ? 'regente' : '' ?>"
-                  title="<?= ch_h($m['NOME']) ?><?= $m['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?>">
+                  title="<?= ch_h($m['NOME']) ?> — <?= ch_h(eq_papel_rotulo($m['PAPEL'])) ?> · <?= ch_h(eq_turno_rotulo($m['TURNO'])) ?>">
               <?= ch_h(ch_iniciais($m['NOME'])) ?>
             </span>
           <?php endforeach; ?>
           <small><?= count($equipe) ?> professor(a/es) na equipe</small>
+        </div>
+        <?php endif; ?>
+        <?php if ($substitutos): ?>
+        <div class="mt-2">
+          <?php foreach ($substitutos as $s): ?>
+            <span class="badge bg-danger">
+              <i class="fas fa-user-clock"></i>
+              <?= ch_h($s['NOME']) ?> substitui <?= ch_h($s['NOME_SUBSTITUIDO']) ?>
+              · <?= ch_h(eq_turno_rotulo($s['TURNO'])) ?>
+              <?= $s['DATA_FIM'] ? ' até ' . ch_h(ch_data_br($s['DATA_FIM'])) : '' ?>
+            </span>
+          <?php endforeach; ?>
         </div>
         <?php endif; ?>
       </div>
@@ -71,6 +83,17 @@
   <?php if ($bloqueio): ?>
     <div class="alert alert-warning">
       <i class="fas fa-triangle-exclamation"></i> <strong>Chamada bloqueada.</strong> <?= ch_h($bloqueio) ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($comSaude): ?>
+    <div class="alert alert-danger eq-aviso-turma">
+      <h3 class="h6 mb-2"><i class="fas fa-heart-pulse"></i> Atenção à saúde de <?= count($comSaude) ?> aluno(s) desta turma</h3>
+      <ul class="mb-0 small">
+        <?php foreach ($comSaude as $a): ?>
+          <li><strong><?= ch_h($a['NOME']) ?></strong> — <?= ch_h(eq_saude_resumo($a)) ?></li>
+        <?php endforeach; ?>
+      </ul>
     </div>
   <?php endif; ?>
 
@@ -124,6 +147,7 @@
               <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
             </a>
           </div>
+          <?= eq_caixa_saude($a, true) ?>
           <div class="cartao-aluno-status">
             <?php foreach (ch_status_lista() as $sigla => $info): ?>
               <input type="radio" class="btn-check" name="status[<?= (int)$a['ID'] ?>]"
@@ -177,6 +201,7 @@
           </a>
         </div>
 
+        <?= eq_caixa_saude($a, true) ?>
         <div class="cartao-aluno-confirmado">
           <span class="selo-status status-<?= ch_h($a['STATUS']) ?>">
             <i class="fas <?= $info['icone'] ?>"></i> <?= ch_h($info['rotulo']) ?>

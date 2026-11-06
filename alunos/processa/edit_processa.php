@@ -25,9 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sqlsrv_begin_transaction(ch_db());
         $ok = ch_exec(
             'UPDATE TB_ALUNOS SET MATRICULA = ?, NOME = ?, NASCIMENTO = ?,
-                    DATA_MATRICULA = ?, RESPONSAVEL = ?, TELEFONE = ?, EMAIL = ? WHERE ID = ?',
+                    DATA_MATRICULA = ?, RESPONSAVEL = ?, TELEFONE = ?, EMAIL = ?,
+                    ALERGIAS = ?, RESTRICOES_ALIMENTARES = ?, MEDICACAO = ? WHERE ID = ?',
             [$d['MATRICULA'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
-             $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null, $id]
+             $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
+             $d['ALERGIAS'] !== '' ? $d['ALERGIAS'] : null,
+             $d['RESTRICOES_ALIMENTARES'] !== '' ? $d['RESTRICOES_ALIMENTARES'] : null,
+             $d['MEDICACAO'] !== '' ? $d['MEDICACAO'] : null, $id]
         );
         if ($ok) {
             sqlsrv_commit(ch_db());

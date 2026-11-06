@@ -9,7 +9,8 @@ require_once(__DIR__ . '/salvar_processa.php');
 $erros = [];
 $turmasDisponiveis = aluno_turmas_disponiveis();
 $d = ['ID_TURMA' => (int)($_GET['turma_id'] ?? 0), 'MATRICULA' => '', 'NOME' => '', 'NASCIMENTO' => '',
-      'DATA_MATRICULA' => ch_hoje(), 'RESPONSAVEL' => '', 'TELEFONE' => '', 'EMAIL' => ''];
+      'DATA_MATRICULA' => ch_hoje(), 'RESPONSAVEL' => '', 'TELEFONE' => '', 'EMAIL' => '',
+      'ALERGIAS' => '', 'RESTRICOES_ALIMENTARES' => '', 'MEDICACAO' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -20,10 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
         $ok = ch_exec(
-            'INSERT INTO TB_ALUNOS (ID_TURMA, MATRICULA, NOME, NASCIMENTO, DATA_MATRICULA, RESPONSAVEL, TELEFONE, EMAIL)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO TB_ALUNOS (ID_TURMA, MATRICULA, NOME, NASCIMENTO, DATA_MATRICULA, RESPONSAVEL, TELEFONE, EMAIL,
+                                    ALERGIAS, RESTRICOES_ALIMENTARES, MEDICACAO)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [$d['ID_TURMA'], $d['MATRICULA'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
-             $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null]
+             $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
+             $d['ALERGIAS'] !== '' ? $d['ALERGIAS'] : null,
+             $d['RESTRICOES_ALIMENTARES'] !== '' ? $d['RESTRICOES_ALIMENTARES'] : null,
+             $d['MEDICACAO'] !== '' ? $d['MEDICACAO'] : null]
         );
         if ($ok) {
             sqlsrv_commit(ch_db());

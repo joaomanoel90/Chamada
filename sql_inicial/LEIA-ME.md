@@ -12,13 +12,15 @@ se o seu banco tiver outro nome.
 | 4 | `POPULAR_DEMONSTRACAO.sql` | **Opcional.** Enche o banco com dados fictícios para você testar o sistema. |
 | 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. |
 | 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria a tabela e a view que faltam. Não altera nenhum dado existente. |
+| 7 | `ATUALIZAR_EQUIPE_SAUDE.sql` | **Só para quem já tinha o sistema instalado** antes do turno, do substituto e da ficha de saúde. Acrescenta colunas e troca a regra de responsável. Não apaga nenhum dado. |
 
-Os scripts 1, 2, 4 e 6 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4, 6 e 7 podem ser executados mais de uma vez sem duplicar nada.
 
-> **Já tem o sistema em uso?** Rode só o `ATUALIZAR_TRANSFERENCIAS.sql` e copie os
-> arquivos PHP novos. Ele é conferido antes de criar, pode rodar de novo sem
-> medo, e não mexe em aluno, chamada, observação nem parecer. Quem está
-> instalando do zero não precisa dele: o script 1 já traz a mesma seção.
+> **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
+> `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie os arquivos PHP novos. Os
+> dois são conferidos antes de criar, podem rodar de novo sem medo, e não mexem
+> em aluno, chamada, observação nem parecer. Quem está instalando do zero não
+> precisa deles: o script 1 já traz as duas seções.
 
 > **Se você recriar ou restaurar o banco**, rode o `CRIAR_LOGIN_APLICACAO.sql` de
 > novo. O login pertence ao servidor, mas o usuário pertence ao banco: depois de
@@ -44,7 +46,10 @@ Com a configuração padrão (3 unidades, 4 turmas por unidade, 18 alunos por tu
 |------|-----------|
 | Turmas (Berçário I e II, Maternal I e II) | 12 |
 | Alunos | 216 |
-| Professores (1 regente + 1 auxiliar por turma) | 24 |
+| Professores (1 responsável + 1 apoio por turma, todos com turno) | 24 |
+| Turma com responsável de manhã **e** responsável de tarde | 1 |
+| Substituto em andamento (com prazo e motivo) | 1 |
+| Alunos com alergia / restrição alimentar / medicação | 12 / 9 / 7 |
 | Diretores (1 por unidade) | 3 |
 | Feriados (2 deles **parciais**) | 15 |
 | Registros de chamada | ~13.000 |
@@ -126,6 +131,78 @@ vez de apagar: resolva aqueles registros e rode de novo.
 
 > Faça backup antes de rodar a limpeza em produção. O script é tudo-ou-nada e
 > desfaz a transação em caso de erro, mas backup é sempre o caminho seguro.
+
+---
+
+## Turno, substituto e saúde do aluno
+
+### Turno
+
+O turno — **manhã**, **tarde** ou **integral** — aparece em três lugares, e cada
+um serve para uma coisa:
+
+| Onde | Para que serve |
+|------|----------------|
+| **Períodos** | Classifica o horário de funcionamento da escola. |
+| **Usuários** (professor) | O turno de trabalho da pessoa. É o **padrão** ao montar a equipe. |
+| **Equipe da turma** | O turno que ela cobre **naquela turma**. Pode ser diferente do turno de trabalho. |
+
+O turno do professor não é uma trava: a gestão pode colocar uma professora da
+manhã para cobrir uma tarde. Diretor e administrador não têm turno.
+
+### Um responsável por turno
+
+Antes havia um único regente por turma. Agora a equipe é uma lista, e cada linha
+diz **quem**, com que **papel** e em que **turno**:
+
+- **Responsável** — responde pela turma naquele turno. Pode haver **um pela manhã
+  e outro pela tarde**. Quem é **integral** responde pelos dois turnos, e por
+  isso não pode dividir a responsabilidade com alguém de turno específico.
+- **Apoio** — acompanha a turma sem ser o responsável. É o caso do professor de
+  apoio que fica **o dia todo**: basta deixar o turno dele em integral.
+- **Substituto** — ver abaixo.
+
+Todos os que estão na equipe lançam chamada e retificam presença, como antes.
+
+### Substituto com prazo
+
+O substituto entra na mesma lista, com **data de início**, **data de fim**, o
+**professor que está cobrindo** e o **motivo**. As regras:
+
+- Ele cobre o **turno de quem substitui**, não o turno dele.
+- **Dentro** do prazo, vê a turma e tem os mesmos poderes de quem está cobrindo.
+- **Fora** do prazo — antes de começar ou depois de terminar — volta a não ver a
+  turma. Não é preciso lembrar de remover ninguém da equipe.
+- Quem está sendo substituído **continua** na equipe: a substituição soma, não
+  troca. O histórico dele não é afetado.
+- Duas substituições do mesmo professor não podem ter datas que se cruzem.
+
+O prazo é conferido no ponto único por onde o acesso do professor passa, então
+vale de uma vez para chamada, observações, relatório e retificação.
+
+### Saúde do aluno
+
+A ficha do aluno ganhou três campos de texto livre, para escrever como a família
+ou o laudo informou:
+
+- **Alergias**
+- **Restrições alimentares**
+- **Medicação e cuidados de saúde**
+
+O que estiver preenchido aparece:
+
+1. num **aviso vermelho no alto da tela de chamada**, com a lista dos alunos que
+   precisam de atenção — antes de a professora começar;
+2. dentro do **cartão de cada aluno** na chamada;
+3. na **ficha** do aluno;
+4. no **relatório anual**, inclusive **na impressão**, com moldura própria.
+
+Aluno sem nada registrado não gera aviso nenhum.
+
+> **Por que a saúde do relatório não usa o alerta colorido do Bootstrap:** o CSS
+> de impressão esconde `.alert` de propósito (é interface, não conteúdo). Se a
+> saúde usasse `.alert`, ela desapareceria do papel. Por isso existe um bloco
+> próprio, `.eq-saude-ficha`, que sai na tela e no PDF.
 
 ---
 

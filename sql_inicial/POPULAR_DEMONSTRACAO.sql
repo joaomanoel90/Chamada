@@ -597,7 +597,127 @@ BEGIN
                       WHERE r.ID_ALUNO = al.id AND r.ANO = @AnoLetivo);
     PRINT '  + relatórios anuais: ' + CAST(@@ROWCOUNT AS varchar(10));
 END
+/* ----------------------------------------------------------------------------
+   14. EQUIPE POR TURNO, SUBSTITUTO E SAÚDE
+       Faz a demonstração mostrar os recursos novos sem ninguém precisar
+       cadastrar nada: professor com turno, uma turma com responsável de manhã
+       e outro de tarde, apoio o dia todo, um substituto em andamento e alunos
+       com alergia registrada.
+   ---------------------------------------------------------------------------- */
 
+/* a) Turno de trabalho: o responsável no turno da turma; o apoio em INTEGRAL,
+      que é justamente o caso do professor de apoio que fica o dia todo. */
+UPDATE u SET u.TURNO = CASE WHEN p.papel = N'REGENTE' THEN per.TURNO ELSE N'INTEGRAL' END
+FROM dbo.TB_USUARIOS u
+INNER JOIN @planoProf p        ON p.cpf = u.CPF
+INNER JOIN @turmas t           ON t.ordem = p.turma_ordem
+INNER JOIN dbo.TB_TURMAS tt    ON tt.ID = t.id
+INNER JOIN dbo.TB_PERIODOS per ON per.ID = tt.ID_PERIODO
+WHERE u.TURNO IS NULL;
+PRINT '  + turno de trabalho definido para os professores';
+
+/* b) Turno que cada um cobre na turma. */
+UPDATE e SET e.TURNO = CASE WHEN e.PAPEL = N'REGENTE' THEN per.TURNO ELSE N'INTEGRAL' END
+FROM dbo.TB_TURMA_PROFESSORES e
+INNER JOIN @turmas t           ON t.id = e.ID_TURMA
+INNER JOIN dbo.TB_TURMAS tt    ON tt.ID = t.id
+INNER JOIN dbo.TB_PERIODOS per ON per.ID = tt.ID_PERIODO;
+
+/* c) Uma turma de período integral com UM responsável pela manhã e OUTRO pela
+      tarde. É o arranjo que a rede descreveu, e o que o índice novo permite. */
+DECLARE @turmaDoisTurnos int;
+SELECT TOP (1) @turmaDoisTurnos = t.id
+FROM @turmas t
+INNER JOIN dbo.TB_TURMAS tt    ON tt.ID = t.id
+INNER JOIN dbo.TB_PERIODOS per ON per.ID = tt.ID_PERIODO
+WHERE per.TURNO = N'INTEGRAL'
+ORDER BY t.ordem;
+
+IF @turmaDoisTurnos IS NOT NULL
+BEGIN
+    UPDATE dbo.TB_TURMA_PROFESSORES
+    SET TURNO = N'MANHA'
+    WHERE ID_TURMA = @turmaDoisTurnos AND PAPEL = N'REGENTE' AND ATIVO = 1;
+
+    UPDATE e SET e.PAPEL = N'REGENTE', e.TURNO = N'TARDE'
+    FROM dbo.TB_TURMA_PROFESSORES e
+    INNER JOIN @turmas t ON t.id = e.ID_TURMA
+    WHERE e.ID_TURMA = @turmaDoisTurnos AND e.ID_USUARIO = t.auxiliar AND e.ATIVO = 1;
+
+    PRINT '  + uma turma com responsável de manhã e responsável de tarde';
+END
+
+/* d) Um substituto EM ANDAMENTO: começou há uma semana, termina em duas.
+      Assim a tela de chamada já mostra o aviso e o substituto já entra. */
+DECLARE @turmaSubst int;
+SELECT TOP (1) @turmaSubst = t.id
+FROM @turmas t
+WHERE t.id <> ISNULL(@turmaDoisTurnos, 0)
+ORDER BY t.ordem;
+
+DECLARE @coberto int;
+SELECT @coberto = e.ID_USUARIO
+FROM dbo.TB_TURMA_PROFESSORES e
+WHERE e.ID_TURMA = @turmaSubst AND e.PAPEL = N'REGENTE' AND e.ATIVO = 1;
+
+DECLARE @turnoCoberto nvarchar(10);
+SELECT @turnoCoberto = e.TURNO
+FROM dbo.TB_TURMA_PROFESSORES e
+WHERE e.ID_TURMA = @turmaSubst AND e.ID_USUARIO = @coberto;
+
+/* O substituto é o responsável de outra turma: alguém que já existe e que
+   não está na equipe desta turma (a tela exigiria isso). */
+DECLARE @substituto int;
+SELECT TOP (1) @substituto = t.regente
+FROM @turmas t
+WHERE t.id <> ISNULL(@turmaDoisTurnos, 0) AND t.id <> ISNULL(@turmaSubst, 0)
+ORDER BY t.ordem DESC;
+
+IF @turmaSubst IS NOT NULL AND @coberto IS NOT NULL AND @substituto IS NOT NULL
+   AND @substituto <> @coberto
+   AND NOT EXISTS (SELECT 1 FROM dbo.TB_TURMA_PROFESSORES e
+                   WHERE e.ID_TURMA = @turmaSubst AND e.ID_USUARIO = @substituto)
+BEGIN
+    INSERT INTO dbo.TB_TURMA_PROFESSORES
+        (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO, ATIVO)
+    OUTPUT 'TB_TURMA_PROFESSORES', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+    VALUES (@turmaSubst, @substituto, N'SUBSTITUTO', ISNULL(@turnoCoberto, N'INTEGRAL'), @coberto,
+            DATEADD(DAY, -7, CAST(GETDATE() AS date)),
+            DATEADD(DAY, 14, CAST(GETDATE() AS date)),
+            N'Licença médica do professor titular.', 1);
+    PRINT '  + substituto em andamento criado';
+END
+
+/* e) Saúde de alguns alunos. O espaçamento pelos módulos abaixo espalha os
+      casos pelas turmas em vez de concentrar tudo na primeira. A maioria fica
+      sem registro, que também é um caso a demonstrar (sem alerta na tela). */
+UPDATE a SET a.ALERGIAS = CASE a.ID % 3
+        WHEN 0 THEN N'Alergia a leite de vaca (laudo de 12/03). Reação com placas na pele.'
+        WHEN 1 THEN N'Alergia a amendoim e a castanhas. Não oferecer nenhum alimento com traços.'
+        ELSE        N'Alergia a picada de abelha. Avisar a família imediatamente se ocorrer.'
+    END
+FROM dbo.TB_ALUNOS a
+INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_ALUNOS' AND d.REGISTRO_ID = a.ID
+WHERE a.ID % 17 = 0 AND a.ALERGIAS IS NULL;
+PRINT '  + alunos com alergia registrada: ' + CAST(@@ROWCOUNT AS varchar(10));
+
+UPDATE a SET a.RESTRICOES_ALIMENTARES = CASE a.ID % 2
+        WHEN 0 THEN N'Sem lactose. Merenda adaptada pela cozinha.'
+        ELSE        N'Sem glúten — doença celíaca. Não servir pão, massa ou biscoito comum.'
+    END
+FROM dbo.TB_ALUNOS a
+INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_ALUNOS' AND d.REGISTRO_ID = a.ID
+WHERE a.ID % 23 = 0 AND a.RESTRICOES_ALIMENTARES IS NULL;
+PRINT '  + alunos com restrição alimentar: ' + CAST(@@ROWCOUNT AS varchar(10));
+
+UPDATE a SET a.MEDICACAO = CASE a.ID % 2
+        WHEN 0 THEN N'Usa bombinha em caso de crise de asma. Guardada na coordenação.'
+        ELSE        N'Antialérgico conforme receita, em caso de reação. Receita na pasta da turma.'
+    END
+FROM dbo.TB_ALUNOS a
+INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_ALUNOS' AND d.REGISTRO_ID = a.ID
+WHERE a.ID % 29 = 0 AND a.MEDICACAO IS NULL;
+PRINT '  + alunos com medicação registrada: ' + CAST(@@ROWCOUNT AS varchar(10));
 COMMIT TRANSACTION;
 PRINT '';
 PRINT 'Concluído sem erros.';

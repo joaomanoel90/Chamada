@@ -10,9 +10,13 @@ $erros = [];
 $op = turma_opcoes();
 $d = ['ID_UNIDADE' => 0, 'NOME' => '', 'ANO_LETIVO' => (int)date('Y'),
       'ID_PERIODO' => 0, 'ID_PROFESSOR' => 0, 'CAPACIDADE' => 20,
-      'PROFESSORES' => [], 'REGENTE' => 0];
+      'EQUIPE' => []];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: add.php');
+        exit;
+    }
     [$d, $erros] = turma_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
@@ -30,12 +34,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok = $novoId > 0;
 
         if ($ok && $novoId > 0) {
-            $ok = turma_equipe_salvar($novoId, $d['PROFESSORES'], $d['REGENTE']);
+            $ok = turma_equipe_salvar($novoId, $d['EQUIPE']);
         }
 
         if ($ok && $novoId > 0) {
             sqlsrv_commit(ch_db());
-            $qtde = count($d['PROFESSORES']);
+            $qtde = count($d['EQUIPE']);
             ch_flash('Turma cadastrada com sucesso' .
                      ($qtde ? ' com ' . $qtde . ' professor(a/es) na equipe.' : '.'));
             header('Location: index.php');

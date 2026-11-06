@@ -45,6 +45,7 @@ if ($turmaId > 0) {
     /* CONFIRMADA_EM vira texto no banco: o driver sqlsrv devolveria DateTime. */
     $alunos = ch_rows(
         'SELECT a.ID, a.MATRICULA, a.NOME,
+                a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
                 c.ID AS ID_CHAMADA, c.STATUS, c.JUSTIFICATIVA,
                 CONVERT(varchar(16), c.CONFIRMADA_EM, 120) AS CONFIRMADA_EM,
                 uc.NOME AS CONFIRMADA_POR_NOME,
@@ -82,3 +83,14 @@ if ($turmaId > 0) {
 }
 $obsPorAluno = [];
 foreach ($observacoesDoDia as $o) { $obsPorAluno[(int)$o['ID_ALUNO']] = (int)$o['QTDE']; }
+
+/* Quem tem alerta de saúde nesta turma. Vai num aviso no alto da tela, além
+   do aviso no cartão de cada aluno: a professora vê a lista antes de começar. */
+$comSaude = [];
+foreach ($alunos as $a) {
+    if (eq_tem_saude($a)) $comSaude[] = $a;
+}
+
+/* Substituição valendo na data da chamada, para a tela dizer quem está cobrindo
+   quem — e não parecer que a equipe mudou sozinha. */
+$substitutos = $turmaId > 0 ? eq_substitutos_em($turmaId, $data) : [];

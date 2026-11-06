@@ -62,7 +62,7 @@
             <div class="equipe-mini">
               <?php foreach ($eq as $m): ?>
                 <span class="avatar-prof avatar-mini <?= $m['PAPEL'] === 'REGENTE' ? 'regente' : '' ?>"
-                      title="<?= ch_h($m['NOME']) ?><?= $m['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?>">
+                      title="<?= ch_h($m['NOME']) ?> — <?= ch_h(eq_papel_rotulo($m['PAPEL'])) ?> · <?= ch_h(eq_turno_rotulo($m['TURNO'])) ?>">
                   <?= ch_h(ch_iniciais($m['NOME'])) ?>
                 </span>
               <?php endforeach; ?>
@@ -70,7 +70,13 @@
                 <?= count($eq) ?> prof<?= count($eq) > 1 ? 's' : '' ?>.
               </small>
             </div>
-            <small class="text-muted"><?= ch_h($eq[0]['NOME']) ?><?= $eq[0]['PAPEL'] === 'REGENTE' ? ' (regente)' : '' ?></small>
+            <?php /* Quem responde em cada turno, em vez de só o primeiro nome. */ ?>
+            <?php foreach ($eq as $m): if ($m['PAPEL'] !== 'REGENTE') continue; ?>
+              <div><small class="text-muted"><?= ch_h($m['NOME']) ?> · <?= eq_turno_selo($m['TURNO']) ?></small></div>
+            <?php endforeach; ?>
+            <?php foreach ($eq as $m): if ($m['PAPEL'] !== 'SUBSTITUTO') continue; ?>
+              <div><small class="text-danger"><i class="fas fa-user-clock"></i> <?= ch_h($m['NOME']) ?> substituto<?= $m['DATA_FIM'] ? ' até ' . ch_h(ch_data_br($m['DATA_FIM'])) : '' ?></small></div>
+            <?php endforeach; ?>
           <?php endif; ?>
         </td>
         <td class="text-center"><?= (int)$row['ALUNOS'] ?> / <?= (int)$row['CAPACIDADE'] ?></td>

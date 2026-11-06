@@ -9,7 +9,8 @@
     <thead class="text-sm-center">
       <tr>
         <th width="8%">ID</th>
-        <th width="32%">Período</th>
+        <th width="24%">Período</th>
+        <th width="10%">Turno</th>
         <th width="15%">Início</th>
         <th width="15%">Fim</th>
         <th width="12%">Turmas</th>
@@ -22,6 +23,7 @@
       <tr>
         <td class="text-center"><?= (int)$row['ID'] ?></td>
         <td><?= ch_h($row['NOME']) ?></td>
+        <td class="text-center"><?= eq_turno_selo($row['TURNO']) ?></td>
         <td class="text-center"><?= ch_h($row['HORA_INICIO']) ?></td>
         <td class="text-center"><?= ch_h($row['HORA_FIM']) ?></td>
         <td class="text-center"><?= (int)$row['TURMAS'] ?></td>

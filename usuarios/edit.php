@@ -53,6 +53,16 @@
           <option value="3" <?= $d['nivel'] === 3 ? 'selected' : '' ?>>Professor — turmas da equipe</option>
         </select>
       </div>
+      <div class="form-group col-md-4" id="grupoTurno">
+        <label class="fw-bold">Turno de trabalho</label>
+        <select class="form-select" id="turno" name="turno">
+          <option value="">Não definido</option>
+<?php foreach (eq_turnos() as $sigla => $rotulo): ?>
+          <option value="<?= $sigla ?>" <?= strtoupper((string)$d['turno']) === $sigla ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+<?php endforeach; ?>
+        </select>
+        <small class="text-muted">Só para professor. É o padrão ao montar a equipe da turma — pode ser mudado lá.</small>
+      </div>
       <div class="col-12">
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="ativo" id="ativo" value="1"
@@ -81,6 +91,16 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     if (window.jQuery && $.fn.select2) { $('#nivel').select2({ theme: 'bootstrap-5' }); }
+
+    /* O turno só aparece para professor. Escondido, o campo continua no
+       formulário, mas a validação no servidor já descarta o valor. */
+    function mostraTurno() {
+      var ehProf = document.getElementById('nivel').value === '3';
+      document.getElementById('grupoTurno').style.display = ehProf ? '' : 'none';
+    }
+    mostraTurno();
+    document.getElementById('nivel').addEventListener('change', mostraTurno);
+    if (window.jQuery) { $(document).on('select2:select select2:clear', '#nivel', mostraTurno); }
 
     var form = document.getElementById('userForm');
     form.addEventListener('submit', function (e) {

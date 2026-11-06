@@ -63,6 +63,19 @@
     }
     .card.h-100 { height: auto !important; }
 
+    /* A saúde do aluno é conteúdo do relatório, não aviso de interface.
+       Moldura preta e texto preto: sai legível mesmo sem "gráficos de fundo". */
+    .eq-saude-ficha {
+      border: 1.2pt solid #000 !important; background: #fff !important;
+      padding: 6pt 8pt !important; margin-top: 6pt !important;
+      break-inside: avoid; page-break-inside: avoid;
+    }
+    .eq-saude-ficha-titulo {
+      font-weight: 700 !important; font-size: 10.5pt !important;
+      text-transform: uppercase; margin-bottom: 3pt !important; color: #000 !important;
+    }
+    .eq-saude-ficha-item { font-size: 10pt !important; color: #000 !important; margin-bottom: 2pt !important; }
+
     /* Os dois cartões-resumo empilham, cada um em toda a largura da folha.
        Tentar mantê-los lado a lado não funciona: container flex não fragmenta
        entre páginas e o cartão mais alto era cortado na borda do papel, além de
@@ -153,6 +166,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
           <dt class="col-sm-3">Equipe da turma</dt><dd class="col-sm-9"><?= $professor ? ch_h($professor) : 'sem equipe definida' ?></dd>
           <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9"><?= ch_h($aluno['RESPONSAVEL']) ?> &middot; <?= ch_h($aluno['TELEFONE']) ?></dd>
         </dl>
+        <?= eq_saude_ficha($aluno) ?>
       </div>
       <div class="col-md-4 text-md-end">
         <?php if ($frequencia === null): ?>

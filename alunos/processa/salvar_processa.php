@@ -19,6 +19,13 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         'TELEFONE'       => strip_tags(trim($post['telefone'] ?? '')),
         'EMAIL'          => trim($post['email'] ?? ''),
     ];
+
+    /* Saúde: texto livre, como a família ou o laudo informou. Guardamos em
+       branco (NULL) quando não há nada, para a tela só alertar quem precisa. */
+    foreach (eq_saude_campos() as $campo => $def) {
+        $nomeCampo = strtolower($campo);
+        $d[$campo] = mb_substr(strip_tags(trim((string)($post[$nomeCampo] ?? ''))), 0, 1000);
+    }
     $e = [];
 
     $turma = $d['ID_TURMA'] ? ch_turma($d['ID_TURMA']) : null;

@@ -90,11 +90,34 @@ do dia, frequência do mês, próximos feriados, observações recentes).
 
 ### Equipe da turma
 
-Uma turma tem **vários professores** (`TB_TURMA_PROFESSORES`), sendo **um**
-regente. Todos os membros ativos da equipe lançam chamada, observações e
-retificações. Remover alguém da equipe desativa o vínculo (`ATIVO = 0`), sem
-apagar o histórico. `TB_TURMAS.ID_PROFESSOR` permanece como coluna legada,
-sempre igual ao regente, para não quebrar consultas antigas.
+Uma turma tem **vários professores** (`TB_TURMA_PROFESSORES`), cada um com
+**papel** (`REGENTE`, `AUXILIAR`, `SUBSTITUTO`) e **turno** (`MANHA`, `TARDE`,
+`INTEGRAL`).
+
+- **Um responsável por turno.** O índice `UX_TURMAPROF_RESP_TURNO` é único em
+  `(ID_TURMA, TURNO)` para `REGENTE` ativo. A sobreposição entre `INTEGRAL` e um
+  turno específico não é expressável em índice e é conferida em
+  `eq_validar_equipe()` (`inc/equipe.php`).
+- **O turno do professor é padrão**, não trava: `TB_USUARIOS.TURNO` preenche a
+  linha, e a gestão pode mudar por turma.
+- **Substituto tem prazo**: `DATA_INICIO`, `DATA_FIM`, `ID_SUBSTITUIDO` e `MOTIVO`
+  são obrigatórios para o papel, e proibidos para os outros
+  (`CK_TURMAPROF_SUBSTITUTO`). O prazo é conferido em `ch_turmas_ids()` /
+  `ch_na_equipe()`, que delegam para `eq_turmas_ids_em()` / `eq_na_equipe_em()`:
+  fora dele o substituto não alcança a turma; dentro, tem os mesmos poderes de
+  quem cobre. O professor substituído continua na equipe.
+
+Todos os membros ativos e vigentes lançam chamada, observações e retificações.
+Remover alguém da equipe desativa o vínculo (`ATIVO = 0`), sem apagar o histórico.
+`TB_TURMAS.ID_PROFESSOR` permanece como coluna legada, igual ao responsável que
+cobre o turno da turma, para não quebrar consultas antigas.
+
+### Saúde do aluno
+
+`TB_ALUNOS.ALERGIAS`, `RESTRICOES_ALIMENTARES` e `MEDICACAO` são texto livre
+(até 1000 caracteres cada). `eq_caixa_saude()` monta o aviso da chamada e da
+ficha; `eq_saude_ficha()` monta a versão do relatório, que **não** usa `.alert`
+porque o CSS de impressão esconde essa classe.
 
 ### Confirmação e retificação
 

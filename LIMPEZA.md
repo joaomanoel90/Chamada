@@ -959,3 +959,173 @@ erros**.
    `... SITUACAO = 'PENDENTE'` quebrou o arquivo inteiro, e o sintoma na tela era
    "falha de permissão", não erro de sintaxe. O refresh roda `php -l` **antes** de
    copiar, e aborta se algum arquivo estiver quebrado.
+
+---
+
+## 20. Turno do professor, responsável por turno, substituto com prazo e saúde do aluno
+
+Seis pedidos da rede, todos na mesma área do sistema: quem está com a turma, quando,
+e o que a criança precisa que a professora saiba.
+
+### O que foi pedido
+
+1. o professor tem período (manhã, tarde e integral);
+2. a turma também pode ter período;
+3. pode mais de um professor por turma — às vezes um fica responsável de manhã e
+   outro à tarde;
+4. às vezes o professor de apoio fica o dia todo;
+5. colocar opção de substituto;
+6. colocar opção de alergias na ficha do aluno.
+
+### As quatro decisões que moldaram a solução
+
+Perguntadas antes de escrever código, porque cada uma muda o desenho do banco:
+
+| Pergunta | Decisão | O que isso implicou |
+|----------|---------|---------------------|
+| Um responsável por turma ou por turno? | **Por turno** | O índice único passou de `(ID_TURMA)` para `(ID_TURMA, TURNO)`. |
+| Substituto é só um papel ou tem prazo? | **Com prazo** | `DATA_INICIO`, `DATA_FIM`, `ID_SUBSTITUIDO` e `MOTIVO`, e o prazo virou porta de entrada. |
+| O turno do professor é padrão ou trava? | **Padrão** | Nada impede a professora da manhã de cobrir uma tarde. |
+| Saúde é só alergia? | **Completo, com alerta** | Três campos, aviso na chamada e bloco no relatório impresso. |
+
+### Onde o turno mora — e por que em três lugares
+
+```
+TB_PERIODOS.TURNO           classifica o horário de funcionamento
+TB_USUARIOS.TURNO           turno de trabalho do professor (NULL para a gestão)
+TB_TURMA_PROFESSORES.TURNO  turno que ele cobre NAQUELA turma
+```
+
+`TURNO` é um valor fechado (`MANHA`/`TARDE`/`INTEGRAL`), **não** é chave
+estrangeira de `TB_PERIODOS`. A primeira versão do script de atualização criou
+essa FK por engano: turno e período são coisas diferentes — período é cadastrável
+e guarda horas; turno é "que parte do dia". Sem separar os dois, "um responsável
+pela manhã e outro pela tarde" dependeria do nome que cada escola deu ao horário.
+
+### A regra que o banco não consegue expressar
+
+Um índice único filtrado resolve "dois responsáveis da manhã":
+
+```sql
+CREATE UNIQUE INDEX UX_TURMAPROF_RESP_TURNO
+    ON dbo.TB_TURMA_PROFESSORES (ID_TURMA, TURNO)
+    WHERE PAPEL = 'REGENTE' AND ATIVO = 1;
+```
+
+Mas ele **não** resolve `INTEGRAL` ao lado de `MANHA`: são valores diferentes na
+coluna, então o índice aceita — e o integral já responde pela manhã. Comparar
+turnos que se sobrepõem exige olhar duas linhas ao mesmo tempo, o que uma
+`CHECK` de linha não faz. Essa parte ficou em `eq_validar_equipe()`, em
+`inc/equipe.php`, por onde toda escrita passa. O comentário do índice no script
+avisa disso, para ninguém supor que o banco resolve sozinho.
+
+### O prazo do substituto é a porta de entrada
+
+Em vez de espalhar a conferência de datas pelas telas, `ch_turmas_ids()` e
+`ch_na_equipe()` passaram a delegar para `eq_turmas_ids_em()` / `eq_na_equipe_em()`,
+que filtram no SQL:
+
+```sql
+AND (PAPEL <> 'SUBSTITUTO'
+     OR (? >= DATA_INICIO AND ? <= DATA_FIM))
+```
+
+Como todo acesso de professor passa por esses dois helpers, o prazo vale de uma
+vez para chamada, observações, relatório e retificação — e também para o
+`ch_pode_retificar()`, que deriva de `ch_pode_turma()`. Fora do prazo ele não vê a
+turma; dentro, tem os poderes de quem cobre. Quem está sendo coberto continua na
+equipe: a substituição soma, não troca.
+
+### Duas armadilhas na gravação da equipe
+
+1. **A ordem dos passos importa.** Para trocar o responsável de um turno é preciso
+   rebaixar os responsáveis atuais **antes** de promover os novos, senão o índice
+   único estoura no meio da transação. `turma_equipe_salvar()` faz isso em três
+   passos: desativa quem saiu, rebaixa todos os `REGENTE` ativos, grava a equipe
+   nova.
+2. **Só `REGENTE` pode ser rebaixado.** A `CK_TURMAPROF_SUBSTITUTO` exige prazo em
+   quem é substituto e proíbe prazo em quem não é. Rebaixar um `SUBSTITUTO` para
+   `AUXILIAR` sem limpar as datas violaria a constraint. Por isso o passo 2 mexe
+   apenas em `REGENTE`, e o passo 3 grava papel, turno e prazo **na mesma
+   sentença** — nunca em dois UPDATEs.
+
+### A saúde que desapareceria do papel
+
+O CSS de impressão de `relatorios/ver.php` esconde `.alert` de propósito: alerta
+Bootstrap é interface, não conteúdo. Um aviso de saúde feito com `.alert`
+apareceria na tela e **sumiria do PDF**. Por isso existe `eq_saude_ficha()`, que
+devolve um bloco de conteúdo com classe própria (`.eq-saude-ficha`) e regra de
+impressão com moldura preta — legível mesmo com "gráficos de fundo" desligado.
+A suíte de telas confere isso com `emulate_media('print')` e medindo a altura do
+bloco, não só a presença do HTML.
+
+### Um defeito antigo que esta rodada descobriu
+
+`usuarios/edit.php` **quebrava com HTTP 500 no SQL Server real**:
+
+```
+Object of class DateTime could not be converted to string
+```
+
+A tela faz `substr((string)$usuario['CREATED'], 0, 10)`, e o `sqlsrv` devolve
+objeto `DateTime` para coluna `datetime` — que não aceita cast para string. O
+simulador SQLite devolve texto, então o defeito nunca apareceu nos testes de
+simulação, e as suítes antigas do servidor real não abriam essa tela. A correção
+é a regra que o projeto já usa: converter no `SELECT`
+(`CONVERT(varchar(10), CREATED, 23)`), em vez de `SELECT *`.
+
+Foi a única ocorrência do padrão no projeto — uma varredura por casts de string
+em colunas de data não achou outra.
+
+### Arquivos
+
+**Novos:** `inc/equipe.php` (turno, papel, validação, acesso com prazo, saúde),
+`sql_inicial/ATUALIZAR_EQUIPE_SAUDE.sql`.
+
+**Alterados:** `inc/chamada.php` (4 helpers delegando + `ch_aluno` com saúde),
+`turmas/formulario.php` (equipe por linha, reescrito),
+`turmas/processa/{salvar,add,edit,index}_processa.php`, `turmas/index.php`,
+`usuarios/{add,edit}.php` + `usuarios/processa/{comum,add,edit}_processa.php`,
+`periodos/{add,edit,index}.php` + `periodos/processa/{add,edit,index}_processa.php`,
+`alunos/formulario.php` + `alunos/{view,index}.php` +
+`alunos/processa/{salvar,add,edit,index}_processa.php`,
+`chamada/index.php` + `chamada/processa/index_processa.php`,
+`relatorios/ver.php`, `css/escola.css`,
+`sql_inicial/{INSTALACAO_COMPLETA,POPULAR_DEMONSTRACAO,LEIA-ME}`.
+
+A demonstração passou a mostrar tudo isso sem ninguém cadastrar nada: professores
+com turno, uma turma com responsável de manhã e de tarde, apoio integral, um
+substituto em andamento e alunos com alergia, restrição e medicação.
+
+### CSRF onde faltava
+
+Os formulários de **turma** e de **período** não tinham token CSRF. Como as duas
+telas foram reescritas nesta rodada, o token entrou junto — `ch_csrf_campo()` no
+formulário e `ch_csrf_ok()` no processador, no mesmo padrão do resto do sistema.
+
+### Verificação
+
+| Suíte | Resultado |
+|-------|-----------|
+| `testa_equipe_saude.py` (nova, SQL Server real) | **95/95** |
+| `telas_equipe_saude.py` (nova, Playwright + PDF) | **35/35** |
+| `regressao.py` | **171/171** |
+| `verifica_real.py` | **48/48** |
+| `testa_sistema_real.py` | **26/26** |
+| `testa_limpeza_real.py` | **27/27** |
+| `testa_transferencias.py` | **76/76** |
+| `verifica_impressao.py` | **37/37** |
+| `verifica4.py` | **33/33** |
+| `testa_popular.py` | **57/57** |
+| `verifica_telas.py` | **21/21** |
+| `php -l` | **112 arquivos, 0 erros** |
+| Escopo de variáveis T-SQL / sqlfluff | **0 problemas** |
+
+As suítes antigas que afirmavam "exatamente um regente por turma" foram
+atualizadas para a regra nova — não relaxadas: agora verificam **um responsável
+por turno**, que `ID_PROFESSOR` é um dos responsáveis, e que quem confirmou a
+chamada pertence à equipe (o `JOIN` antigo multiplicaria as linhas com dois
+responsáveis e acusaria erro falso).
+
+Rodado em SQL Server 2022 (16.0.4305.5), ODBC Driver 17, `sqlsrv` 5.13.3,
+PHP 8.4.27. **Não** foi testado em PHP 8.5.12.

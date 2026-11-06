@@ -25,6 +25,10 @@ $d = array_merge($atual, turma_equipe_atual($id));
 $d['ID_PROFESSOR'] = (int)($atual['ID_PROFESSOR'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: edit.php?id=' . $id);
+        exit;
+    }
     [$d, $erros] = turma_validar($_POST, $id);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
@@ -37,12 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         if ($ok) {
-            $ok = turma_equipe_salvar($id, $d['PROFESSORES'], $d['REGENTE']);
+            $ok = turma_equipe_salvar($id, $d['EQUIPE']);
         }
 
         if ($ok) {
             sqlsrv_commit(ch_db());
-            $qtde = count($d['PROFESSORES']);
+            $qtde = count($d['EQUIPE']);
             ch_flash('Turma atualizada com sucesso' .
                      ($qtde ? ' — equipe com ' . $qtde . ' professor(a/es).' : ' — sem equipe definida.'));
             header('Location: index.php');
