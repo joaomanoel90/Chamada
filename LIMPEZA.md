@@ -747,3 +747,81 @@ do servidor; o `CREATE USER` é do banco. Depois de um `DROP DATABASE` o
 `user_chamada` existe no servidor e não no banco, e o sistema mostra "Erro na
 conexão com SQL Server". É preciso rodar `CRIAR_LOGIN_APLICACAO.sql` de novo.
 Isso está anotado no `sql_inicial/LEIA-ME.md`, junto com a ressalva do Driver 18.
+
+---
+
+## 18. A impressão do relatório saía em folha em branco
+
+### A causa
+
+`inc/header.php` e `inc/header2.php` abriam o corpo assim:
+
+```php
+<body onload='document.form1.senha.focus()' class="no-print">
+```
+
+E `inc/tema.php` tem:
+
+```css
+@media print { .no-print { display: none !important; } }
+```
+
+Ou seja: **na impressão, o `<body>` inteiro era escondido**. Não saía nada — nem o
+relatório, nem qualquer outra tela. Confirmado com Playwright: o PDF de
+`relatorios/ver.php` tinha **1 página e 0 caracteres**, e o `body` calculado em
+`media=print` dava `display: none`.
+
+Isso também derrubava o botão **Imprimir** das tabelas (`js/tabela.js`).
+
+A classe foi removida dos dois cabeçalhos. Ela continua existindo para os elementos
+que realmente não devem sair no papel (menu, botões, rodapé).
+
+### O resto da folha
+
+Mesmo com o corpo visível, o relatório não sairia legível. Corrigido em
+`relatorios/ver.php`:
+
+| Problema | Correção |
+|---|---|
+| Parecer e encaminhamentos só existiam dentro de `<textarea>` — no papel saíam cortados em 8 e 4 linhas | Blocos só-de-impressão com o texto completo |
+| Lista de faltas presa em `max-height:180px; overflow:auto` — imprimia só as primeiras linhas | Altura liberada na impressão |
+| `.card.h-100` mantém altura fixa e **cortava** o conteúdo mais longo | `height:auto` na impressão |
+| Selo "Falta"/"Justificada" é texto branco sobre fundo colorido; sem "gráficos de fundo" ligado, sumia | Texto preto com contorno |
+| Cabeçalho de tabela é texto branco sobre gradiente azul; virava branco no branco | Fundo branco, texto preto, régua embaixo |
+| Cartão partido entre duas páginas | `break-inside:avoid`, liberado só nos blocos longos |
+| Sem tamanho de página definido | `@page { size: A4 portrait; margin: 14mm }` |
+| Sem timbre nem identificação de quem emitiu | Cabeçalho com brasão e rodapé com data, usuário e matrícula |
+| Campo de edição do professor aparecia no papel | Formulário escondido na impressão |
+| Sem espaço para assinatura | Duas linhas ao final |
+
+Na tela, o relatório ganhou uma coisa: a lista de faltas virou um cartão próprio,
+com cabeçalho **Data / Situação / Justificativa**. Antes era uma lista solta dentro
+do cartão de frequência, sem título de coluna.
+
+### Como foi verificado
+
+`.harness/verifica_impressao.py` — **37/37**. Usa um parecer longo de propósito, para
+pegar corte de texto, e confere o PDF de verdade com `pypdf`:
+
+- impressão **sem** gráficos de fundo (o padrão de todo navegador) e **com**;
+- parecer e encaminhamentos inteiros no PDF, não só o começo;
+- todas as faltas e observações presentes;
+- menu, botões, formulário e rodapé do sistema ausentes;
+- timbre e assinaturas presentes;
+- relatório **sem parecer preenchido** também imprime, com o aviso;
+- impressão aberta pelo **professor** (`header2.php`), não só pelo administrador;
+- a tela continua igual, com o campo de edição e o botão Imprimir;
+- nenhum erro de JavaScript.
+
+Antes: **1 página, 0 caracteres**. Depois: **3 páginas, 4.722 caracteres**, com o
+conteúdo completo.
+
+Regressão: `testa_sistema_real.py` **26/26**, `regressao.py` **169/169**, `php -l`
+**98 arquivos, 0 erros**.
+
+### Armadilha de teste que vale registrar
+
+`page.pdf()` do Playwright respeita um `emulate_media('screen')` anterior e passa a
+gerar o PDF com o CSS de **tela**. Os primeiros PDFs de teste saíam com a interface
+impressa por causa disso — não era defeito do sistema. É preciso chamar
+`emulate_media(media='print')` antes de gerar.

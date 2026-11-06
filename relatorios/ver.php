@@ -7,19 +7,120 @@
     '<button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>'); ?>
 
 <style>
-  @media print {
-    .sidebar, .toggle-btn, .footer-custom, .no-print, header .btn, .toast-container { display: none !important; }
-    .content { margin: 0 !important; padding: 0 !important; }
-    body { background: #fff !important; padding: 0 !important; }
-    .card { box-shadow: none !important; border: 1px solid #ccc !important; }
-    .relatorio-print { display: block !important; }
-  }
+  /* ============================================================
+     VERSÃO IMPRESSA DO RELATÓRIO
+     ------------------------------------------------------------
+     O que estava errado antes:
+     1. O <body> tinha a classe no-print e o inc/tema.php esconde
+        .no-print na impressão -> a folha saía INTEIRA em branco.
+        Corrigido nos dois headers.
+     2. O parecer e os encaminhamentos só existiam dentro de
+        <textarea>, que imprime só as linhas visíveis e corta o
+        resto. Agora há uma versão em texto, só de impressão.
+     3. A lista de faltas tinha max-height:180px com rolagem; no
+        papel saía cortada. A rolagem é desfeita na impressão.
+     4. Os selos (P/A/F/J) usam texto branco sobre fundo colorido.
+        Sem "imprimir plano de fundo" o texto sumia. Na impressão
+        viram contorno com texto preto.
+     ============================================================ */
   .relatorio-print { display: none; }
+  .lista-rolavel { max-height: 180px; overflow: auto; }
+
+  @media print {
+    @page { size: A4 portrait; margin: 14mm 14mm 15mm; }
+
+    /* nada de interface no papel */
+    .sidebar, .toggle-btn, #sidebarToggle, .footer-custom, .toast-container,
+    .no-print, header .btn, .alert, .dt-buttons,
+    form[action="salvar.php"] { display: none !important; }
+
+    html, body { background: #fff !important; }
+    body { font-size: 10.5pt !important; color: #000 !important; }
+    .content { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; }
+    .container, .container-fluid { width: 100% !important; max-width: none !important; padding: 0 !important; margin: 0 !important; }
+
+    /* o cabeçalho da tela vira o título do documento, sem ícone */
+    header h2 { font-size: 14pt !important; margin: 0 !important; }
+    header h2 i, h5 i, h6 i { display: none !important; }
+    hr { border-color: #999 !important; opacity: 1 !important; }
+
+    .relatorio-print { display: block !important; }
+
+    /* o título da tela é redundante com o timbre do documento */
+    header, header + hr { display: none !important; }
+
+    /* cartões sem sombra e nunca partidos ao meio.
+       O height:auto é essencial: os cartões usam .h-100 do Bootstrap, que na
+       impressão fixava a altura e CORTAVA o conteúdo — o texto continuava no
+       PDF, mas fora da moldura, invisível. */
+    .card {
+      box-shadow: none !important; border: 1px solid #bbb !important; border-radius: 0 !important;
+      break-inside: avoid; page-break-inside: avoid; margin-bottom: 8pt !important;
+      height: auto !important; min-height: 0 !important;
+    }
+    .card.h-100 { height: auto !important; }
+
+    /* Os dois cartões-resumo empilham, cada um em toda a largura da folha.
+       Tentar mantê-los lado a lado não funciona: container flex não fragmenta
+       entre páginas e o cartão mais alto era cortado na borda do papel, além de
+       ficar estreito demais para a justificativa das faltas. */
+    .linha-resumo { display: block !important; }
+    .linha-resumo > [class*="col-"] {
+      width: 100% !important; max-width: 100% !important; flex: none !important;
+    }
+
+    /* Cartões que podem crescer muito (lista de observações, parecer) precisam
+       poder continuar na página seguinte. Se ficassem indivisíveis, um ano com
+       muitas observações abriria uma página nova e ainda transbordaria.
+       Cada observação individual continua indivisível. */
+    .cartao-longo { break-inside: auto !important; page-break-inside: auto !important; }
+    .card-body { padding: 8pt 10pt !important; }
+    h4 { font-size: 13pt !important; }
+    h5, h6 { font-size: 11pt !important; break-after: avoid; page-break-after: avoid; }
+    h1 { font-size: 20pt !important; }
+    dl.row dt, dl.row dd { font-size: 10pt; margin-bottom: 2pt; }
+
+    /* tabelas: cabeçalho repete a cada página, linha não se parte.
+       O cabeçalho azul da tela usa texto branco; sem "imprimir plano de fundo"
+       ele sairia branco no branco. No papel vira texto preto com régua embaixo. */
+    table { width: 100% !important; font-size: 9.5pt !important; }
+    thead { display: table-header-group; }
+    .table > thead > tr { background: #fff !important; background-image: none !important; }
+    .table > thead > tr > th, .table-light > thead > tr > th {
+      background: #fff !important; background-image: none !important;
+      color: #000 !important; --bs-table-color: #000; --bs-table-bg: #fff;
+      border-bottom: 1.2pt solid #000 !important; font-weight: 700;
+      white-space: normal !important;
+    }
+    .table > tbody > tr > td { color: #000 !important; }
+    tr, .observacao-item { break-inside: avoid; page-break-inside: avoid; }
+    th, td { border-color: #bbb !important; padding: 3pt 5pt !important; }
+
+    /* selos legíveis mesmo sem impressão de fundo */
+    .badge {
+      background: #fff !important; color: #000 !important;
+      border: 1px solid #666 !important; font-weight: 600; font-size: 8.5pt !important;
+    }
+
+    /* lista que rola na tela sai inteira no papel */
+    .lista-rolavel { max-height: none !important; overflow: visible !important; height: auto !important; }
+
+    /* parecer como texto corrido, não como caixa de formulário */
+    .parecer-texto { white-space: pre-wrap; text-align: justify; line-height: 1.5; }
+
+    .observacao-item { border-left: 2px solid #888 !important; padding-left: 8pt; margin-bottom: 8pt; }
+    .assinaturas { break-inside: avoid; page-break-inside: avoid; margin-top: 20pt; }
+    .assinaturas hr { border-top: 1px solid #000 !important; margin-bottom: 3pt; opacity: 1 !important; }
+    .rodape-impresso { font-size: 8.5pt; color: #444 !important; margin-top: 12pt; }
+
+    a[href]::after { content: "" !important; }   /* não imprimir a URL dos links */
+  }
 </style>
 
 <div class="relatorio-print text-center mb-3">
-  <h4>Prefeitura Municipal de Angatuba</h4>
-  <h5>Relatório Anual de Desenvolvimento — <?= (int)$ano ?></h5>
+  <h4 class="mb-0">Prefeitura Municipal de Angatuba</h4>
+  <div>Secretaria Municipal de Educação</div>
+  <h5 class="mt-2 mb-0">Relatório Anual de Desenvolvimento — <?= (int)$ano ?></h5>
   <hr>
 </div>
 
@@ -58,7 +159,7 @@
   </div>
 </div>
 
-<div class="row g-3">
+<div class="row g-3 linha-resumo">
   <div class="col-md-7">
     <div class="card border-0 shadow-sm rounded-4 h-100">
       <div class="card-body">
@@ -104,35 +205,44 @@
           <p class="mt-2 mb-0"><strong>Total: <?= count($observacoes) ?></strong> observações</p>
         <?php endif; ?>
 
-        <?php if ($faltasDetalhadas): ?>
-          <h6 class="mt-4">Faltas no ano (<?= count($faltasDetalhadas) ?>)</h6>
-          <div style="max-height:180px;overflow:auto">
-            <table class="table table-sm mb-0">
-              <tbody>
-              <?php foreach ($faltasDetalhadas as $f): ?>
-                <tr>
-                  <td><?= ch_data_br($f['DATA']) ?></td>
-                  <td><span class="badge bg-<?= $f['STATUS'] === 'F' ? 'danger' : 'warning text-dark' ?>"><?= ch_status_rotulo($f['STATUS']) ?></span></td>
-                  <td><small><?= ch_h($f['JUSTIFICATIVA']) ?></small></td>
-                </tr>
-              <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        <?php endif; ?>
       </div>
     </div>
   </div>
 </div>
 
-<div class="card border-0 shadow-sm rounded-4 mt-3">
+<?php /* Cartão próprio: dentro do resumo ele deixava aquele bloco alto demais
+         para caber na 1ª página, e a lista podia ser longa num ano inteiro.
+         Aqui é um cartão que pode continuar na página seguinte. */ ?>
+<?php if ($faltasDetalhadas): ?>
+<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <h5 class="mb-3"><i class="fas fa-calendar-xmark"></i> Faltas e faltas justificadas no ano (<?= count($faltasDetalhadas) ?>)</h5>
+    <div class="lista-rolavel">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Data</th><th>Situação</th><th>Justificativa</th></tr></thead>
+        <tbody>
+        <?php foreach ($faltasDetalhadas as $f): ?>
+          <tr>
+            <td><?= ch_data_br($f['DATA']) ?></td>
+            <td><span class="badge bg-<?= $f['STATUS'] === 'F' ? 'danger' : 'warning text-dark' ?>"><?= ch_status_rotulo($f['STATUS']) ?></span></td>
+            <td><small><?= ch_h($f['JUSTIFICATIVA']) ?></small></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="far fa-comment-dots"></i> Observações do desenvolvimento (<?= count($observacoes) ?>)</h5>
     <?php if (!$observacoes): ?>
       <p class="text-muted">Nenhuma observação registrada em <?= (int)$ano ?>.</p>
     <?php else: ?>
       <?php foreach ($observacoes as $o): ?>
-        <div class="border-start border-3 border-primary ps-3 mb-3">
+        <div class="observacao-item border-start border-3 border-primary ps-3 mb-3">
           <div class="d-flex justify-content-between">
             <strong><?= ch_data_br($o['DATA']) ?></strong>
             <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
@@ -145,7 +255,7 @@
   </div>
 </div>
 
-<div class="card border-0 shadow-sm rounded-4 mt-3">
+<div class="card cartao-longo border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="fas fa-pen-to-square"></i> Parecer final e encaminhamentos</h5>
     <form method="post" action="salvar.php">
@@ -169,12 +279,34 @@
       <?php endif; ?>
     </form>
 
-    <div class="relatorio-print mt-4">
-      <div class="row">
-        <div class="col-6 text-center"><hr><small>Professor(a) responsável</small></div>
-        <div class="col-6 text-center"><hr><small>Responsável pela criança</small></div>
-      </div>
+    <?php /* Versão impressa: o textarea imprime só as linhas visíveis e corta o
+             resto do parecer. Aqui o texto sai inteiro, justificado. */ ?>
+    <div class="relatorio-print">
+      <h6 class="fw-bold mb-1">Parecer descritivo do desenvolvimento</h6>
+      <?php if (trim((string)($parecer['PARECER'] ?? '')) !== ''): ?>
+        <div class="parecer-texto"><?= ch_h($parecer['PARECER']) ?></div>
+      <?php else: ?>
+        <p class="fst-italic">Parecer ainda não preenchido.</p>
+      <?php endif; ?>
+
+      <h6 class="fw-bold mt-3 mb-1">Encaminhamentos e recomendações</h6>
+      <?php if (trim((string)($parecer['ENCAMINHAMENTOS'] ?? '')) !== ''): ?>
+        <div class="parecer-texto"><?= ch_h($parecer['ENCAMINHAMENTOS']) ?></div>
+      <?php else: ?>
+        <p class="fst-italic">Nenhum encaminhamento registrado.</p>
+      <?php endif; ?>
     </div>
+  </div>
+</div>
+
+<div class="relatorio-print assinaturas">
+  <div class="row">
+    <div class="col-6 text-center px-4"><hr><small>Professor(a) responsável</small></div>
+    <div class="col-6 text-center px-4"><hr><small>Responsável pela criança</small></div>
+  </div>
+  <div class="rodape-impresso text-center">
+    Documento emitido pelo Sistema de Chamada em <?= ch_data_br(ch_hoje()) ?>.
+    <?= ch_h($aluno['NOME']) ?> — matrícula <?= ch_h($aluno['MATRICULA']) ?> — <?= (int)$ano ?>.
   </div>
 </div>
 

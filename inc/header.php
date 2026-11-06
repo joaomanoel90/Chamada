@@ -13,7 +13,10 @@ if (isset($_SESSION['usuarioId'])) {
   </script>
 
 
-  <body class="no-print" onload="applyAccessibilitySettings()">
+  <?php /* O body NÃO pode ter a classe no-print: inc/tema.php esconde .no-print
+         na impressão, e com a classe aqui o documento INTEIRO sumia — o
+         relatório e o "Imprimir" das tabelas saíam em folha branca. */ ?>
+  <body onload="applyAccessibilitySettings()">
     <?php require_once(ABSPATH . 'inc/sidebar.php'); ?>
 
     <!-- Conteúdo Principal -->
