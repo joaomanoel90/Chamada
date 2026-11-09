@@ -39,7 +39,7 @@ return array(
 	'css/escola.css' => array('2a32855e30b7dacd13a81e63fe9f105f2c6f5cdde965080be813344e91d728aa', 34530, 0),
 	'css/style.css' => array('3bc8503142834accd0e0d29028af2b00c9e0956fed03e7336aff6bc90f259a8e', 6928, 0),
 	'css/tabela.css' => array('addd1456416ce7af928d5f7cc7aa76dabe8251bd3efe45ab65f19cdee27d74d8', 927, 0),
-	'diagnostico.php' => array('429e8af2e6aaabee144b9fcefda7beb21f67acb35c7e152e32d90c3073a322c0', 15365, 1),
+	'diagnostico.php' => array('efcb2efa69677ed15a271b91fbf15efa33bee87547bf526b24d5bbda665265cc', 19720, 1),
 	'feriados/add.php' => array('3bed613157fc032633d6ef37c48658b92c1b4fcdb5e5003b60d1496b120abe21', 263, 1),
 	'feriados/edit.php' => array('d10abd0e7fdf02fb0fc86158bfbb94858ad50e4281490c96b05334c9ffb1a42b', 295, 1),
 	'feriados/formulario.php' => array('84527edf410ed13387cf8b6a1261cfdf9da977cd0e6027bed2675786c02bd417', 3026, 1),

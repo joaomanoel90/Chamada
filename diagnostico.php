@@ -188,7 +188,109 @@ if (!$sqlsrv) {
 		'No WAMP: ícone > PHP > PHP extensions > marque php_sqlsrv e reinicie. Precisa ser Thread Safe (TS), x64, da mesma versão do PHP do Apache.');
 }
 
+/* Copia aninhada: ZIP extraido para uma subpasta em vez de substituir.
+ * É o engano que faz a pessoa jurar que copiou e o erro continuar. */
+$aninhadas = array();
+foreach ((array) @scandir($raiz) as $nome) {
+	if ($nome === '.' || $nome === '..' || $nome === 'inc') continue;
+	$c = $raiz . '/' . $nome . '/inc/chamada.php';
+	if (is_dir($raiz . '/' . $nome) && is_file($c)) $aninhadas[] = $nome . '/inc/chamada.php';
+}
+if ($aninhadas) {
+	$culpa[] = array(
+		'O ZIP foi extraído numa subpasta, não no lugar certo',
+		'Encontrei: ' . implode(', ', $aninhadas) . '. Os arquivos novos estão dentro dessa subpasta e NENHUM arquivo do sistema foi substituído.',
+		'Entre nessa subpasta, recorte a pasta inc que está lá dentro e cole em ' . $raiz . ', mandando substituir. Depois apague a subpasta.');
+}
+
 $pronto = !$culpa;
+
+/* ------------------------------------------------------------------ *
+ * Modo texto: /diagnostico.php?texto=1
+ *
+ * Devolve tudo em texto puro, para a pessoa selecionar, copiar e colar
+ * num chamado. Sem HTML, sem precisar de print de tela.
+ * ------------------------------------------------------------------ */
+if (isset($_GET['texto'])) {
+	header('Content-Type: text/plain; charset=utf-8');
+	echo "DIAGNOSTICO DA INSTALACAO\n";
+	echo 'Pasta: ' . $raiz . "\n";
+	echo 'Data: ' . date('d/m/Y H:i') . "\n";
+	echo 'PHP: ' . PHP_VERSION . ' | sqlsrv: ' . ($sqlsrv ? 'sim' : 'NAO') . "\n";
+	echo 'Opcache: ' . ($op_ativo ? 'ativo' : 'inativo')
+		. ' | revalida: ' . (ini_get('opcache.validate_timestamps') ? ini_get('opcache.revalidate_freq') . 's' : 'NAO') . "\n";
+	echo str_repeat('=', 64) . "\n\n";
+
+	echo ($pronto ? "RESULTADO: nenhum problema de arquivo\n" : 'RESULTADO: ' . count($culpa) . " problema(s)\n");
+	foreach ($culpa as $i => $c) {
+		echo "\n" . ($i + 1) . ') ' . $c[0] . "\n";
+		echo '   ' . $c[1] . "\n";
+		echo '   FAZER: ' . $c[2] . "\n";
+	}
+	foreach ($avisos as $a) echo "\nAVISO: " . $a . "\n";
+
+	echo "\n" . str_repeat('-', 64) . "\n";
+	echo "ARQUIVOS DE inc\n";
+	foreach ($linhas as $l) {
+		echo str_pad($l[0], 30) . str_pad($l[1], 14) . $l[2] . "\n";
+	}
+	if ($tela_mais_nova) echo "\nTela mais recente: " . date('d/m/Y H:i', $tela_mais_nova) . "\n";
+
+	echo "\n" . str_repeat('-', 64) . "\n";
+	echo "ULTIMAS LINHAS DE inc/chamada.php\n";
+	if ($fonte_chamada !== null) {
+		$ult = array_slice(explode("\n", str_replace("\r\n", "\n", $fonte_chamada)), -12);
+		foreach ($ult as $l) echo '  ' . $l . "\n";
+	} else {
+		echo "  (arquivo ausente)\n";
+	}
+
+	echo "\n" . str_repeat('-', 64) . "\n";
+	echo "ONDE O PHP ESTA PROCURANDO\n";
+	echo 'ABSPATH do config: ';
+	$cfg = $raiz . '/config.php';
+	if (file_exists($cfg)) {
+		$fc = (string) file_get_contents($cfg);
+		if (preg_match("/define\s*\(\s*'ABSPATH'\s*,\s*(.+)\)/", $fc, $m)) echo trim($m[1]) . "\n";
+		else echo "(nao definido explicitamente)\n";
+		if (preg_match("/define\s*\(\s*'BASEURL'\s*,\s*'([^']*)'/", $fc, $m)) echo 'BASEURL: ' . $m[1] . "\n";
+	} else {
+		echo "(config.php ausente)\n";
+	}
+	echo 'Arquivo carregado por esta pagina: ' . __FILE__ . "\n";
+	echo 'include_path: ' . get_include_path() . "\n";
+
+	/* Outras copias do sistema por perto. Pega o engano mais comum de
+	 * extracao: o ZIP foi extraido "para uma pasta propria", criando
+	 * Chamada\inc-atualizado\inc em vez de substituir Chamada\inc.
+	 * Por isso procura em pastas FILHAS, nao so nas irmas. */
+	echo "\nOUTRAS COPIAS DE inc/chamada.php POR PERTO\n";
+	$achou = false;
+	$vizinhos = array();
+	foreach ((array) @scandir(dirname($raiz)) as $nome) {
+		if ($nome !== '.' && $nome !== '..') $vizinhos[] = dirname($raiz) . '/' . $nome;
+	}
+	foreach ((array) @scandir($raiz) as $nome) {
+		if ($nome !== '.' && $nome !== '..' && $nome !== 'inc' && is_dir($raiz . '/' . $nome)) {
+			$vizinhos[] = $raiz . '/' . $nome;
+		}
+	}
+	foreach ($vizinhos as $pasta) {
+		if (!is_dir($pasta)) continue;
+		foreach (array('/inc/chamada.php', '/chamada.php') as $fim) {
+			$c = $pasta . $fim;
+			if (is_file($c) && realpath($c) !== realpath($raiz . '/inc/chamada.php')) {
+				$achou = true;
+				echo '  ' . $c . '  (' . number_format(filesize($c), 0, ',', '.') . ' B, '
+					. date('d/m/Y H:i', filemtime($c)) . ")\n";
+			}
+		}
+	}
+	if (!$achou) echo "  nenhuma\n";
+	else echo "\n  Se aparece uma pasta DENTRO de Chamada contendo inc, o ZIP foi\n"
+		. "  extraido no lugar errado e nenhum arquivo foi substituido.\n";
+	exit;
+}
 ?>
 <!doctype html>
 <html lang="pt-BR">
