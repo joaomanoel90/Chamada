@@ -47,7 +47,12 @@ foreach ($it as $arquivo) {
 
 	$ext      = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
 	$critico  = in_array($ext, $criticos, true) ? 1 : 0;
-	$hash     = hash_file('sha256', $arquivo->getPathname());
+	/* Normaliza CRLF e BOM: o manifesto tem de valer tanto para quem
+	 * extraiu o ZIP (LF) quanto para quem deu git clone no Windows (CRLF). */
+	$conteudo = (string) file_get_contents($arquivo->getPathname());
+	if (substr($conteudo, 0, 3) === "\xEF\xBB\xBF") $conteudo = substr($conteudo, 3);
+	$conteudo = str_replace(array("\r\n", "\r"), "\n", $conteudo);
+	$hash     = hash('sha256', $conteudo);
 	$bytes    = filesize($arquivo->getPathname());
 
 	$linhas[$rel] = sprintf(

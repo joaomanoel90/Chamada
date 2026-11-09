@@ -76,6 +76,28 @@ if ($nivel !== 1) {
  * ------------------------------------------------------------------ */
 function vi_h($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
+/**
+ * SHA-256 do conteudo NORMALIZADO.
+ *
+ * Um "git clone" no Windows converte LF para CRLF (core.autocrlf), e editor
+ * como o Bloco de Notas pode acrescentar BOM. O codigo e o mesmo, mas os
+ * bytes mudam: comparar hash bruto acusaria TODOS os arquivos de um clone
+ * Windows como "versao diferente". Medido na pratica: inc/chamada.php tem
+ * 23076 bytes com LF e 23767 com CRLF, um byte por linha.
+ *
+ * Por isso o manifesto guarda o hash do texto com LF, e aqui a leitura
+ * desfaz CRLF e BOM antes de comparar.
+ */
+function vi_hash($caminho)
+{
+	$c = @file_get_contents($caminho);
+	if ($c === false) return null;
+	if (substr($c, 0, 3) === "\xEF\xBB\xBF") $c = substr($c, 3);   /* BOM UTF-8 */
+	$c = str_replace("\r\n", "\n", $c);
+	$c = str_replace("\r", "\n", $c);
+	return hash('sha256', $c);
+}
+
 $resultados = array();   /* blocos: titulo, itens, resumo */
 $bloqueios  = 0;
 $avisos     = 0;
@@ -142,7 +164,7 @@ if (!file_exists($manifesto)) {
 			$faltando[] = $rel;
 			continue;
 		}
-		if (hash_file('sha256', $caminho) === $hash) {
+		if (vi_hash($caminho) === $hash) {
 			$certos++;
 			continue;
 		}
@@ -247,7 +269,7 @@ if (!$carregou) {
 			if (!file_exists($raiz . '/' . $arquivo)) {
 				$acao = 'Copie o arquivo ' . $arquivo . ' do pacote novo.';
 			} elseif (isset($esperados[$arquivo])
-				&& hash_file('sha256', $raiz . '/' . $arquivo) === $esperados[$arquivo][0]) {
+				&& vi_hash($raiz . '/' . $arquivo) === $esperados[$arquivo][0]) {
 				$acao = 'O ' . $arquivo . ' está correto. Quem está antigo é o inc/chamada.php, que não o inclui: copie o inc/chamada.php novo e reinicie o Apache.';
 			} else {
 				$acao = 'O arquivo existe mas é de versão antiga. Copie o ' . $arquivo . ' novo por cima e reinicie o Apache.';
