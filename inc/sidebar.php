@@ -37,6 +37,9 @@ $ch_links_cadastros = [
     ['feriados', 'Feriados', 'fas fa-calendar-day',   'feriados/index.php', true],
     ['unidades', 'Unidades', 'far fa-building',       'unidades/index.php', $ch_gestor],
     ['usuarios', 'Usuários', 'fas fa-users',          'usuarios/index.php', $ch_admin],
+    // Conferência da instalação: aponta arquivo faltando/atrasado e script
+    // de banco não executado. Só o nível 1 vê, porque mostra detalhe técnico.
+    ['verificacao', 'Verificar instalação', 'fas fa-stethoscope', 'verifica_instalacao.php', $ch_admin],
 ];
 
 /** Um item do menu. O title aparece como dica quando o menu está recolhido.

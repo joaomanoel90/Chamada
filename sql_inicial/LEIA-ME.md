@@ -17,10 +17,17 @@ se o seu banco tiver outro nome.
 Os scripts 1, 2, 4, 6 e 7 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
-> `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie os arquivos PHP novos. Os
-> dois são conferidos antes de criar, podem rodar de novo sem medo, e não mexem
-> em aluno, chamada, observação nem parecer. Quem está instalando do zero não
-> precisa deles: o script 1 já traz as duas seções.
+> `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
+> novos, não só as telas. Os dois scripts são conferidos antes de criar, podem
+> rodar de novo sem medo, e não mexem em aluno, chamada, observação nem parecer.
+> Quem está instalando do zero não precisa deles: o script 1 já traz as duas
+> seções.
+
+> **Não sabe o que falta?** Entre como administrador e abra
+> `verifica_instalacao.php` (menu **Verificar instalação**). A página lista
+> arquivo faltando, arquivo de versão antiga e script de banco não executado,
+> e diz o que fazer em cada caso. É o caminho mais curto quando aparece
+> `Call to undefined function` depois de uma atualização.
 
 > **Se você recriar ou restaurar o banco**, rode o `CRIAR_LOGIN_APLICACAO.sql` de
 > novo. O login pertence ao servidor, mas o usuário pertence ao banco: depois de

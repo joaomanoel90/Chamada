@@ -60,14 +60,27 @@ dados iniciais (períodos, as 20 unidades da rede e o administrador).
 
 ### Passo 2 — arquivos
 
-Copie para a raiz do sistema (a mesma pasta do `config.php`):
+**Copie o pacote inteiro**, não uma seleção de pastas. A pasta do sistema é a
+mesma do `config.php`.
 
-```
-inc/chamada.php
-inc/chamada_categorias.php
-periodos/        turmas/        alunos/        feriados/
-chamada/         observacoes/   relatorios/
-```
+> **Não copie só as telas.** Cada tela nova chama funções que moram em
+> `inc/chamada.php`, `inc/transferencias.php` e `inc/equipe.php`. Se as telas
+> forem novas e o `inc/` ficar antigo, o PHP morre com
+> `Call to undefined function eq_tem_saude()` ou parecido — e o erro aponta a
+> tela, não o arquivo que realmente ficou velho.
+
+O jeito seguro de atualizar uma instalação que já existe:
+
+1. Pare o Apache.
+2. Renomeie `C:\wamp64\www\Chamada` para `Chamada-antigo`.
+3. Crie `Chamada` de novo e extraia o pacote inteiro dentro dela.
+4. Traga o `config.php` da pasta antiga (ou refaça `DB_NAME`, `DB_USER`,
+   `DB_PASSWORD`, `BASEURL`).
+5. Rode os scripts de banco que faltarem.
+6. Inicie o Apache e abra o verificador do Passo 5.
+
+O Apache com opcache ligado pode continuar servindo código antigo por alguns
+segundos depois da cópia. Reiniciar o Apache elimina a dúvida.
 
 ### Passo 3 — menu e dashboard
 
@@ -83,6 +96,31 @@ do dia, frequência do mês, próximos feriados, observações recentes).
 3. **Alunos** — matricule os alunos nas turmas.
 4. **Feriados** — cadastre os feriados do ano.
 5. **Chamada do Dia** — lance a presença.
+
+### Passo 5 — conferir a instalação
+
+Entre como administrador (nível 1) e abra **Verificar instalação** no menu, ou
+vá direto em:
+
+```
+http://localhost/Chamada/verifica_instalacao.php
+```
+
+A página compara cada arquivo com o `inc/manifesto.php` (SHA-256), testa se as
+funções esperadas existem e confere se o banco tem as colunas e índices das
+atualizações. Ela diz **qual arquivo está atrasado** e **qual script rodar**.
+
+Rode depois de toda atualização. Se aparecer `Call to undefined function` em
+qualquer tela, essa página aponta o culpado em segundos.
+
+O `config.php` não é comparado por hash, porque é o arquivo que você edita no
+servidor. Só a presença dele é conferida.
+
+Ao publicar uma versão nova, regenere o manifesto antes:
+
+```
+php ferramentas/gera_manifesto.php
+```
 
 ---
 

@@ -1129,3 +1129,99 @@ responsáveis e acusaria erro falso).
 
 Rodado em SQL Server 2022 (16.0.4305.5), ODBC Driver 17, `sqlsrv` 5.13.3,
 PHP 8.4.27. **Não** foi testado em PHP 8.5.12.
+
+---
+
+## 21. "Call to undefined function" depois de atualizar — e o verificador de instalação
+
+### O sintoma
+
+Depois de copiar a versão com turno/substituto/saúde para um WAMP que já tinha
+o sistema, duas telas morreram:
+
+```
+Call to undefined function eq_tem_saude()    in alunos/index.php:55
+Call to undefined function eq_papel_rotulo() in turmas/index.php:65
+```
+
+### A causa, e por que o erro engana
+
+As funções `eq_*` moram em `inc/equipe.php`, que é carregado por uma linha no
+fim do `inc/chamada.php`:
+
+```php
+require_once __DIR__ . '/equipe.php';
+```
+
+Foram copiadas as telas novas, mas o `inc/chamada.php` ficou na versão antiga.
+O arquivo `inc/equipe.php` estava lá, correto, e nunca era incluído. O PHP então
+reclama na **tela** que chamou a função, não no **include** que deixou de
+carregá-la. Quem lê o erro vai olhar `alunos/index.php`, que está certo.
+
+Reproduzido em laboratório para separar os dois casos:
+
+| Cenário | Erro |
+|---|---|
+| `inc/chamada.php` antigo + telas novas | `Call to undefined function eq_tem_saude()` |
+| `inc/equipe.php` ausente + `chamada.php` novo | `Failed opening required .../inc/equipe.php` |
+
+Os erros são diferentes. O primeiro significa **include atrasado**; o segundo,
+**arquivo faltando**. Saber distinguir economiza a investigação inteira.
+
+O `README_CHAMADA.md` contribuiu para o problema: o Passo 2 mandava copiar uma
+lista de pastas, não o pacote inteiro. Foi corrigido.
+
+### A correção estrutural: `verifica_instalacao.php`
+
+Página de conferência, só para nível 1, no menu **Verificar instalação**. Ela:
+
+1. **Arquivos** — compara cada arquivo com `inc/manifesto.php` (SHA-256) e
+   separa *faltando* de *versão diferente*. Detectar arquivo **atrasado** é o
+   que importa aqui: conferir só existência não pegaria esse defeito.
+2. **Funções** — carrega o `inc/chamada.php` e testa se cada função esperada
+   existe. Também procura, no texto do `chamada.php`, a linha que inclui cada
+   módulo: é o teste que aponta direto a causa acima.
+3. **Banco** — confere tabelas, colunas e índices por rodada, e diz **qual
+   script** rodar (`ATUALIZAR_TRANSFERENCIAS.sql` ou
+   `ATUALIZAR_EQUIPE_SAUDE.sql`).
+
+O manifesto é gerado por `php ferramentas/gera_manifesto.php`. Rode antes de
+publicar. O `config.php` fica fora da comparação de hash de propósito: é o
+arquivo que o usuário edita no servidor.
+
+Três cuidados na construção do verificador, cada um porque a versão ingênua
+dava resposta errada:
+
+- **Sessão.** O sistema usa nome de sessão próprio, derivado de `BASEURL`
+  (`session_name(str_replace('/', '', BASEURL))`). Um `session_start()` solto
+  no verificador criaria *outra* sessão e o login nunca seria reconhecido. Quem
+  abre a sessão tem de ser o `config.php`, carregado com `require_once` — o que
+  também evita que ele rode de novo quando o `chamada.php` for carregado.
+- **`nvarchar(max)` vira stream.** `sys.check_constraints.definition` é
+  `nvarchar(max)`, e o `sqlsrv` devolve tipos *max* como recurso de stream, não
+  como texto. Sem `CAST(definition AS nvarchar(4000))` a comparação sempre
+  falha.
+- **`VIEW DEFINITION` não é concedido ao usuário da aplicação.** Sem essa
+  permissão o SQL Server mostra a linha da constraint mas devolve
+  `definition = NULL`. Isso é o comportamento correto e mais seguro. O
+  verificador trata `NULL` como "não legível", não como erro — senão acusaria
+  banco desatualizado em toda instalação bem configurada. As colunas e o
+  índice, visíveis com permissão de `SELECT`, já provam que a atualização rodou.
+
+### Opcache: por que "copiei e não mudou"
+
+O PHP do WAMP normalmente roda com `opcache.validate_timestamps=On` e
+`opcache.revalidate_freq=2`. Depois de sobrescrever um arquivo, o Apache pode
+servir a versão antiga por até 2 segundos — e com `validate_timestamps=Off`
+(ele comum em produção), para sempre, até reiniciar.
+
+Nos testes isso apareceu como falso negativo: trocou-se o `chamada.php` por a
+versão antiga e a tela continuou funcionando, porque veio do cache. **Reinicie
+o Apache depois de copiar arquivos**, e só então conclua qualquer coisa.
+
+### Regra
+
+> Atualização é o pacote inteiro mais o script de banco. Copiar só as telas
+> deixa o `inc/` antigo e produz `Call to undefined function` numa tela que
+> está correta. Depois de copiar, reinicie o Apache e abra
+> `verifica_instalacao.php`.
