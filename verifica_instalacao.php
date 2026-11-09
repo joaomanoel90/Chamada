@@ -201,16 +201,19 @@ $funcoes = array(
 		'ch_csrf_token', 'ch_csrf_campo', 'ch_csrf_ok', 'ch_flash', 'ch_bloqueio_chamada',
 		'ch_feriados_do_periodo', 'ch_turma_equipe_texto',
 	),
-	'inc/transferencias.php' => array(
-		'tr_vinculos', 'tr_vinculos_no_ano', 'tr_turma_na_data', 'tr_filtro_na_data',
-		'tr_pendente', 'tr_transferencia', 'tr_historico_aluno', 'tr_situacao_badge',
-		'tr_pendentes_recebidas', 'tr_unidades_destino', 'tr_turmas_destino', 'tr_data_minima',
-	),
-	'inc/equipe.php' => array(
-		'eq_turnos', 'eq_turno_rotulo', 'eq_papel_rotulo', 'eq_validar_equipe',
-		'eq_tem_saude', 'eq_tem_alergia', 'eq_saude_resumo', 'eq_caixa_saude',
-	),
 );
+
+/* Nos modulos a lista NAO e escrita a mao: e extraida do proprio arquivo.
+ * Uma lista fixa envelhece — foi o que aconteceu com eq_professores_opcoes(),
+ * que existia no equipe.php mas nao estava na conferencia. Lendo o arquivo,
+ * toda funcao nova entra na checagem automaticamente. */
+foreach (array('inc/transferencias.php', 'inc/equipe.php') as $modulo) {
+	if (!file_exists($raiz . '/' . $modulo)) continue;
+	$fonte_mod = (string) file_get_contents($raiz . '/' . $modulo);
+	if (preg_match_all('/^function\s+([a-z0-9_]+)\s*\(/mi', $fonte_mod, $m)) {
+		$funcoes[$modulo] = $m[1];
+	}
+}
 
 $carregou = false;
 $erro_carga = '';

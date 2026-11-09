@@ -10,9 +10,9 @@
  * config.php nao entra: e o arquivo que voce edita no servidor.
  */
 return array(
-	'LIMPEZA.md' => array('e032e4c93c953637d391573789889f386f350748adfb93e7c53fc8595f37c478', 60591, 0),
+	'LIMPEZA.md' => array('816f0a9764602c9c7bfb2e4fc6dba83a592d9f6fd1d0c0474e595c47fe5047a1', 62801, 0),
 	'README.md' => array('6004fa003de67dc712e508784d7f8dab9f9336df6606be1c399e6c51764caba4', 12620, 0),
-	'README_CHAMADA.md' => array('629d63e9c17be076f7dc51caea8879b73334717987aebfe931dac53505ac9b7e', 11941, 0),
+	'README_CHAMADA.md' => array('62067e02d22a21396e6407e3aa9d8655e337d2b1c5920f8504237a0f2bccda9c', 12576, 0),
 	'alunos/add.php' => array('f8822ca5db78747837064b7b8e079efecc1ffb914a612d655c3d04a0726a391d', 261, 1),
 	'alunos/edit.php' => array('ddc63be0b87f57cd405f2542b1f8cc7c9ed0d7ffa1fc6459e9cacb47a6ddffcd', 308, 1),
 	'alunos/formulario.php' => array('e02a1b81b6eee480b3381c3ae18cf674696b2dcaff09d1ecebb04c0d4e8578f2', 5012, 1),
@@ -39,6 +39,7 @@ return array(
 	'css/escola.css' => array('2a32855e30b7dacd13a81e63fe9f105f2c6f5cdde965080be813344e91d728aa', 34530, 0),
 	'css/style.css' => array('3bc8503142834accd0e0d29028af2b00c9e0956fed03e7336aff6bc90f259a8e', 6928, 0),
 	'css/tabela.css' => array('addd1456416ce7af928d5f7cc7aa76dabe8251bd3efe45ab65f19cdee27d74d8', 927, 0),
+	'diagnostico.php' => array('429e8af2e6aaabee144b9fcefda7beb21f67acb35c7e152e32d90c3073a322c0', 15365, 1),
 	'feriados/add.php' => array('3bed613157fc032633d6ef37c48658b92c1b4fcdb5e5003b60d1496b120abe21', 263, 1),
 	'feriados/edit.php' => array('d10abd0e7fdf02fb0fc86158bfbb94858ad50e4281490c96b05334c9ffb1a42b', 295, 1),
 	'feriados/formulario.php' => array('84527edf410ed13387cf8b6a1261cfdf9da977cd0e6027bed2675786c02bd417', 3026, 1),
@@ -142,5 +143,5 @@ return array(
 	'usuarios/processa/edit_processa.php' => array('44ea5d1f49ef1725f084ec0a4b8957f47f6335656f76c3d33ad368901f289609', 3865, 1),
 	'usuarios/processa/index_processa.php' => array('a17d20f785873c8683b99151fee61b36a716f0bbc7105cc062c9bbdedb700cc4', 887, 1),
 	'valida.php' => array('7733b5d43b76376cf5f6d0907a07c8dba2435c1cd95ca3d12fef95100ef2166c', 2448, 1),
-	'verifica_instalacao.php' => array('64be204b16516166d0943caefc517c399629f395121a412ad257d47078efd233', 23065, 1),
+	'verifica_instalacao.php' => array('fc9b2942981438bffb1e943359186eadf58c1758b4c3dd92542331ffc3c82002', 23188, 1),
 );

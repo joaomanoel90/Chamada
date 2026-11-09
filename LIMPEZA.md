@@ -1225,3 +1225,47 @@ o Apache depois de copiar arquivos**, e só então conclua qualquer coisa.
 > deixa o `inc/` antigo e produz `Call to undefined function` numa tela que
 > está correta. Depois de copiar, reinicie o Apache e abra
 > `verifica_instalacao.php`.
+
+### O segundo relato, e o `diagnostico.php`
+
+O erro voltou com uma terceira tela incluída:
+
+```
+Call to undefined function eq_professores_opcoes() in turmas/processa/salvar_processa.php:159
+```
+
+Mesma causa. A cadeia é `turmas/add.php` → `add_processa.php` (carrega o
+`inc/chamada.php` na linha 4) → `salvar_processa.php` → `turma_opcoes()` →
+`eq_professores_opcoes()`, que existe em `inc/equipe.php:445`. Três telas
+diferentes, um único arquivo atrasado.
+
+Dois aprendizados viraram código:
+
+**1. A lista de funções conferidas não pode ser escrita à mão.** O
+`verifica_instalacao.php` conferia 8 funções `eq_*` de um total de 31 — não
+incluía justamente a `eq_professores_opcoes`. Uma lista fixa envelhece junto com
+o código. Agora a lista é **extraída do próprio arquivo** com
+`preg_match_all('/^function\s+([a-z0-9_]+)\s*\(/mi', ...)`, e toda função nova
+entra na conferência sozinha. São 31 `eq_*` e 18 `tr_*`.
+
+**2. O verificador dependia do sistema que ele deveria diagnosticar.** Ele
+precisa do `config.php`, da sessão e do `inc/manifesto.php`. Numa cópia parcial
+esses podem ser justamente os arquivos velhos. Por isso foi criado o
+`diagnostico.php`: arquivo único, sem nenhuma dependência, que **lê o texto**
+dos arquivos em vez de carregá-los — assim diagnostica um arquivo que, se fosse
+executado, mataria a página com erro fatal.
+
+O que ele faz e por quê:
+
+- Procura a linha de `require`/`include` do módulo dentro do `chamada.php` com
+  regex, não o nome solto (que apareceria em comentário e daria falso positivo).
+- Mostra **tamanho e data** de cada arquivo de `inc/`. Se as telas são de um dia
+  e os includes de outro, a cópia parcial fica visível sem interpretação.
+- Mostra o estado do opcache e oferece `opcache_reset()`, porque "copiei e o erro
+  continuou" tem o cache como causa frequente.
+- Restringe a resposta a localhost e rede privada, e manda apagar o arquivo
+  depois. Não lê banco nem mostra credencial.
+
+Testado nos três cenários, com o PHP **sem banco de dados nenhum**:
+`chamada.php` antigo → aponta o `chamada.php`; `equipe.php` ausente → aponta a
+ausência; `equipe.php` antigo → lista as 31 funções que faltam.

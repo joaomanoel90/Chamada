@@ -116,6 +116,20 @@ qualquer tela, essa página aponta o culpado em segundos.
 O `config.php` não é comparado por hash, porque é o arquivo que você edita no
 servidor. Só a presença dele é conferida.
 
+**Se nem o sistema abre**, use o `diagnostico.php`:
+
+```
+http://localhost/Chamada/diagnostico.php
+```
+
+Ele é um arquivo único que **não depende de mais nada** — nem do `config.php`,
+nem do banco, nem do manifesto. Lê o texto dos arquivos em vez de executá-los,
+então consegue diagnosticar justamente o arquivo que, se fosse carregado,
+derrubaria a página. Mostra o tamanho e a **data** de cada arquivo de `inc/`
+(a prova mais direta de qual ficou velho), o estado do opcache com botão para
+limpar, e a linha de `require_once` que está faltando. Responde só para a
+máquina local e rede interna. **Apague depois de usar.**
+
 Ao publicar uma versão nova, regenere o manifesto antes:
 
 ```
