@@ -41,13 +41,18 @@ $porMes = ch_rows(
 $meses = [];
 foreach ($porMes as $m) { $meses[(int)$m['MES']] = $m; }
 
+/* Relatório anual, inclusive na impressão: o substituto sem liberação não
+   pode receber o texto dos outros professores por este caminho. */
+$fObsRel = eq_obs_filtro_aluno($alunoId, 'o');
 $observacoes = ch_rows(
     'SELECT o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, u.NOME AS AUTOR
      FROM TB_OBSERVACOES o INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
-     WHERE o.ID_ALUNO = ? AND o.DATA >= ? AND o.DATA <= ?
+     WHERE o.ID_ALUNO = ? AND o.DATA >= ? AND o.DATA <= ?' . $fObsRel['sql'] . '
      ORDER BY o.DATA, o.ID',
-    [$alunoId, $inicio, $fim]
+    array_merge([$alunoId, $inicio, $fim], $fObsRel['params'])
 );
+$obsOcultas = $fObsRel['sql'] !== '';
+$avisoObs   = eq_obs_aviso_bloqueio();
 
 $porCategoria = [];
 foreach ($observacoes as $o) {

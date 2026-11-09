@@ -26,6 +26,7 @@ function turma_linha_equipe($m, $op)
     $m = array_merge([
         'ID_USUARIO' => 0, 'PAPEL' => 'AUXILIAR', 'TURNO' => '',
         'ID_SUBSTITUIDO' => 0, 'DATA_INICIO' => '', 'DATA_FIM' => '', 'MOTIVO' => '',
+        'VER_OBSERVACOES' => 0,
     ], (array)$m);
     $ehSub = $m['PAPEL'] === 'SUBSTITUTO';
     ob_start();
@@ -96,11 +97,30 @@ function turma_linha_equipe($m, $op)
               <input type="text" name="eq_motivo[]" class="form-control eq-motivo" maxlength="300"
                      value="<?= ch_h($m['MOTIVO']) ?>" placeholder="Licença, férias, afastamento...">
             </div>
+            <div class="col-12">
+              <?php /* Checkbox desmarcado nao e enviado pelo navegador, e isso
+                       desalinharia os arrays eq_*[] desta linha com as outras.
+                       Quem vai no POST e o hidden, sempre presente; o checkbox
+                       nao tem name e so alimenta o hidden via JavaScript. */ ?>
+              <input type="hidden" name="eq_obs[]" class="eq-obs-valor" value="<?= (int)$m['VER_OBSERVACOES'] ?>">
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input eq-obs" type="checkbox" role="switch"
+                       id="eqObs<?= (int)$m['ID_USUARIO'] ?>" <?= (int)$m['VER_OBSERVACOES'] === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label small fw-bold" for="eqObs<?= (int)$m['ID_USUARIO'] ?>">
+                  <i class="fas fa-eye"></i> Pode ler as observações do professor
+                </label>
+              </div>
+              <div class="form-text mt-0">
+                Desligado, ele vê apenas as observações que ele mesmo registrar.
+                Ligado, lê também as da equipe. Vale só para esta substituição.
+              </div>
+            </div>
           </div>
           <div class="form-text mt-1">
             <i class="fas fa-circle-info"></i>
             Só entre <strong>De</strong> e <strong>Até</strong> o substituto vê esta turma e lança chamada.
             Fora desse prazo ele volta a não ver. Quem está sendo substituído continua na equipe.
+            Ele registra observação normalmente nos dois casos — o que muda é só a leitura do que os outros escreveram.
           </div>
         </div>
       </div>
@@ -252,6 +272,15 @@ function turma_linha_equipe($m, $op)
     return r;
   }
 
+  /* Delegado na lista: pega tambem as linhas que o botao adiciona depois. */
+  lista.addEventListener('change', function (ev) {
+    if (!ev.target.classList || !ev.target.classList.contains('eq-obs')) return;
+    var linha = ev.target.closest('[data-linha-equipe]');
+    if (!linha) return;
+    var valor = linha.querySelector('.eq-obs-valor');
+    if (valor) valor.value = ev.target.checked ? '1' : '0';
+  });
+
   function atualizar() {
     var fixos = membrosFixos();
     var total = 0;
@@ -266,6 +295,16 @@ function turma_linha_equipe($m, $op)
 
       bloco.hidden = !ehSub;
       linha.classList.toggle('eh-substituto', ehSub);
+
+      /* A permissao de leitura so existe para substituto. Ao trocar o papel,
+         desmarca e zera o hidden para nao mandar sobra de escala antiga. */
+      var obsChk = linha.querySelector('.eq-obs');
+      var obsVal = linha.querySelector('.eq-obs-valor');
+      if (obsChk && obsVal) {
+        if (!ehSub) obsChk.checked = false;
+        obsVal.value = obsChk.checked ? '1' : '0';
+        obsChk.disabled = !ehSub;
+      }
 
       if (ehSub) {
         /* Só oferece quem está na equipe como responsável ou apoio. */

@@ -125,6 +125,10 @@
     .parecer-texto { white-space: pre-wrap; text-align: justify; line-height: 1.5; }
 
     .observacao-item { border-left: 2px solid #888 !important; padding-left: 8pt; margin-bottom: 8pt; }
+    /* O aviso de relatório parcial tem de sair no papel: sem ele, quem recebe
+       a folha impressa não tem como saber que faltam observações. */
+    .aviso-obs-parcial { border: 1.2pt solid #444 !important; padding: 8pt !important;
+                         margin-bottom: 10pt; break-inside: avoid; page-break-inside: avoid; }
     .assinaturas { break-inside: avoid; page-break-inside: avoid; margin-top: 20pt; }
     .assinaturas hr { border-top: 1px solid #000 !important; margin-bottom: 3pt; opacity: 1 !important; }
     .rodape-impresso { font-size: 8.5pt; color: #444 !important; margin-top: 12pt; }
@@ -223,7 +227,11 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
       <div class="card-body">
         <h5 class="mb-3"><i class="fas fa-tags"></i> Observações por área</h5>
         <?php if (!$porCategoria): ?>
-          <p class="text-muted">Nenhuma observação registrada neste ano.</p>
+          <p class="text-muted">
+            <?= !empty($obsOcultas)
+                  ? 'Nenhuma observação sua registrada neste ano.'
+                  : 'Nenhuma observação registrada neste ano.' ?>
+          </p>
         <?php else: ?>
           <?php foreach ($porCategoria as $cat => $qt): ?>
             <div class="d-flex justify-content-between border-bottom py-1">
@@ -275,11 +283,24 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 </div>
 <?php endif; ?>
 
+<?php if (!empty($obsOcultas)): ?>
+  <?php /* Não uso .alert: a folha de impressão esconde .alert, e quem ler o
+           papel precisa saber que o relatório está parcial. */ ?>
+  <div class="aviso-obs-parcial border border-2 rounded-3 p-3 mt-3">
+    <strong><i class="fas fa-eye-slash no-print"></i> Relatório parcial</strong>
+    <div class="small mb-0"><?= ch_h($avisoObs) ?></div>
+  </div>
+<?php endif; ?>
+
 <div class="card<?= $classeObs ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="far fa-comment-dots"></i> Observações do desenvolvimento (<?= count($observacoes) ?>)</h5>
     <?php if (!$observacoes): ?>
-      <p class="text-muted">Nenhuma observação registrada em <?= (int)$ano ?>.</p>
+      <p class="text-muted">
+        <?= !empty($obsOcultas)
+              ? 'Nenhuma observação sua registrada em ' . (int)$ano . '.'
+              : 'Nenhuma observação registrada em ' . (int)$ano . '.' ?>
+      </p>
     <?php else: ?>
       <?php foreach ($observacoes as $o): ?>
         <div class="observacao-item border-start border-3 border-primary ps-3 mb-3">

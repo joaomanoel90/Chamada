@@ -67,12 +67,13 @@ $diasMes      = (int)($resumoMes['DIAS'] ?? 0);
 $presencasMes = (int)($resumoMes['PRESENCAS'] ?? 0);
 $freqMes      = $diasMes > 0 ? round($presencasMes * 100 / $diasMes, 1) : null;
 
+$fObsDash = eq_obs_filtro('o', 'a');
 $obsMes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_OBSERVACOES o
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'],
-    array_merge([$inicioMes, $hoje], $p)
+     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'] . $fObsDash['sql'],
+    array_merge([$inicioMes, $hoje], $p, $fObsDash['params'])
 );
 
 /* ------------------------------------------- série mensal do gráfico */
@@ -120,9 +121,9 @@ $obsRecentes = ch_rows(
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
      INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-     WHERE 1 = 1' . $filtro['sql'] . '
+     WHERE 1 = 1' . $filtro['sql'] . $fObsDash['sql'] . '
      ORDER BY o.DATA DESC, o.ID DESC',
-    $p
+    array_merge($p, $fObsDash['params'])
 );
 
 /* ------------------------------------------------ relatórios pendentes */

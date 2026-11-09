@@ -24,12 +24,16 @@ $ultimas = ch_rows(
     [$id]
 );
 
+/* Substituto sem liberação vê só as próprias observações nesta ficha. */
+$fObsAluno = eq_obs_filtro_aluno($id, 'o');
 $observacoes = ch_rows(
     'SELECT TOP 10 o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, u.NOME AS AUTOR
      FROM TB_OBSERVACOES o INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
-     WHERE o.ID_ALUNO = ? ORDER BY o.DATA DESC, o.ID DESC',
-    [$id]
+     WHERE o.ID_ALUNO = ?' . $fObsAluno['sql'] . ' ORDER BY o.DATA DESC, o.ID DESC',
+    array_merge([$id], $fObsAluno['params'])
 );
+$obsOcultas = $fObsAluno['sql'] !== '';
+$avisoObs   = eq_obs_aviso_bloqueio();
 
 /* Transferências: linha do tempo, histórico e o que ainda está aguardando. */
 $vinculos                = tr_vinculos($id);

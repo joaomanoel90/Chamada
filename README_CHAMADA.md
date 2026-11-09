@@ -156,13 +156,60 @@ Uma turma tem **vários professores** (`TB_TURMA_PROFESSORES`), cada um com
   são obrigatórios para o papel, e proibidos para os outros
   (`CK_TURMAPROF_SUBSTITUTO`). O prazo é conferido em `ch_turmas_ids()` /
   `ch_na_equipe()`, que delegam para `eq_turmas_ids_em()` / `eq_na_equipe_em()`:
-  fora dele o substituto não alcança a turma; dentro, tem os mesmos poderes de
-  quem cobre. O professor substituído continua na equipe.
+  fora dele o substituto não alcança a turma; dentro, lança chamada e observação
+  como quem cobre — **mas a leitura das observações dos outros é separada**
+  (ver abaixo). O professor substituído continua na equipe.
 
 Todos os membros ativos e vigentes lançam chamada, observações e retificações.
 Remover alguém da equipe desativa o vínculo (`ATIVO = 0`), sem apagar o histórico.
 `TB_TURMAS.ID_PROFESSOR` permanece como coluna legada, igual ao responsável que
 cobre o turno da turma, para não quebrar consultas antigas.
+
+### Substituto e observações do professor
+
+Por padrão o substituto **não lê** o que os outros professores escreveram. Ele
+vê sempre as observações **que ele mesmo registrou**, e continua registrando
+observações e lançando chamada normalmente — a restrição é só de leitura.
+
+A gestão libera a leitura na tela da turma (`turmas/edit.php`), na linha do
+substituto: **"Pode ler as observações do professor"**.
+
+- **A liberação vale por substituição**, não por professor nem por turma. Cada
+  novo vínculo `SUBSTITUTO` nasce bloqueado (`VER_OBSERVACOES = 0`); liberar uma
+  turma não libera outra, mesmo para a mesma pessoa.
+- **Quem liberou e quando** ficam em `OBS_LIBERADA_POR` / `OBS_LIBERADA_EM`.
+  Salvar a turma de novo não reescreve a autoria (o `UPDATE` usa `ISNULL`).
+  Desligar zera os dois juntos.
+- Duas CHECK garantem a coerência: `CK_TURMAPROF_VEROBS` (a permissão só existe
+  em `SUBSTITUTO`) e `CK_TURMAPROF_OBSLIB_JUNTAS` (os dois campos de auditoria
+  ou ambos preenchidos, ou ambos nulos). Ao trocar o papel para regente/auxiliar,
+  `eq_ler_post()` zera a permissão para não estourar a CHECK.
+- **A regra é aplicada em todos os pontos de leitura**, não só no relatório
+  anual e nas observações diárias: listagem de observações, ficha do aluno,
+  relatório anual (tela e impressão), contador do dia na chamada, contagem da
+  lista de relatórios e os dois cartões do painel. Fechar só duas telas deixaria
+  o conteúdo visível por outro caminho.
+- A permissão é avaliada **na data de hoje**, não na data de cada observação:
+  liberada a leitura, o substituto lê o histórico da turma enquanto estiver no
+  prazo; bloqueada, volta a ver só as dele.
+- Quem é membro fixo da turma em outro papel não é afetado, e gestão
+  (níveis 1 e 2) sempre lê tudo.
+
+Helpers em `inc/equipe.php`: `eq_obs_turmas_bloqueadas()`, `eq_obs_tem_bloqueio()`,
+`eq_obs_filtro()`, `eq_obs_filtro_aluno()`, `eq_obs_aviso_bloqueio()`. O único
+caminho de escrita da permissão é o formulário da turma.
+
+Para aluno transferido, `eq_obs_filtro_aluno()` é conservador: se **qualquer**
+turma do histórico do aluno estiver bloqueada para o leitor, mostra só as
+observações dele. Evita que a transferência vire uma porta de entrada.
+
+No relatório impresso o aviso usa `.aviso-obs-parcial` em vez de `.alert`,
+porque a folha de impressão esconde `.alert` — sem isso quem recebesse o papel
+não teria como saber que o relatório está parcial.
+
+Migração de banco já existente: `sql_inicial/ATUALIZAR_OBS_SUBSTITUTO.sql`
+(idempotente; pode rodar mais de uma vez). Instalação do zero: já incluída em
+`INSTALACAO_COMPLETA.sql`, seção 20.
 
 ### Saúde do aluno
 

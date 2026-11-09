@@ -1027,7 +1027,91 @@ ELSE
 GO
 
 /* ============================================================================
-   20. VERIFICAÇÃO
+   20. SUBSTITUTO E OBSERVAÇÕES DO PROFESSOR
+   ----------------------------------------------------------------------------
+   O substituto sempre vê as observações que ele mesmo registrou. As dos outros
+   ficam escondidas até a gestão liberar, e a liberação é POR SUBSTITUIÇÃO:
+   cada nova substituição começa bloqueada.
+
+   As três colunas só fazem sentido para PAPEL = 'SUBSTITUTO'; o CHECK impede
+   sobra de escala antiga em membro fixo. Ver ATUALIZAR_OBS_SUBSTITUTO.sql para
+   a explicação completa e a lista de telas onde o filtro é aplicado.
+   ============================================================================ */
+PRINT '';
+PRINT '20. Substituto e observações do professor...';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns
+               WHERE object_id = OBJECT_ID('dbo.TB_TURMA_PROFESSORES')
+                 AND name = 'VER_OBSERVACOES')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES
+        ADD VER_OBSERVACOES bit NOT NULL
+            CONSTRAINT DF_TURMAPROF_VEROBS DEFAULT (0);
+    PRINT '  + VER_OBSERVACOES criada (0 = bloqueado)';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns
+               WHERE object_id = OBJECT_ID('dbo.TB_TURMA_PROFESSORES')
+                 AND name = 'OBS_LIBERADA_POR')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES ADD OBS_LIBERADA_POR int NULL;
+    PRINT '  + OBS_LIBERADA_POR criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns
+               WHERE object_id = OBJECT_ID('dbo.TB_TURMA_PROFESSORES')
+                 AND name = 'OBS_LIBERADA_EM')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES ADD OBS_LIBERADA_EM datetime NULL;
+    PRINT '  + OBS_LIBERADA_EM criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_TURMAPROF_OBSLIB_POR')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES
+        ADD CONSTRAINT FK_TURMAPROF_OBSLIB_POR
+            FOREIGN KEY (OBS_LIBERADA_POR) REFERENCES dbo.TB_USUARIOS (ID);
+    PRINT '  + FK_TURMAPROF_OBSLIB_POR criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_TURMAPROF_VEROBS')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES
+        ADD CONSTRAINT CK_TURMAPROF_VEROBS CHECK (
+            PAPEL = 'SUBSTITUTO'
+            OR (VER_OBSERVACOES = 0 AND OBS_LIBERADA_POR IS NULL AND OBS_LIBERADA_EM IS NULL)
+        );
+    PRINT '  + CK_TURMAPROF_VEROBS criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_TURMAPROF_OBSLIB_JUNTAS')
+BEGIN
+    ALTER TABLE dbo.TB_TURMA_PROFESSORES
+        ADD CONSTRAINT CK_TURMAPROF_OBSLIB_JUNTAS CHECK (
+            (OBS_LIBERADA_POR IS NULL AND OBS_LIBERADA_EM IS NULL)
+            OR (OBS_LIBERADA_POR IS NOT NULL AND OBS_LIBERADA_EM IS NOT NULL)
+        );
+    PRINT '  + CK_TURMAPROF_OBSLIB_JUNTAS criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TURMAPROF_OBS_SUBST')
+BEGIN
+    CREATE INDEX IX_TURMAPROF_OBS_SUBST
+        ON dbo.TB_TURMA_PROFESSORES (ID_USUARIO, PAPEL, ATIVO)
+        INCLUDE (ID_TURMA, DATA_INICIO, DATA_FIM, VER_OBSERVACOES);
+    PRINT '  + IX_TURMAPROF_OBS_SUBST criado';
+END
+GO
+
+/* ============================================================================
+   21. VERIFICAÇÃO
    ============================================================================ */
 PRINT '';
 PRINT '================================================================';

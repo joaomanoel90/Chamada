@@ -122,7 +122,16 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
     <div class="card border-0 shadow-sm rounded-4">
       <div class="card-body">
         <h5 class="mb-3"><i class="far fa-comment-dots"></i> Observações recentes</h5>
-        <?php if (!$observacoes): ?><p class="text-muted">Nenhuma observação registrada.</p><?php else: ?>
+        <?php if (!empty($obsOcultas)): ?>
+          <div class="alert alert-warning py-2 small">
+            <i class="fas fa-eye-slash"></i> <?= ch_h($avisoObs) ?>
+          </div>
+        <?php endif; ?>
+        <?php if (!$observacoes): ?>
+          <p class="text-muted">
+            <?= !empty($obsOcultas) ? 'Nenhuma observação sua registrada.' : 'Nenhuma observação registrada.' ?>
+          </p>
+        <?php else: ?>
           <?php foreach ($observacoes as $o): ?>
             <div class="border-bottom pb-2 mb-2">
               <div class="d-flex justify-content-between">

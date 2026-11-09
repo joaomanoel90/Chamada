@@ -72,13 +72,16 @@ if ($turmaId > 0) {
 
 $observacoesDoDia = [];
 if ($turmaId > 0) {
+    /* O contador também respeita o bloqueio: mostrar "3 observações" já
+       revelaria que existe registro que ele não pode ler. */
+    $fObsDia = eq_obs_filtro('o', 'a');
     $observacoesDoDia = ch_rows(
         'SELECT o.ID_ALUNO, COUNT(*) AS QTDE
          FROM TB_OBSERVACOES o
          INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-         WHERE o.DATA = ?' . $naData['sql'] . '
+         WHERE o.DATA = ?' . $naData['sql'] . $fObsDia['sql'] . '
          GROUP BY o.ID_ALUNO',
-        array_merge([$data], $naData['params'])
+        array_merge([$data], $naData['params'], $fObsDia['params'])
     );
 }
 $obsPorAluno = [];

@@ -14,16 +14,21 @@ $turmas = ch_rows(
     $filtro['params']
 );
 
+/* Dentro do subselect o aluno é "a", então o filtro usa esse alias. */
+$fObsIdx = eq_obs_filtro('o', 'a');
 $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, t.NOME AS TURMA, t.ANO_LETIVO, u.unidade AS UNIDADE,
                (SELECT COUNT(*) FROM TB_CHAMADA c WHERE c.ID_ALUNO = a.ID AND YEAR(c.DATA) = ?) AS DIAS,
-               (SELECT COUNT(*) FROM TB_OBSERVACOES o WHERE o.ID_ALUNO = a.ID AND YEAR(o.DATA) = ?) AS OBSERVACOES,
+               (SELECT COUNT(*) FROM TB_OBSERVACOES o WHERE o.ID_ALUNO = a.ID AND YEAR(o.DATA) = ?' . $fObsIdx['sql'] . ') AS OBSERVACOES,
                CASE WHEN r.ID IS NULL THEN 0 ELSE 1 END AS TEM_PARECER
         FROM TB_ALUNOS a
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
         LEFT  JOIN TB_RELATORIOS_ANUAIS r ON r.ID_ALUNO = a.ID AND r.ANO = ?
         WHERE a.ATIVO = 1 AND t.ANO_LETIVO = ?' . $filtro['sql'];
-$params = array_merge([$fAno, $fAno, $fAno, $fAno], $filtro['params']);
+/* A ordem importa: os ? do filtro de observação ficam no SELECT, entre o
+   ano do contador de observações e o ano do LEFT JOIN. São quatro anos no
+   total — dois antes do filtro, dois depois. */
+$params = array_merge([$fAno, $fAno], $fObsIdx['params'], [$fAno, $fAno], $filtro['params']);
 
 if ($fTurma > 0) { $sql .= ' AND a.ID_TURMA = ?'; $params[] = $fTurma; }
 $sql .= ' ORDER BY u.unidade, t.NOME, a.NOME';

@@ -4,6 +4,12 @@
 <?php ch_cabecalho('Observações dos Alunos', 'fa-comment-dots',
     '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Observação</a>'); ?>
 
+<?php if (!empty($avisoObs)): ?>
+  <div class="alert alert-warning">
+    <i class="fas fa-eye-slash"></i> <?= ch_h($avisoObs) ?>
+  </div>
+<?php endif; ?>
+
 <?php if ($alunoFiltro): ?>
   <div class="alert alert-light border">
     Filtrando por <strong><?= ch_h($alunoFiltro['NOME']) ?></strong> — <?= ch_h($alunoFiltro['TURMA']) ?>.
@@ -47,7 +53,12 @@
 </form>
 
 <?php if (!$observacoes): ?>
-  <div class="alert alert-info">Nenhuma observação encontrada no período.</div>
+  <div class="alert alert-info">
+    Nenhuma observação encontrada no período.
+    <?php if (!empty($obsOcultas)): ?>
+      As observações da equipe estão ocultas — a lista mostra apenas as suas.
+    <?php endif; ?>
+  </div>
 <?php else: ?>
   <div class="row g-3">
     <?php foreach ($observacoes as $o): ?>

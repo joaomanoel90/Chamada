@@ -105,6 +105,9 @@ function turma_equipe_salvar($idTurma, $membros)
         $ini   = $ehSub ? $m['DATA_INICIO'] : null;
         $fim   = $ehSub ? $m['DATA_FIM'] : null;
         $mot   = $ehSub ? $m['MOTIVO'] : null;
+        /* Só substituto pode ter a permissão — a CHECK do banco exige isso. */
+        $verObs = ($ehSub && (int)($m['VER_OBSERVACOES'] ?? 0) === 1) ? 1 : 0;
+        $quem   = ch_uid();
 
         $existe = ch_val('SELECT ID FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ?',
                          [$idTurma, (int)$m['ID_USUARIO']]);
@@ -112,19 +115,30 @@ function turma_equipe_salvar($idTurma, $membros)
             /* Os campos de substituição vão na MESMA sentença: deixar para
                depois violaria a CHECK, que exige prazo em substituto e proíbe
                prazo em quem não é. */
+            /* A auditoria usa ISNULL para não perder quem liberou primeiro:
+               salvar a turma de novo não pode reescrever a autoria da liberação.
+               Ao desligar, os dois campos voltam a NULL juntos. */
             $ok = ch_exec(
                 'UPDATE TB_TURMA_PROFESSORES
                     SET PAPEL = ?, TURNO = ?, ID_SUBSTITUIDO = ?, DATA_INICIO = ?, DATA_FIM = ?,
-                        MOTIVO = ?, ATIVO = 1
+                        MOTIVO = ?, ATIVO = 1,
+                        VER_OBSERVACOES = ?,
+                        OBS_LIBERADA_POR = CASE WHEN ? = 1 THEN ISNULL(OBS_LIBERADA_POR, ?) ELSE NULL END,
+                        OBS_LIBERADA_EM  = CASE WHEN ? = 1 THEN ISNULL(OBS_LIBERADA_EM, GETDATE()) ELSE NULL END
                   WHERE ID = ?',
-                [$papel, $m['TURNO'], $subst, $ini, $fim, $mot, (int)$existe]
+                [$papel, $m['TURNO'], $subst, $ini, $fim, $mot,
+                 $verObs, $verObs, $quem, $verObs, (int)$existe]
             );
         } else {
             $ok = ch_exec(
                 'INSERT INTO TB_TURMA_PROFESSORES
-                    (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO, ATIVO)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
-                [$idTurma, (int)$m['ID_USUARIO'], $papel, $m['TURNO'], $subst, $ini, $fim, $mot]
+                    (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO, ATIVO,
+                     VER_OBSERVACOES, OBS_LIBERADA_POR, OBS_LIBERADA_EM)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?,
+                         CASE WHEN ? = 1 THEN ? ELSE NULL END,
+                         CASE WHEN ? = 1 THEN GETDATE() ELSE NULL END)',
+                [$idTurma, (int)$m['ID_USUARIO'], $papel, $m['TURNO'], $subst, $ini, $fim, $mot,
+                 $verObs, $verObs, $quem, $verObs]
             );
         }
         if (!$ok) return false;
@@ -145,6 +159,7 @@ function turma_equipe_atual($idTurma)
             'DATA_INICIO'    => (string)($m['DATA_INICIO'] ?? ''),
             'DATA_FIM'       => (string)($m['DATA_FIM'] ?? ''),
             'MOTIVO'         => (string)($m['MOTIVO'] ?? ''),
+            'VER_OBSERVACOES' => (int)($m['VER_OBSERVACOES'] ?? 0),
         ];
     }
     return ['EQUIPE' => $equipe];

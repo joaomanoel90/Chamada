@@ -138,6 +138,7 @@ function eq_ler_post($post)
     $inis   = (array)($post['eq_ini'] ?? []);
     $fins   = (array)($post['eq_fim'] ?? []);
     $motivs = (array)($post['eq_motivo'] ?? []);
+    $obs    = (array)($post['eq_obs'] ?? []);
 
     $todos = eq_turnos();
     $ps = eq_papeis();
@@ -157,6 +158,7 @@ function eq_ler_post($post)
         }
 
         $m = [
+            'VER_OBSERVACOES' => ((string)($obs[$i] ?? '0') === '1') ? 1 : 0,
             'ID_USUARIO'     => $idProf,
             'PAPEL'          => $papel,
             'TURNO'          => $turno,
@@ -167,6 +169,9 @@ function eq_ler_post($post)
         ];
 
         if ($papel !== 'SUBSTITUTO') {
+            /* A CHECK do banco só aceita a permissão em substituto. Zerar aqui
+               evita que uma escala antiga, que virou regente, derrube o save. */
+            $m['VER_OBSERVACOES'] = 0;
             /* Não deixa prazo órfão de uma escala antiga. */
             $m['ID_SUBSTITUIDO'] = 0;
             $m['DATA_INICIO'] = '';
@@ -311,10 +316,13 @@ function eq_equipe($idTurma, $incluirInativos = false)
                    CONVERT(varchar(10), tp.DATA_INICIO, 23) AS DATA_INICIO,
                    CONVERT(varchar(10), tp.DATA_FIM, 23)    AS DATA_FIM,
                    tp.ID_SUBSTITUIDO, tp.MOTIVO,
-                   u.NOME, s.NOME AS NOME_SUBSTITUIDO
+                   tp.VER_OBSERVACOES, tp.OBS_LIBERADA_POR,
+                   CONVERT(varchar(19), tp.OBS_LIBERADA_EM, 120) AS OBS_LIBERADA_EM,
+                   u.NOME, s.NOME AS NOME_SUBSTITUIDO, lib.NOME AS OBS_LIBERADA_NOME
             FROM TB_TURMA_PROFESSORES tp
             INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
             LEFT  JOIN TB_USUARIOS s ON s.ID = tp.ID_SUBSTITUIDO
+            LEFT  JOIN TB_USUARIOS lib ON lib.ID = tp.OBS_LIBERADA_POR
             WHERE tp.ID_TURMA = ?";
     if (!$incluirInativos) {
         $sql .= ' AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1';
@@ -574,3 +582,138 @@ function eq_saude_ficha($aluno)
     }
     return $h . '</div>';
 }
+/* ==========================================================================
+   SUBSTITUTO E OBSERVAÇÕES DO PROFESSOR
+   --------------------------------------------------------------------------
+   Regra pedida pela escola: o substituto registra observação normalmente e
+   sempre lê o que ELE mesmo escreveu, mas só lê o que os OUTROS escreveram se
+   a gestão liberar. A liberação é por substituição — cada prazo novo começa
+   bloqueado, mesmo para quem já foi liberado antes.
+
+   O texto da observação aparece em seis telas. Esconder só a listagem deixaria
+   o conteúdo acessível pela ficha do aluno ou pelo relatório, então todas
+   passam pelo mesmo filtro daqui. São dois formatos:
+
+     eq_obs_filtro()        para consulta que já junta TB_ALUNOS (tem a turma
+                            de cada linha e decide linha a linha)
+     eq_obs_filtro_aluno()  para consulta de um aluno só, sem essa junção
+
+   Membro fixo da equipe não é afetado: continua vendo tudo, como sempre viu.
+   ========================================================================== */
+
+/**
+ * Turmas em que o usuário é substituto VIGENTE e sem liberação de leitura.
+ *
+ * Uma turma sai da lista se ele também for membro fixo dela: nesse caso o
+ * vínculo fixo manda, e a substituição não pode rebaixar o acesso.
+ *
+ * Substituição fora do prazo não entra na lista porque ele já não alcança a
+ * turma — quem resolve isso é eq_turmas_ids_em(), usado por ch_turmas_ids().
+ */
+function eq_obs_turmas_bloqueadas($idUsuario = null, $data = null)
+{
+    static $cache = [];
+
+    $idUsuario = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($idUsuario <= 0) return [];
+
+    $data  = $data === null ? ch_hoje() : ch_data_iso($data, ch_hoje());
+    $chave = $idUsuario . '|' . $data;
+    if (isset($cache[$chave])) return $cache[$chave];
+
+    /* Gestão enxerga a rede ou as unidades liberadas; não faz sentido
+       bloquear leitura para quem pode editar a equipe. */
+    $nivel = $idUsuario === ch_uid()
+        ? ch_nivel()
+        : (int)ch_val('SELECT NIVEL FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
+    if ($nivel === 1 || $nivel === 2) return $cache[$chave] = [];
+
+    $rows = ch_rows(
+        "SELECT ID_TURMA, PAPEL, ISNULL(VER_OBSERVACOES, 0) AS VER_OBSERVACOES,
+                CONVERT(varchar(10), DATA_INICIO, 23) AS DATA_INICIO,
+                CONVERT(varchar(10), DATA_FIM, 23)    AS DATA_FIM
+         FROM TB_TURMA_PROFESSORES
+         WHERE ID_USUARIO = ? AND ATIVO = 1",
+        [$idUsuario]
+    ) ?: [];
+
+    $fixas = [];
+    $bloqueadas = [];
+    foreach ($rows as $r) {
+        $t = (int)$r['ID_TURMA'];
+        if ($r['PAPEL'] !== 'SUBSTITUTO') { $fixas[$t] = true; continue; }
+
+        $ini = (string)($r['DATA_INICIO'] ?? '');
+        $fim = (string)($r['DATA_FIM'] ?? '');
+        if ($ini === '' || $fim === '' || $data < $ini || $data > $fim) continue;
+
+        if ((int)$r['VER_OBSERVACOES'] === 0) $bloqueadas[$t] = true;
+    }
+
+    $lista = array_values(array_diff(array_keys($bloqueadas), array_keys($fixas)));
+    sort($lista);
+    return $cache[$chave] = $lista;
+}
+
+/** O usuário está com alguma leitura de observação bloqueada hoje? */
+function eq_obs_tem_bloqueio()
+{
+    return eq_obs_turmas_bloqueadas() !== [];
+}
+
+/**
+ * Filtro para consulta que junta TB_ALUNOS.
+ *
+ * Devolve "e' do autor, ou a turma não está bloqueada". Assim o substituto
+ * continua vendo as próprias observações mesmo na turma bloqueada, e vê tudo
+ * nas turmas onde é membro fixo ou foi liberado.
+ *
+ * Lista vazia = nenhum bloqueio = SQL vazio, sem custo para os demais perfis.
+ */
+function eq_obs_filtro($aliasObs = 'o', $aliasAluno = 'a')
+{
+    $turmas = eq_obs_turmas_bloqueadas();
+    if (!$turmas) return ['sql' => '', 'params' => []];
+
+    $ph = implode(',', array_fill(0, count($turmas), '?'));
+    return [
+        'sql'    => " AND ({$aliasObs}.ID_USUARIO = ? OR {$aliasAluno}.ID_TURMA NOT IN ({$ph}))",
+        'params' => array_merge([ch_uid()], $turmas),
+    ];
+}
+
+/**
+ * Filtro para consulta de UM aluno, sem junção com TB_ALUNOS.
+ *
+ * Aluno transferido pertenceu a mais de uma turma no ano. Se QUALQUER uma
+ * delas estiver bloqueada para o substituto, a consulta inteira fica restrita
+ * às observações dele. É de propósito conservador: o relatório anual cobre o
+ * ano nas duas escolas, e não dá para liberar metade do texto por engano.
+ */
+function eq_obs_filtro_aluno($idAluno, $aliasObs = 'o')
+{
+    $turmas = eq_obs_turmas_bloqueadas();
+    if (!$turmas) return ['sql' => '', 'params' => []];
+
+    $idAluno = (int)$idAluno;
+    if ($idAluno <= 0) return ['sql' => '', 'params' => []];
+
+    $doAluno = [(int)ch_val('SELECT ID_TURMA FROM TB_ALUNOS WHERE ID = ?', [$idAluno])];
+    foreach (tr_vinculos($idAluno) as $v) { $doAluno[] = (int)$v['ID_TURMA']; }
+
+    if (!array_intersect($turmas, array_unique($doAluno))) {
+        return ['sql' => '', 'params' => []];
+    }
+    return ['sql' => " AND {$aliasObs}.ID_USUARIO = ?", 'params' => [ch_uid()]];
+}
+
+
+/** Texto do aviso mostrado ao substituto bloqueado. */
+function eq_obs_aviso_bloqueio()
+{
+    if (!eq_obs_tem_bloqueio()) return '';
+    return 'Você está como substituto nesta turma. As observações que você registrar '
+         . 'ficam visíveis para você; as registradas pelos outros professores só '
+         . 'aparecem se a direção liberar a leitura.';
+}
+

@@ -10,6 +10,10 @@ $fInicio = ch_data_iso($_GET['inicio'] ?? '', date('Y-m-01'));
 $fFim    = ch_data_iso($_GET['fim'] ?? '', ch_hoje());
 
 $filtro = ch_filtro_turma('t');
+/* Substituto sem liberação lê só o que ele mesmo escreveu. */
+$fObs = eq_obs_filtro('o', 'a');
+$avisoObs = eq_obs_aviso_bloqueio();
+$obsOcultas = $fObs['sql'] !== '';
 
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE
@@ -27,8 +31,8 @@ $sql = 'SELECT o.ID, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
         INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-        WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'];
-$params = array_merge([$fInicio, $fFim], $filtro['params']);
+        WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'] . $fObs['sql'];
+$params = array_merge([$fInicio, $fFim], $filtro['params'], $fObs['params']);
 
 if ($fAluno > 0) { $sql .= ' AND o.ID_ALUNO = ?'; $params[] = $fAluno; }
 if ($fTurma > 0) { $sql .= ' AND a.ID_TURMA = ?'; $params[] = $fTurma; }
