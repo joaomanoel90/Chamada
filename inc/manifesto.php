@@ -10,7 +10,7 @@
  * config.php nao entra: e o arquivo que voce edita no servidor.
  */
 return array(
-	'LIMPEZA.md' => array('816f0a9764602c9c7bfb2e4fc6dba83a592d9f6fd1d0c0474e595c47fe5047a1', 62801, 0),
+	'LIMPEZA.md' => array('bd40b9a4bd6e2c9c5414f38cefb6e8bc8c38115d6e326551293c53dfad471e05', 66607, 0),
 	'README.md' => array('6004fa003de67dc712e508784d7f8dab9f9336df6606be1c399e6c51764caba4', 12620, 0),
 	'README_CHAMADA.md' => array('62067e02d22a21396e6407e3aa9d8655e337d2b1c5920f8504237a0f2bccda9c', 12576, 0),
 	'alunos/add.php' => array('f8822ca5db78747837064b7b8e079efecc1ffb914a612d655c3d04a0726a391d', 261, 1),
@@ -94,7 +94,7 @@ return array(
 	'relatorios/salvar.php' => array('40800e4e150d445b208e07b136fd1a6a0ce5ad896afa5ffa57c1bfb8260878cf', 55, 1),
 	'relatorios/ver.php' => array('3cf71216d7f7f72e9556ec4dce9336ebef92c23e765ca5c4e387845a8918b1a1', 17779, 1),
 	'sair.php' => array('c4d09c48c0cee3d943551f664af4e845d5a0657aaf7c853435dc9214f3b7e1c4', 501, 1),
-	'sonda.php' => array('6eafd87ec8bc3f5241e348dfbf6a01edbab23888db57223203b04c1bef4c4064', 13895, 1),
+	'sonda.php' => array('6a62d054a0f468f9ed1620657f692f192140fb526570e9e7080faca20d02996d', 20919, 1),
 	'sql_inicial/ATUALIZAR_EQUIPE_SAUDE.sql' => array('fff3ccce2254fc8e65e532da4eb574a0c2bea60573f7bfd25701cc7146802a0b', 14700, 0),
 	'sql_inicial/ATUALIZAR_TRANSFERENCIAS.sql' => array('8474e962f664a52a4839f777061bdde435263cc03d9a0196829d628bffae3bd5', 10428, 0),
 	'sql_inicial/CRIAR_LOGIN_APLICACAO.sql' => array('07b36e6a8e319832b8e4cfda272ed9608250776661715c5b9963d2e48d69d2d5', 10074, 0),

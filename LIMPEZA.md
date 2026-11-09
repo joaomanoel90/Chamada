@@ -1269,3 +1269,86 @@ O que ele faz e por quê:
 Testado nos três cenários, com o PHP **sem banco de dados nenhum**:
 `chamada.php` antigo → aponta o `chamada.php`; `equipe.php` ausente → aponta a
 ausência; `equipe.php` antigo → lista as 31 funções que faltam.
+
+### O caso real: arquivo certo no disco, bytecode velho na memória
+
+Depois de dois rounds mandando recopiar arquivos, o `.bat` de verificação
+mostrou que a pasta do usuário estava **correta**. A prova foi aritmética: cada
+arquivo tinha o tamanho do repositório **mais um byte por linha**.
+
+| Arquivo | LF (repo) | +CRLF | no PC |
+|---|---|---|---|
+| `inc/chamada.php` | 23.076 | 23.767 | 23.767 |
+| `inc/equipe.php` | 22.126 | 22.702 | 22.702 |
+| `inc/transferencias.php` | 12.211 | 12.513 | 12.513 |
+
+Os 12 arquivos de `inc/` batiam. Ele tinha dado `git clone` no Windows, e o
+`core.autocrlf` converteu LF em CRLF. A linha 691 tinha o `require`, e as três
+funções estavam nas linhas 108, 445 e 502 — idênticas ao repositório.
+
+**Dois defeitos meus apareceram aí:**
+
+1. **O verificador comparava hash de bytes brutos.** Num clone Windows isso
+   acusa a instalação inteira. Medido: hash bruto batia **0 de 135** arquivos;
+   com CRLF e BOM normalizados, **135 de 135**. Corrigido no
+   `gera_manifesto.php` e no `verifica_instalacao.php` (`vi_hash()`). O
+   manifesto guarda o hash do texto com LF.
+2. **A sonda chamava `opcache_get_status(false)`.** Com `false` o PHP **não
+   devolve** a lista de scripts, então ela imprimia "0 em cache" como se fosse
+   informação. Agora usa `true`.
+
+#### A assinatura que identifica bytecode velho
+
+A sonda de runtime, rodando no Apache do usuário (PHP **8.5.12**,
+`apache2handler`), devolveu:
+
+```
+CARREGOU inc/chamada.php? SIM
+eq_*  -> 12 funções AUSENTES
+tr_*  -> EXISTEM
+arquivos incluídos: chamada.php, database.php, transferencias.php
+                    (equipe.php NÃO entrou)
+```
+
+Os dois `require` estão em sequência, linhas 685 e 691, no mesmo nível. O 685
+executou e o 691 não — sem erro nenhum. Como o arquivo em disco **tem** a linha
+691, o que rodou foi uma versão compilada anterior, em que o `require` do
+`equipe.php` ainda não existia. Ou seja: **opcache servindo bytecode antigo**.
+
+O `opcache` também informou **memória usada negativa** (−111,8 MB), o que é
+anômalo e reforça que ele não estava confiável naquele PHP.
+
+#### O experimento que separa as duas causas
+
+A sonda v2 faz duas etapas:
+
+- **A** — carrega o `inc/chamada.php` como as telas fazem e conta as funções.
+- **B** — se faltou alguma, carrega o `inc/equipe.php` **na mão**.
+
+| Resultado de B | Conclusão |
+|---|---|
+| funções aparecem | o `equipe.php` está bom; o `chamada.php` rodou bytecode velho → **opcache** |
+| continuam ausentes | o arquivo em disco não define as funções |
+| lança erro | o erro é mostrado com arquivo e linha |
+| vaza texto para a página | o arquivo perdeu a tag `<?php` ou foi salvo em outra codificação |
+
+A captura de saída com `ob_start()` em volta do `require` é o que pega o último
+caso: sem a tag de abertura o PHP trata o arquivo como HTML, imprime o conteúdo
+e não define função nenhuma — **sem dar erro**.
+
+#### A correção
+
+`opcache_invalidate($arquivo, true)` **antes** do include força a recompilação;
+é o que o botão "Forçar recompilação" faz, e por isso ele já serve de teste. Se
+o problema voltar, `opcache.enable=0` no `php.ini` **do Apache**
+(`C:\wamp64\bin\apache\apache2.4.65\bin\php.ini`, não o do CLI) e reiniciar.
+
+Para desenvolvimento o certo é `opcache.validate_timestamps=1` com
+`opcache.revalidate_freq=0`: confere o arquivo a cada acesso. Com
+`revalidate_freq=2` ainda há uma janela de 2 segundos, e com
+`validate_timestamps=0` o arquivo novo nunca é visto.
+
+> **Regra:** antes de concluir "arquivo antigo", compare tamanho **e** número de
+> linhas — CRLF do Windows muda o tamanho sem mudar o código. E antes de
+> concluir "código errado", confira o que foi **realmente incluído**
+> (`get_included_files()`), não o que está no disco.
