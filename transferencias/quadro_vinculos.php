@@ -1,4 +1,13 @@
 <?php
+
+/* Fragmento de tela: so faz sentido incluido por uma pagina que ja carregou
+   o config.php. Aberto direto na URL nao tem ch_h() nem as variaveis que
+   espera, e morreria com erro fatal. ABSPATH e o sinal de que vim de dentro. */
+if (!defined('ABSPATH')) {
+	http_response_code(404);
+	exit;
+}
+
 /* Quadro "escolas e turmas por período". Espera $vinculos (tr_vinculos() ou
    tr_vinculos_no_ano()). Usado no detalhe da transferência, na ficha do aluno
    e no relatório anual — inclusive na impressão. */

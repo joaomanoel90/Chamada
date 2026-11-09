@@ -1,4 +1,13 @@
 <?php
+
+/* Fragmento de tela: so faz sentido incluido por uma pagina que ja carregou
+   o config.php. Aberto direto na URL nao tem ch_h() nem as variaveis que
+   espera, e morreria com erro fatal. ABSPATH e o sinal de que vim de dentro. */
+if (!defined('ABSPATH')) {
+	http_response_code(404);
+	exit;
+}
+
 /* Histórico de transferências do aluno. Espera $historico (tr_historico_aluno()).
    Usado no detalhe da transferência e na ficha do aluno. */
 if (!isset($historico)) { $historico = []; }

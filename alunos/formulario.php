@@ -1,3 +1,12 @@
+<?php
+/* Fragmento de tela: so faz sentido incluido por uma pagina que ja carregou
+   o config.php. Aberto direto na URL nao tem ch_h() nem as variaveis que
+   espera, e morreria com erro fatal. ABSPATH e o sinal de que vim de dentro. */
+if (!defined('ABSPATH')) {
+	http_response_code(404);
+	exit;
+}
+?>
 <form action="<?= $acao ?>" method="post">
   <?= ch_csrf_campo() ?>
   <?php $editando = !empty($id); ?>

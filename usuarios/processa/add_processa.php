@@ -10,7 +10,10 @@
 require_once(__DIR__ . '/comum.php');
 
 $erros = [];
-$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1];
+/* 'turno' tem de existir aqui: o formulario le $d['turno'] no primeiro GET,
+   antes de qualquer POST. Sem a chave, o PHP 8 emite "Undefined array key".
+   O edit_processa.php ja trazia; o add tinha ficado sem. */
+$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1, 'turno' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {

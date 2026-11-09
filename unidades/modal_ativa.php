@@ -1,3 +1,12 @@
+<?php
+/* Fragmento de tela: so faz sentido incluido por uma pagina que ja carregou
+   o config.php. Aberto direto na URL nao tem ch_h() nem as variaveis que
+   espera, e morreria com erro fatal. ABSPATH e o sinal de que vim de dentro. */
+if (!defined('ABSPATH')) {
+	http_response_code(404);
+	exit;
+}
+?>
 <!-- Modal -->
 <div class="modal fade" id="ativa-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
   <div class="modal-dialog">

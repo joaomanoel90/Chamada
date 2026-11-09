@@ -1352,3 +1352,93 @@ Para desenvolvimento o certo é `opcache.validate_timestamps=1` com
 > linhas — CRLF do Windows muda o tamanho sem mudar o código. E antes de
 > concluir "código errado", confira o que foi **realmente incluído**
 > (`get_included_files()`), não o que está no disco.
+
+---
+
+## 22. O aviso que o servidor de teste escondia
+
+Depois de resolver o opcache, o usuário recebeu:
+
+```
+Warning: Undefined array key "turno" in usuarios/add.php
+```
+
+### A causa
+
+`usuarios/processa/add_processa.php` inicializava:
+
+```php
+$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1];
+```
+
+e a view lê `$d['turno']` para marcar a opção selecionada. No primeiro GET,
+antes de qualquer POST, a chave não existe. O `edit_processa.php` **tinha**
+`'turno' => $usuario['TURNO'] ?? ''`; o `add` ficou sem quando a rodada do turno
+foi implementada. Assimetria clássica entre cadastro e edição.
+
+Correção: acrescentar `'turno' => ''` ao inicializador.
+
+### Por que nenhuma suite pegou — o defeito era do ambiente de teste
+
+O `bootstrap_real.php` não definia `error_reporting` nem `display_errors`, então
+valia o `php.ini`, que vem com **`display_errors=Off`**. As suites procuravam
+`Warning:` no HTML e não achavam nada, porque o PHP não imprimia. Elas
+"passavam" enquanto o usuário via o aviso na tela.
+
+Agora o bootstrap liga:
+
+```php
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+```
+
+> Aviso em tela é defeito a corrigir, não ruído a esconder. Um teste que roda
+> com `display_errors=Off` não está verificando ausência de avisos — está
+> verificando ausência de *impressão* de avisos, que é outra coisa.
+
+### A varredura nova
+
+`.harness/varre_avisos.py` abre **37 telas × 3 níveis = 111 páginas** com `E_ALL`
+ligado e procura `Fatal error`, `Parse error`, `Warning`, `Notice`, `Deprecated`
+e `Uncaught`. Cobre os três níveis porque o alcance muda o que a tela consulta:
+o administrador vê todas as unidades, o diretor só as liberadas, o professor só
+as turmas da equipe — e cada caminho pode deixar uma variável sem inicializar.
+
+Resultado depois das correções: **111/111 limpas**.
+
+### Fragmento de tela não é página
+
+A varredura achou também `Call to undefined function ch_h()` em
+`transferencias/quadro_vinculos.php`. Não era defeito de uso: esse arquivo é um
+**fragmento**, incluído por `alunos/view.php`, `relatorios/ver.php` e
+`transferencias/ver.php`. Aberto direto na URL, não tem `ch_h()` nem as
+variáveis que espera.
+
+O `quadro_historico.php` tinha o mesmo problema e a varredura **não** pegou:
+sem dados ele imprime "Este aluno nunca foi transferido" e não chega a chamar
+`ch_h()`. Ausência de erro num caminho não prova que os outros estão limpos.
+
+Os nove fragmentos ganharam a mesma guarda:
+
+```php
+if (!defined('ABSPATH')) {
+	http_response_code(404);
+	exit;
+}
+```
+
+`ABSPATH` só existe depois do `config.php`, que toda página real carrega — é um
+sinal confiável de "vim de dentro". São eles: `alunos/formulario.php`,
+`turmas/formulario.php`, `feriados/formulario.php`, `observacoes/formulario.php`,
+`unidades/modal.php`, `unidades/modal_ativa.php`, `usuarios/modal_acesso.php`,
+`transferencias/quadro_vinculos.php`, `transferencias/quadro_historico.php`.
+
+Três deles começam em HTML puro, sem `<?php` na primeira linha; nesses a guarda
+entra num bloco PHP próprio, antes do HTML.
+
+### Regra
+
+> Ao acrescentar um campo a um formulário, inicialize a chave nos **dois**
+> processadores, o de cadastro e o de edição. E rode a varredura com `E_ALL`
+> visível antes de entregar: `python3 .harness/varre_avisos.py`.
