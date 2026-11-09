@@ -142,5 +142,5 @@ return array(
 	'usuarios/processa/edit_processa.php' => array('44ea5d1f49ef1725f084ec0a4b8957f47f6335656f76c3d33ad368901f289609', 3865, 1),
 	'usuarios/processa/index_processa.php' => array('a17d20f785873c8683b99151fee61b36a716f0bbc7105cc062c9bbdedb700cc4', 887, 1),
 	'valida.php' => array('7733b5d43b76376cf5f6d0907a07c8dba2435c1cd95ca3d12fef95100ef2166c', 2448, 1),
-	'verifica_instalacao.php' => array('74e8dec1e0b2754a2df85f65856ef97fe3cccaaa2840a040721c50812f915d99', 22481, 1),
+	'verifica_instalacao.php' => array('64be204b16516166d0943caefc517c399629f395121a412ad257d47078efd233', 23065, 1),
 );

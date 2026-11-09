@@ -119,6 +119,7 @@ $resultados[] = array('titulo' => 'Ambiente', 'itens' => $itens);
  * 2. ARQUIVOS: faltando e atrasado
  * ================================================================== */
 $itens     = array();
+$esperados = array();          /* caminho => array(hash, bytes, critico) */
 $manifesto = $raiz . '/inc/manifesto.php';
 
 if (!file_exists($manifesto)) {
@@ -237,11 +238,19 @@ if (!$carregou) {
 		if (!$ausentes) {
 			$itens[] = vi_item('ok', $arquivo . ': ' . count($lista) . ' funções conferidas');
 		} else {
+			/* Distinguir os dois casos evita mandar copiar arquivo que ja
+			 * esta certo. Se o modulo confere com o manifesto, o culpado e
+			 * quem deveria inclui-lo: o inc/chamada.php. */
+			if (!file_exists($raiz . '/' . $arquivo)) {
+				$acao = 'Copie o arquivo ' . $arquivo . ' do pacote novo.';
+			} elseif (isset($esperados[$arquivo])
+				&& hash_file('sha256', $raiz . '/' . $arquivo) === $esperados[$arquivo][0]) {
+				$acao = 'O ' . $arquivo . ' está correto. Quem está antigo é o inc/chamada.php, que não o inclui: copie o inc/chamada.php novo e reinicie o Apache.';
+			} else {
+				$acao = 'O arquivo existe mas é de versão antiga. Copie o ' . $arquivo . ' novo por cima e reinicie o Apache.';
+			}
 			$itens[] = vi_item('erro', $arquivo . ': ' . count($ausentes) . ' função(ões) não definida(s)',
-				implode(', ', $ausentes),
-				file_exists($raiz . '/' . $arquivo)
-					? 'O arquivo existe mas é de versão antiga. Copie o ' . $arquivo . ' novo por cima e reinicie o Apache.'
-					: 'Copie o arquivo ' . $arquivo . ' do pacote novo.');
+				implode(', ', $ausentes), $acao);
 			$bloqueios++;
 		}
 	}
