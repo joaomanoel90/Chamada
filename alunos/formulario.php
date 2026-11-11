@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 ?>
-<form action="<?= $acao ?>" method="post">
+<form action="<?= $acao ?>" method="post" enctype="multipart/form-data">
   <?= ch_csrf_campo() ?>
   <?php $editando = !empty($id); ?>
   <?php if ($editando): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
@@ -54,6 +54,22 @@ if (!defined('ABSPATH')) {
     <div class="form-group col-md-4">
       <label class="fw-bold">Data de nascimento</label>
       <input type="date" class="form-control" name="nascimento" min="1900-01-01" max="<?= ch_hoje() ?>" value="<?= ch_h($d['NASCIMENTO']) ?>" required>
+    </div>
+
+    <div class="form-group col-md-12">
+      <label class="fw-bold" for="foto-aluno">Foto do aluno <small class="text-muted">(opcional)</small></label>
+      <?php if (!empty($d['TEM_FOTO']) && ($fotoSrc = aluno_foto_src($d['TEM_FOTO'], $id ?? 0))): ?>
+        <div class="mb-2"><img src="<?= ch_h($fotoSrc) ?>" alt="Foto atual de <?= ch_h($d['NOME']) ?>"
+                               style="width:96px;height:120px;object-fit:cover;border-radius:12px"></div>
+      <?php endif; ?>
+      <input type="file" class="form-control" id="foto-aluno" name="foto" accept="image/jpeg,image/png,image/webp">
+      <small class="text-muted">JPEG, PNG ou WebP; até 5 MB. A imagem será reduzida e comprimida antes de ser salva no banco.</small>
+      <?php if (!empty($d['TEM_FOTO'])): ?>
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" name="remover_foto" value="1" id="remover-foto">
+          <label class="form-check-label" for="remover-foto">Remover foto atual</label>
+        </div>
+      <?php endif; ?>
     </div>
 
     <div class="form-group col-md-5">

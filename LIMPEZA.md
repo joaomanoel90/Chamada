@@ -1431,7 +1431,7 @@ if (!defined('ABSPATH')) {
 `ABSPATH` só existe depois do `config.php`, que toda página real carrega — é um
 sinal confiável de "vim de dentro". São eles: `alunos/formulario.php`,
 `turmas/formulario.php`, `feriados/formulario.php`, `observacoes/formulario.php`,
-`unidades/modal.php`, `unidades/modal_ativa.php`, `usuarios/modal_acesso.php`,
+`usuarios/modal_acesso.php`,
 `transferencias/quadro_vinculos.php`, `transferencias/quadro_historico.php`.
 
 Três deles começam em HTML puro, sem `<?php` na primeira linha; nesses a guarda

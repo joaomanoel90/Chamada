@@ -4,10 +4,10 @@
 define('DB_NAME', 'db_chamada');
 /** Usuário do banco de dados SQL */
 
-define('DB_USER', 'user_chamada');
+define('DB_USER', 'sa');
 
 /** Senha do banco de dados SQL */
-define('DB_PASSWORD', '');
+define('DB_PASSWORD', 'TIpma46634');
 
 /** nome do host do SQL */
 define('DB_HOST', '127.0.0.1');
@@ -15,15 +15,15 @@ define('DB_HOST', '127.0.0.1');
 define('DB_PORT', '1433');
 /** caminho absoluto para a pasta do sistema **/
 if (!defined('ABSPATH'))
-	define('ABSPATH', dirname(__FILE__) . '/');
+    define('ABSPATH', dirname(__FILE__) . '/');
 
 /** caminho no server para o sistema **/
 if (!defined('BASEURL'))
-	define('BASEURL', '/Chamada/');
+    define('BASEURL', '/Chamada/');
 
 /** caminho do arquivo de banco de dados **/
 if (!defined('DBAPI'))
-	define('DBAPI', ABSPATH . 'inc/database.php');
+    define('DBAPI', ABSPATH . 'inc/database.php');
 
 /** caminhos dos templates de header e footer **/
 define('TEMA_TEMPLATE', ABSPATH . 'inc/tema.php');

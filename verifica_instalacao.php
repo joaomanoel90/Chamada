@@ -374,6 +374,12 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 					'TB_ALUNOS.ALERGIAS', 'TB_ALUNOS.RESTRICOES_ALIMENTARES', 'TB_ALUNOS.MEDICACAO'),
 				'objs'   => array('UX_TURMAPROF_RESP_TURNO', 'IX_TURMAPROF_SUBSTITUTO'),
 			),
+			array(
+				'nome'   => 'Foto do aluno e crachá',
+				'script' => 'sql_inicial/ATUALIZAR_FOTO_ALUNO.sql',
+				'cols'   => array('TB_ALUNOS.FOTO_DADOS', 'TB_ALUNOS.FOTO_MIME'),
+				'objs'   => array(),
+			),
 		);
 
 		foreach ($rodadas as $rodada) {

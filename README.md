@@ -18,6 +18,8 @@ da rede municipal (creches e escolas).
   que está cobrindo; fora do prazo não vê a turma
 - **Saúde do aluno**: alergias, restrições alimentares e medicação, com alerta na
   tela de chamada e no relatório impresso
+- **Foto do aluno e crachá**: envie uma foto no cadastro e imprima o crachá da
+  ficha do aluno ou salve em PDF
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
@@ -35,10 +37,13 @@ idempotente e faz o upgrade sem apagar dados:
 - cria `TB_TURMA_PROFESSORES` e `TB_CHAMADA_RETIFICACOES`;
 - acrescenta `CONFIRMADA_EM` e `CONFIRMADA_POR` em `TB_CHAMADA`;
 - migra o professor único de cada turma para **regente** da equipe;
-- preenche a confirmação dos registros antigos com quem os lançou.
+- preenche a confirmação dos registros antigos com quem os lançou;
+- adiciona `TB_ALUNOS.FOTO_DADOS` e `FOTO_MIME` para armazenar as fotos no banco.
 
 Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
 com um professor (o antigo responsável) e você acrescenta os demais.
+Instalações que ainda não receberam as colunas `FOTO_DADOS` e `FOTO_MIME` também
+podem executar `sql_inicial/ATUALIZAR_FOTO_ALUNO.sql`; o script é idempotente.
 
 ## Instalação
 
@@ -164,6 +169,15 @@ Em **Alunos → Editar → Saúde e alimentação**: **alergias**, **restriçõe
 alimentares** e **medicação e cuidados de saúde**. O que estiver preenchido
 aparece no alto da tela de chamada, dentro do cartão do aluno, na ficha e no
 relatório anual impresso. Aluno sem registro não gera aviso.
+
+## Foto do aluno e crachá
+
+Na inclusão ou edição do aluno, envie uma foto JPEG, PNG ou WebP de até 5 MB.
+O sistema reduz a imagem para no máximo 640 × 800 pixels, comprime em JPEG e
+armazena os dados binários em `TB_ALUNOS.FOTO_DADOS` (até 512 KB), sem criar
+arquivo permanente no servidor. A extensão GD do PHP precisa estar ativada.
+Na ficha, **Gerar crachá** abre a versão para impressão ou para salvar como PDF.
+A foto só é exibida para usuários com acesso à ficha.
 
 ## Chamada: confirmar uma vez, depois retificar
 

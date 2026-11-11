@@ -13,15 +13,18 @@ se o seu banco tiver outro nome.
 | 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. |
 | 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria a tabela e a view que faltam. Não altera nenhum dado existente. |
 | 7 | `ATUALIZAR_EQUIPE_SAUDE.sql` | **Só para quem já tinha o sistema instalado** antes do turno, do substituto e da ficha de saúde. Acrescenta colunas e troca a regra de responsável. Não apaga nenhum dado. |
+| 8 | `ATUALIZAR_FOTO_ALUNO.sql` | **Só para instalações existentes** que ainda não têm as colunas de imagem comprimida do aluno. |
 
-Os scripts 1, 2, 4, 6 e 7 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4, 6, 7 e 8 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
-> novos, não só as telas. Os dois scripts são conferidos antes de criar, podem
+> novos, não só as telas. Para habilitar foto e crachá, rode também
+> `ATUALIZAR_FOTO_ALUNO.sql`. Ele adiciona `FOTO_DADOS` e `FOTO_MIME` sem apagar
+> outras colunas. Os scripts são conferidos antes de criar, podem
 > rodar de novo sem medo, e não mexem em aluno, chamada, observação nem parecer.
-> Quem está instalando do zero não precisa deles: o script 1 já traz as duas
-> seções.
+> Quem está instalando do zero não precisa deles: o script 1 já traz essas
+> colunas.
 
 > **Não sabe o que falta?** Entre como administrador e abra
 > `verifica_instalacao.php` (menu **Verificar instalação**). A página lista

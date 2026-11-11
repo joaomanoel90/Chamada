@@ -130,7 +130,7 @@ foreach ($modulos as $arquivo => $def) {
  * ------------------------------------------------------------------ */
 $esperados_inc = array('chamada.php', 'equipe.php', 'transferencias.php', 'database.php',
 	'sidebar.php', 'tema.php', 'header.php', 'header2.php', 'footer.php',
-	'chamada_categorias.php', 'auth_periodo.php', 'functions.php');
+	'chamada_categorias.php', 'auth_periodo.php');
 
 foreach ($esperados_inc as $nome) {
 	$c = $raiz . '/inc/' . $nome;

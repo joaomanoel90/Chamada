@@ -31,9 +31,8 @@
    CORREÇÕES EM RELAÇÃO AOS SCRIPTS ANTIGOS
    ----------------------------------------------------------------------------
    - VIEW_ACESSOS_USUARIOS: o arquivo antigo continha apenas um SELECT, sem
-     CREATE VIEW. A view nunca era criada, e por isso
-     inc/functions.php::usuario_tem_acesso_unidade() e
-     usuarios/processa/acesso_processa.php falhavam. Aqui ela é criada de fato.
+     CREATE VIEW. A view nunca era criada, e por isso o gerenciamento antigo
+     de acesso por unidade falhava. Aqui ela é criada de fato.
    - TB_USUARIOS.EMAIL: a coluna era usada em 4 comandos SQL de usuarios/ mas
      não existia no schema. Aqui ela é criada (e adicionada em bases antigas).
    - TB_USUARIOS.ATIVO: o registro inicial tinha ATIVO = NULL. Aqui é 1, e os
@@ -237,6 +236,8 @@ BEGIN
         RESPONSAVEL    nvarchar(150) NOT NULL,
         TELEFONE       nvarchar(30)  NOT NULL,
         EMAIL          nvarchar(150) NULL,
+        FOTO_DADOS     varbinary(max) NULL,
+        FOTO_MIME      nvarchar(30)  NULL,
         ATIVO          bit           NOT NULL CONSTRAINT DF_ALUNOS_ATIVO DEFAULT (1),
         CREATED        datetime      NOT NULL CONSTRAINT DF_ALUNOS_CREATED DEFAULT (GETDATE()),
         CONSTRAINT PK_TB_ALUNOS PRIMARY KEY CLUSTERED (ID),
@@ -252,7 +253,25 @@ ELSE
     PRINT '  = TB_ALUNOS já existe';
 GO
 
-/* ============================================================================
+IF COL_LENGTH('dbo.TB_ALUNOS', 'FOTO_DADOS') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_ALUNOS ADD FOTO_DADOS varbinary(max) NULL;
+    PRINT '  + TB_ALUNOS.FOTO_DADOS adicionada';
+END
+ELSE
+    PRINT '  = TB_ALUNOS.FOTO_DADOS já existe';
+GO
+
+IF COL_LENGTH('dbo.TB_ALUNOS', 'FOTO_MIME') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_ALUNOS ADD FOTO_MIME nvarchar(30) NULL;
+    PRINT '  + TB_ALUNOS.FOTO_MIME adicionada';
+END
+ELSE
+    PRINT '  = TB_ALUNOS.FOTO_MIME já existe';
+GO
+
+/* ============================================================================ 
    8. TB_FERIADOS
       TIPO = INTEGRAL: bloqueia o dia todo.
       TIPO = PARCIAL : HORA_INICIO/HORA_FIM guardam a faixa SEM AULA; bloqueia
@@ -491,7 +510,7 @@ GO
 /* ============================================================================
    14. VIEW_ACESSOS_USUARIOS
        Corrige o script antigo, que trazia só o SELECT e nunca criava a view.
-       Usada por inc/functions.php e usuarios/processa/acesso_processa.php.
+       Usada pelo gerenciamento de acesso por unidade.
    ============================================================================ */
 CREATE OR ALTER VIEW dbo.VIEW_ACESSOS_USUARIOS
 AS

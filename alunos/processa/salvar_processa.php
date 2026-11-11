@@ -2,6 +2,7 @@
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
+require_once(ABSPATH . 'alunos/fotos.php');
 ch_db();
 /* $turmaFixa > 0 = edição: a turma NÃO vem do formulário. Trocar o aluno de
    turma/escola é a transferência (transferencias/), que tem duas etapas, data

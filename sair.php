@@ -1,10 +1,5 @@
 <?php
-require_once('functions.php');
-
-// $baseurl = BASEURL;
-// $baseurl_sem_barras = str_replace("/", "", $baseurl);
-// session_name($baseurl_sem_barras);
-// session_start();
+require_once(__DIR__ . '/config.php');
 
 unset(
 	$_SESSION['usuarioId'],
@@ -16,9 +11,6 @@ unset(
 
 $_SESSION['logindeslogado'] = "Deslogado com sucesso!";
 
-//redirecionar o usuario para a página de login
-header("Location: login.php");
-
-$db = close_database($conn);
-
+header("Location: " . BASEURL . "login.php");
+exit;
 ?>

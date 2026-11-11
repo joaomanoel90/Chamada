@@ -98,5 +98,4 @@ if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'
 </html>
 
 <script src="<?php echo BASEURL; ?>js/tabela.js"></script>
-<?php include('modal.php'); ?>
 <?php include(FOOTER_TEMPLATE); ?>

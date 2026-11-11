@@ -6,6 +6,7 @@ $botoesAluno = '<a class="btn btn-outline-secondary" href="index.php"><i class="
 if (ch_gestor() && !$apenasHistorico) {
     $botoesAluno .= '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a> ';
 }
+$botoesAluno .= '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Gerar crachá</a> ';
 if ($podeTransferir) {
     $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a>';
 }
@@ -36,7 +37,13 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
   <div class="col-md-7">
     <div class="card border-0 shadow-sm rounded-4">
       <div class="card-body">
-        <h5 class="mb-3"><i class="fas fa-id-card"></i> Dados do aluno</h5>
+        <div class="d-flex align-items-start gap-3 mb-3">
+          <?php if ($fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id)): ?>
+            <img src="<?= ch_h($fotoSrc) ?>" alt="Foto de <?= ch_h($aluno['NOME']) ?>"
+                 style="width:92px;height:112px;object-fit:cover;border-radius:12px">
+          <?php endif; ?>
+          <h5 class="mb-0"><i class="fas fa-id-card"></i> Dados do aluno</h5>
+        </div>
         <dl class="row mb-0">
           <dt class="col-sm-4">Matrícula</dt><dd class="col-sm-8"><?= ch_h($aluno['MATRICULA']) ?></dd>
           <dt class="col-sm-4">Nascimento</dt><dd class="col-sm-8"><?= ch_data_br($aluno['NASCIMENTO']) ?> <span class="text-muted">(<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'])) ?>)</span></dd>
