@@ -36,10 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sqlFoto = ', FOTO_DADOS = NULL, FOTO_MIME = NULL';
         }
         $ok = ch_exec(
-            'UPDATE TB_ALUNOS SET MATRICULA = ?, NOME = ?, NASCIMENTO = ?,
+            'UPDATE TB_ALUNOS SET MATRICULA = ?, CPF = ?, NOME = ?, NASCIMENTO = ?,
                     DATA_MATRICULA = ?, RESPONSAVEL = ?, TELEFONE = ?, EMAIL = ?,
                     ALERGIAS = ?, RESTRICOES_ALIMENTARES = ?, MEDICACAO = ?' . $sqlFoto . ' WHERE ID = ?',
-            array_merge([$d['MATRICULA'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
+            array_merge([$d['MATRICULA'], $d['CPF'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
              $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
              $d['ALERGIAS'] !== '' ? $d['ALERGIAS'] : null,
              $d['RESTRICOES_ALIMENTARES'] !== '' ? $d['RESTRICOES_ALIMENTARES'] : null,

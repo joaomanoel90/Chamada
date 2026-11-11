@@ -380,6 +380,12 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'cols'   => array('TB_ALUNOS.FOTO_DADOS', 'TB_ALUNOS.FOTO_MIME'),
 				'objs'   => array(),
 			),
+			array(
+				'nome'   => 'CPF obrigatório e único do aluno',
+				'script' => 'sql_inicial/ATUALIZAR_CPF_ALUNO.sql',
+				'cols'   => array('TB_ALUNOS.CPF'),
+				'objs'   => array('UX_ALUNOS_CPF', 'CK_ALUNOS_CPF'),
+			),
 		);
 
 		foreach ($rodadas as $rodada) {

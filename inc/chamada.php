@@ -336,7 +336,7 @@ function ch_pode_retificar($idTurma)
 function ch_aluno($idAluno)
 {
     return ch_row(
-        'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.EMAIL,
+        'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.CPF, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.EMAIL,
                 CASE WHEN a.FOTO_DADOS IS NULL THEN 0 ELSE 1 END AS TEM_FOTO, a.FOTO_MIME, a.ATIVO,
                 a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
                 CONVERT(varchar(10), a.NASCIMENTO, 23)     AS NASCIMENTO,

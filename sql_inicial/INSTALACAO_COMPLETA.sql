@@ -230,6 +230,7 @@ BEGIN
         ID             int IDENTITY(1,1) NOT NULL,
         ID_TURMA       int           NOT NULL,
         MATRICULA      nvarchar(30)  NOT NULL,
+        CPF            nvarchar(11)  NOT NULL,
         NOME           nvarchar(150) NOT NULL,
         NASCIMENTO     date          NOT NULL,
         DATA_MATRICULA date          NOT NULL,
@@ -242,6 +243,7 @@ BEGIN
         CREATED        datetime      NOT NULL CONSTRAINT DF_ALUNOS_CREATED DEFAULT (GETDATE()),
         CONSTRAINT PK_TB_ALUNOS PRIMARY KEY CLUSTERED (ID),
         CONSTRAINT UQ_ALUNOS_MATRICULA UNIQUE (MATRICULA),
+        CONSTRAINT CK_ALUNOS_CPF CHECK (LEN(CPF) = 11 AND CPF COLLATE Latin1_General_BIN2 NOT LIKE '%[^0-9]%'),
         CONSTRAINT FK_ALUNOS_TURMA FOREIGN KEY (ID_TURMA) REFERENCES dbo.TB_TURMAS (ID),
         CONSTRAINT CK_ALUNOS_NASC CHECK (NASCIMENTO >= '1900-01-01')
     );
@@ -269,6 +271,39 @@ BEGIN
 END
 ELSE
     PRINT '  = TB_ALUNOS.FOTO_MIME já existe';
+GO
+
+IF COL_LENGTH('dbo.TB_ALUNOS', 'CPF') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_ALUNOS ADD CPF nvarchar(11) NULL;
+    PRINT '  + TB_ALUNOS.CPF adicionada (alunos existentes precisam ser atualizados)';
+END
+ELSE
+    PRINT '  = TB_ALUNOS.CPF já existe';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_ALUNOS_CPF')
+BEGIN
+    ALTER TABLE dbo.TB_ALUNOS ADD CONSTRAINT CK_ALUNOS_CPF
+        CHECK (CPF IS NULL OR (LEN(CPF) = 11 AND CPF COLLATE Latin1_General_BIN2 NOT LIKE '%[^0-9]%'));
+    PRINT '  + CK_ALUNOS_CPF criada';
+END
+GO
+
+IF EXISTS (
+    SELECT CPF FROM dbo.TB_ALUNOS
+    WHERE CPF IS NOT NULL
+    GROUP BY CPF HAVING COUNT(*) > 1
+)
+    THROW 50001, 'Há CPFs duplicados em TB_ALUNOS. Corrija-os antes de criar o índice único.', 1;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_ALUNOS') AND name = 'UX_ALUNOS_CPF')
+BEGIN
+    CREATE UNIQUE INDEX UX_ALUNOS_CPF ON dbo.TB_ALUNOS (CPF) WHERE CPF IS NOT NULL;
+    PRINT '  + UX_ALUNOS_CPF criado';
+END
 GO
 
 /* ============================================================================ 

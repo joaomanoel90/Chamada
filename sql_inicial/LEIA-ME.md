@@ -14,8 +14,9 @@ se o seu banco tiver outro nome.
 | 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria a tabela e a view que faltam. Não altera nenhum dado existente. |
 | 7 | `ATUALIZAR_EQUIPE_SAUDE.sql` | **Só para quem já tinha o sistema instalado** antes do turno, do substituto e da ficha de saúde. Acrescenta colunas e troca a regra de responsável. Não apaga nenhum dado. |
 | 8 | `ATUALIZAR_FOTO_ALUNO.sql` | **Só para instalações existentes** que ainda não têm as colunas de imagem comprimida do aluno. |
+| 9 | `ATUALIZAR_CPF_ALUNO.sql` | **Só para instalações existentes.** Adiciona CPF e unicidade; alunos antigos ficam sem CPF até serem atualizados. |
 
-Os scripts 1, 2, 4, 6, 7 e 8 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4, 6, 7, 8 e 9 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -24,7 +25,9 @@ Os scripts 1, 2, 4, 6, 7 e 8 podem ser executados mais de uma vez sem duplicar n
 > outras colunas. Os scripts são conferidos antes de criar, podem
 > rodar de novo sem medo, e não mexem em aluno, chamada, observação nem parecer.
 > Quem está instalando do zero não precisa deles: o script 1 já traz essas
-> colunas.
+> colunas. Rode também `ATUALIZAR_CPF_ALUNO.sql` para instalações existentes;
+> CPFs dos alunos antigos serão informados ao editar cada cadastro. O script 1
+> já exige CPF nos novos bancos.
 
 > **Não sabe o que falta?** Entre como administrador e abra
 > `verifica_instalacao.php` (menu **Verificar instalação**). A página lista
@@ -90,6 +93,10 @@ linhas de chamada e leva alguns minutos. Comece pequeno.
 ### Entrar no sistema com os dados de demonstração
 
 Senha de todos os usuários criados: **`Demo@2026`**
+
+Os alunos de demonstração recebem CPFs fictícios com dígitos verificadores
+válidos e únicos, calculados a partir da matrícula. Eles não representam dados
+reais.
 
 Os CPFs ficam na faixa reservada `900.000.0xx-xx`, com números inválidos de
 propósito para nunca colidir com um CPF verdadeiro:

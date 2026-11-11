@@ -47,6 +47,14 @@ if (!defined('ABSPATH')) {
       <input type="text" class="form-control" name="matricula" maxlength="30" value="<?= ch_h($d['MATRICULA']) ?>" required>
     </div>
 
+    <div class="form-group col-md-4">
+      <label class="fw-bold" for="cpfcnpj">CPF do aluno</label>
+      <input type="text" class="form-control" id="cpfcnpj" name="cpf" maxlength="14"
+             inputmode="numeric" autocomplete="off"
+             value="<?= ch_h(!empty($d['CPF']) ? ch_cpf_mask($d['CPF']) : '') ?>"
+             placeholder="000.000.000-00" required>
+    </div>
+
     <div class="form-group col-md-8">
       <label class="fw-bold">Nome completo do aluno</label>
       <input type="text" class="form-control" name="nome" maxlength="150" value="<?= ch_h($d['NOME']) ?>" required>

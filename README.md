@@ -20,6 +20,8 @@ da rede municipal (creches e escolas).
   tela de chamada e no relatório impresso
 - **Foto do aluno e crachá**: envie uma foto no cadastro e imprima o crachá da
   ficha do aluno ou salve em PDF
+- **CPF obrigatório e único do aluno**: o sistema valida os dígitos verificadores
+  e impede a repetição do CPF, inclusive em cadastros simultâneos
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
@@ -38,12 +40,16 @@ idempotente e faz o upgrade sem apagar dados:
 - acrescenta `CONFIRMADA_EM` e `CONFIRMADA_POR` em `TB_CHAMADA`;
 - migra o professor único de cada turma para **regente** da equipe;
 - preenche a confirmação dos registros antigos com quem os lançou;
-- adiciona `TB_ALUNOS.FOTO_DADOS` e `FOTO_MIME` para armazenar as fotos no banco.
+- adiciona `TB_ALUNOS.FOTO_DADOS` e `FOTO_MIME` para armazenar as fotos no banco;
+- adiciona `TB_ALUNOS.CPF` com unicidade; alunos antigos ficam sem CPF até que
+  o dado correto seja informado ao editar cada cadastro.
 
 Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
 com um professor (o antigo responsável) e você acrescenta os demais.
 Instalações que ainda não receberam as colunas `FOTO_DADOS` e `FOTO_MIME` também
 podem executar `sql_inicial/ATUALIZAR_FOTO_ALUNO.sql`; o script é idempotente.
+Para o CPF, execute `sql_inicial/ATUALIZAR_CPF_ALUNO.sql` em instalações
+existentes. Não preencha CPFs antigos com números inventados.
 
 ## Instalação
 
@@ -178,6 +184,15 @@ armazena os dados binários em `TB_ALUNOS.FOTO_DADOS` (até 512 KB), sem criar
 arquivo permanente no servidor. A extensão GD do PHP precisa estar ativada.
 Na ficha, **Gerar crachá** abre a versão para impressão ou para salvar como PDF.
 A foto só é exibida para usuários com acesso à ficha.
+
+## CPF do aluno
+
+O CPF é obrigatório no cadastro e na edição, validado pelo sistema e armazenado
+somente com 11 dígitos. Um índice único no SQL Server impede duplicidades mesmo
+quando dois cadastros são enviados ao mesmo tempo. Em instalações já existentes,
+rode `sql_inicial/ATUALIZAR_CPF_ALUNO.sql`: alunos antigos ficam temporariamente
+sem CPF e precisarão ter o dado informado ao serem editados. A migração não
+inventa nem altera CPFs de alunos já cadastrados.
 
 ## Chamada: confirmar uma vez, depois retificar
 

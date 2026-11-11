@@ -46,6 +46,9 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
         </div>
         <dl class="row mb-0">
           <dt class="col-sm-4">Matrícula</dt><dd class="col-sm-8"><?= ch_h($aluno['MATRICULA']) ?></dd>
+          <?php if (ch_gestor()): ?>
+            <dt class="col-sm-4">CPF</dt><dd class="col-sm-8"><?= !empty($aluno['CPF']) ? ch_h(ch_cpf_mask($aluno['CPF'])) : '<span class="text-muted">Não informado</span>' ?></dd>
+          <?php endif; ?>
           <dt class="col-sm-4">Nascimento</dt><dd class="col-sm-8"><?= ch_data_br($aluno['NASCIMENTO']) ?> <span class="text-muted">(<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'])) ?>)</span></dd>
           <dt class="col-sm-4">Matriculado em</dt><dd class="col-sm-8"><?= ch_data_br($aluno['DATA_MATRICULA']) ?></dd>
           <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8"><?= ch_h($aluno['RESPONSAVEL']) ?></dd>

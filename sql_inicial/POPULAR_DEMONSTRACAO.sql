@@ -376,12 +376,26 @@ INNER JOIN @sobrenomes s ON s.i  = (((t.ordem - 1) * @AlunosPorTurma + q.n) * 13
 INNER JOIN @nomes rn     ON rn.i = (((t.ordem - 1) * @AlunosPorTurma + q.n) * 17 % @qtdNomes) + 1
 ORDER BY t.ordem, q.n;
 
-INSERT INTO dbo.TB_ALUNOS (ID_TURMA, MATRICULA, NOME, NASCIMENTO, DATA_MATRICULA,
+INSERT INTO dbo.TB_ALUNOS (ID_TURMA, MATRICULA, CPF, NOME, NASCIMENTO, DATA_MATRICULA,
                            RESPONSAVEL, TELEFONE, EMAIL, ATIVO)
 OUTPUT 'TB_ALUNOS', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
-SELECT p.id_turma, p.matricula, p.nome, p.nascimento, DATEFROMPARTS(@AnoLetivo, 2, 1),
+SELECT p.id_turma, p.matricula,
+       cpf.base + CAST(dv1.digito AS varchar(1)) + CAST(dv2.digito AS varchar(1)),
+       p.nome, p.nascimento, DATEFROMPARTS(@AnoLetivo, 2, 1),
        p.responsavel, p.telefone, p.email, 1
 FROM @planoAluno p
+CROSS APPLY (SELECT '9' + RIGHT(p.matricula, 8) AS base) cpf
+CROSS APPLY (
+    SELECT (SUM(CONVERT(int, SUBSTRING(cpf.base, n.pos, 1)) * (11 - n.pos)) * 10) % 11 % 10 AS digito
+    FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9)) n(pos)
+) dv1
+CROSS APPLY (
+    SELECT (
+        SUM((CASE WHEN n.pos = 10 THEN dv1.digito ELSE CONVERT(int, SUBSTRING(cpf.base, n.pos, 1)) END)
+            * (12 - n.pos)) * 10
+    ) % 11 % 10 AS digito
+    FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10)) n(pos)
+) dv2
 WHERE NOT EXISTS (SELECT 1 FROM dbo.TB_ALUNOS a WHERE a.MATRICULA = p.matricula);
 PRINT '  + alunos criados: ' + CAST(@@ROWCOUNT AS varchar(10));
 
