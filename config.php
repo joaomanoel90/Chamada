@@ -1,13 +1,13 @@
 <?php
 
 /** O nome do banco de dados*/
-define('DB_NAME', '');
+define('DB_NAME', 'db_chamada');
 /** Usuário do banco de dados SQL */
 
-define('DB_USER', '');
+define('DB_USER', 'sa');
 
 /** Senha do banco de dados SQL */
-define('DB_PASSWORD', '');
+define('DB_PASSWORD', 'TIpma46634');
 
 /** nome do host do SQL */
 define('DB_HOST', '127.0.0.1');
