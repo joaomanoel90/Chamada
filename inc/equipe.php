@@ -626,7 +626,7 @@ function eq_obs_turmas_bloqueadas($idUsuario = null, $data = null)
     $nivel = $idUsuario === ch_uid()
         ? ch_nivel()
         : (int)ch_val('SELECT NIVEL FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
-    if ($nivel === 1 || $nivel === 2) return $cache[$chave] = [];
+    if (in_array($nivel, [1, 2, 4], true)) return $cache[$chave] = [];
 
     $rows = ch_rows(
         "SELECT ID_TURMA, PAPEL, ISNULL(VER_OBSERVACOES, 0) AS VER_OBSERVACOES,
@@ -716,4 +716,3 @@ function eq_obs_aviso_bloqueio()
          . 'ficam visíveis para você; as registradas pelos outros professores só '
          . 'aparecem se a direção liberar a leitura.';
 }
-

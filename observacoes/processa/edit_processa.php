@@ -6,11 +6,21 @@ ch_db();
 require_once(__DIR__ . '/salvar_processa.php');
 
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+if (ch_secretario_escolar()) {
+    ch_flash('O Secretário Escolar pode consultar ou inserir observações conforme autorização, mas não pode editar registros existentes.', 'danger');
+    header('Location: index.php');
+    exit;
+}
 $atual = ch_row('SELECT o.ID, o.ID_ALUNO, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
                         CONVERT(varchar(10), o.DATA, 23) AS DATA
                  FROM TB_OBSERVACOES o WHERE o.ID = ?', [$id]);
 
-if (!$atual || !ch_pode_aluno_atual($atual['ID_ALUNO'])) {
+if (!$atual || !ch_pode_escrever_observacao_aluno($atual['ID_ALUNO'])) {
+    if ($atual && ch_secretario_escolar()) {
+        ch_flash('O Diretor precisa autorizar o registro de observações nesta unidade.', 'danger');
+        header('Location: index.php');
+        exit;
+    }
     ch_flash('Observação não encontrada.', 'danger');
     header('Location: index.php');
     exit;

@@ -145,6 +145,24 @@ function ch_admin()
     return ch_nivel() === 1;
 }
 
+/** Nível 4 — Secretaria de Educação: gestão escolar em toda a rede. */
+function ch_secretaria_educacao()
+{
+    return ch_nivel() === 4;
+}
+
+/** Nível 5 — Secretário Escolar: cadastros da(s) unidade(s), sem lançar chamada. */
+function ch_secretario_escolar()
+{
+    return ch_nivel() === 5;
+}
+
+/** Administração de rede: administrador do sistema e Secretaria de Educação. */
+function ch_rede()
+{
+    return ch_admin() || ch_secretaria_educacao();
+}
+
 /** Nível 2 — diretor: enxerga tudo da(s) unidade(s) a que está vinculado. */
 function ch_diretor()
 {
@@ -157,11 +175,36 @@ function ch_professor()
     return ch_nivel() === 3;
 }
 
-/** Níveis 1 e 2 mantêm cadastros. O alcance de cada um é dado por
- *  ch_unidades_ids(): admin = rede toda, diretor = somente sua unidade. */
+/** Administração escolar: níveis 1, 2 e 4 podem configurar unidades. */
 function ch_gestor()
 {
-    return in_array(ch_nivel(), [1, 2], true);
+    return in_array(ch_nivel(), [1, 2, 4], true);
+}
+
+/** Gestão de alunos e transferências, incluindo a secretaria escolar. */
+function ch_gestao_alunos()
+{
+    return ch_gestor() || ch_secretario_escolar();
+}
+
+/** Interrompe a tela se o usuário não puder gerenciar alunos. */
+function ch_require_gestao_alunos()
+{
+    if (!ch_gestao_alunos()) {
+        ch_flash('Acesso restrito à gestão escolar.', 'danger');
+        header('Location: ' . BASEURL . 'index.php');
+        exit;
+    }
+}
+
+/** A secretaria escolar pode consultar turmas, mas não configurá-las. */
+function ch_require_consulta_turmas()
+{
+    if (!ch_gestao_alunos()) {
+        ch_flash('Acesso restrito à equipe escolar.', 'danger');
+        header('Location: ' . BASEURL . 'index.php');
+        exit;
+    }
 }
 
 /** Interrompe a tela se o usuário não for da gestão. */
@@ -174,7 +217,7 @@ function ch_require_gestor()
     }
 }
 
-/** Só o nível 1 administra usuários e vínculos da rede. */
+/** Só o nível 1 administra contas de usuário. */
 function ch_require_admin()
 {
     if (!ch_admin()) {
@@ -184,16 +227,186 @@ function ch_require_admin()
     }
 }
 
+/** Quem pode gerenciar os vínculos de unidade de um usuário específico? */
+function ch_pode_gerenciar_vinculos_usuario($idUsuario)
+{
+    $idUsuario = (int)$idUsuario;
+    if ($idUsuario <= 0) {
+        return false;
+    }
+    if (ch_admin()) {
+        return true;
+    }
+    if (!ch_secretaria_educacao()) {
+        return false;
+    }
+    $nivel = (int)ch_val('SELECT NIVEL FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
+    return in_array($nivel, [2, 5], true);
+}
+
+/** Todos os perfis escolares podem consultar relatórios no próprio escopo. */
+function ch_pode_ver_relatorios()
+{
+    return in_array(ch_nivel(), [1, 2, 3, 4, 5], true);
+}
+
+/** Unidades em que o Diretor autorizou este Secretário Escolar a ler relatórios. */
+function ch_unidades_relatorios_ids()
+{
+    if (!ch_secretario_escolar()) {
+        return ch_unidades_ids();
+    }
+
+    $rows = ch_rows(
+        'SELECT p.ID_UNIDADE
+           FROM TB_SECRETARIO_RELATORIOS p
+           INNER JOIN TB_ACESSO a
+                   ON a.id_usuario = p.ID_USUARIO
+                  AND a.id_unidade = p.ID_UNIDADE
+                  AND ISNULL(a.ativo, 1) = 1
+          WHERE p.ID_USUARIO = ? AND p.PERMITIDO = 1
+          ORDER BY p.ID_UNIDADE',
+        [ch_uid()]
+    );
+    return array_map(function ($row) { return (int)$row['ID_UNIDADE']; }, $rows);
+}
+
+/** Unidades em que o Diretor autorizou leitura ou inserção de observações. */
+function ch_unidades_observacoes_ids($permissaoMinima = 1)
+{
+    static $cache = [];
+    $permissaoMinima = max(1, min(2, (int)$permissaoMinima));
+    if (isset($cache[$permissaoMinima])) {
+        return $cache[$permissaoMinima];
+    }
+
+    if (!ch_secretario_escolar()) {
+        $cache[$permissaoMinima] = ch_unidades_ids();
+        return $cache[$permissaoMinima];
+    }
+
+    $rows = ch_rows(
+        'SELECT p.ID_UNIDADE
+           FROM TB_SECRETARIO_OBSERVACOES p
+           INNER JOIN TB_ACESSO a
+                   ON a.id_usuario = p.ID_USUARIO
+                  AND a.id_unidade = p.ID_UNIDADE
+                  AND ISNULL(a.ativo, 1) = 1
+          WHERE p.ID_USUARIO = ? AND p.PERMITIDO >= ?
+          ORDER BY p.ID_UNIDADE',
+        [ch_uid(), $permissaoMinima]
+    );
+    $cache[$permissaoMinima] = array_map(function ($row) { return (int)$row['ID_UNIDADE']; }, $rows);
+    return $cache[$permissaoMinima];
+}
+
+/** Filtro das unidades em que o Secretário pode consultar observações. */
+function ch_filtro_observacao_aluno($aliasAluno = 'a')
+{
+    if (!ch_secretario_escolar()) {
+        return ['sql' => '', 'params' => []];
+    }
+
+    $ids = ch_unidades_observacoes_ids(1);
+    if (!$ids) {
+        return ['sql' => ' AND 1 = 0', 'params' => []];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    return [
+        'sql' => " AND EXISTS (SELECT 1 FROM TB_TURMAS tobs
+                              WHERE tobs.ID = {$aliasAluno}.ID_TURMA
+                                AND tobs.ID_UNIDADE IN ({$ph}))",
+        'params' => $ids,
+    ];
+}
+
+/** Secretários só inserem observações em unidades liberadas pelo Diretor. */
+function ch_pode_escrever_observacao_turma($idTurma, $idUnidade)
+{
+    if (ch_secretario_escolar()) {
+        return in_array((int)$idUnidade, ch_unidades_observacoes_ids(2), true);
+    }
+    return ch_pode_turma($idTurma);
+}
+
+function ch_pode_escrever_observacao_aluno($idAluno)
+{
+    $aluno = ch_aluno($idAluno);
+    return $aluno && ch_pode_escrever_observacao_turma($aluno['ID_TURMA'], $aluno['ID_UNIDADE']);
+}
+
+function ch_pode_escrever_observacoes()
+{
+    return !ch_secretario_escolar() || count(ch_unidades_observacoes_ids(2)) > 0;
+}
+
+function ch_pode_ler_observacao_aluno($idAluno)
+{
+    if (!ch_secretario_escolar()) {
+        return true;
+    }
+    $aluno = ch_aluno($idAluno);
+    return $aluno && in_array((int)$aluno['ID_UNIDADE'], ch_unidades_observacoes_ids(1), true);
+}
+
+/** Filtro de turma próprio dos relatórios: o Secretário só vê unidades liberadas. */
+function ch_filtro_turma_relatorios($alias = 't')
+{
+    if (!ch_secretario_escolar()) {
+        return ch_filtro_turma($alias);
+    }
+
+    $ids = ch_unidades_relatorios_ids();
+    if (!$ids) {
+        return ['sql' => ' AND 1 = 0', 'params' => []];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    return ['sql' => " AND {$alias}.ID_UNIDADE IN ({$ph})", 'params' => $ids];
+}
+
+/** Um relatório só é visível se a unidade do aluno estiver autorizada. */
+function ch_pode_relatorio_aluno($idAluno)
+{
+    $aluno = ch_aluno($idAluno);
+    if (!$aluno) {
+        return false;
+    }
+
+    if (ch_secretario_escolar()) {
+        return in_array((int)$aluno['ID_UNIDADE'], ch_unidades_relatorios_ids(), true);
+    }
+    return ch_pode_aluno($idAluno);
+}
+
+function ch_exige_relatorio_aluno($idAluno)
+{
+    $aluno = ch_aluno($idAluno);
+    if (!$aluno || !ch_pode_relatorio_aluno($idAluno)) {
+        ch_flash('Relatório não autorizado. A Direção precisa liberar a leitura para esta unidade.', 'danger');
+        header('Location: ' . BASEURL . 'relatorios/index.php');
+        exit;
+    }
+    return $aluno;
+}
+
+function ch_require_relatorios()
+{
+    if (!ch_pode_ver_relatorios()) {
+        ch_flash('Acesso restrito à equipe escolar.', 'danger');
+        header('Location: ' . BASEURL . 'index.php');
+        exit;
+    }
+}
+
 /* ------------------------------------------------------- controle de acesso */
 
-/** IDs de unidade do usuário.
- *  Nível 1 = todas; níveis 2 e 3 = apenas as vinculadas em TB_ACESSO. */
+/** IDs de unidade do usuário. Rede = todas; os demais dependem de vínculo. */
 function ch_unidades_ids()
 {
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    if (ch_admin()) {
+    if (ch_rede()) {
         $rows = ch_rows('SELECT id FROM TB_UNIDADES ORDER BY unidade');
         $cache = array_map(function ($r) { return (int)$r['id']; }, $rows ?: []);
     } else {
@@ -221,11 +434,11 @@ function ch_turmas_ids()
 
 /** Filtro SQL para restringir uma consulta de TURMAS ao alcance do usuário.
  *  $alias = alias da TB_TURMAS na consulta (ex.: 't').
- *  Nível 1: sem filtro. Nível 2: unidades vinculadas. Nível 3: turmas da equipe.
+ *  Rede: sem filtro. Gestão escolar: unidades vinculadas. Professor: equipe.
  *  Devolve ['sql' => string, 'params' => array]. */
 function ch_filtro_turma($alias = 't')
 {
-    if (ch_admin()) {
+    if (ch_rede()) {
         return ['sql' => '', 'params' => []];
     }
 
@@ -248,7 +461,7 @@ function ch_filtro_turma($alias = 't')
  *  Mantido para telas que listam unidades, não turmas. */
 function ch_filtro_unidade($alias = 't')
 {
-    if (ch_admin()) {
+    if (ch_rede()) {
         return ['sql' => '', 'params' => []];
     }
     $ids = ch_unidades_ids();
@@ -267,7 +480,7 @@ function ch_pode_unidade($idUnidade)
 /** Unidades para selects de cadastro, já restritas ao alcance do usuário. */
 function ch_unidades_opcoes()
 {
-    if (ch_admin()) {
+    if (ch_rede()) {
         return ch_rows('SELECT id, unidade FROM TB_UNIDADES ORDER BY unidade');
     }
     $ids = ch_unidades_ids();
@@ -280,8 +493,8 @@ function ch_unidades_opcoes()
 function ch_turma($idTurma)
 {
     return ch_row(
-        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.ID_PERIODO, t.ID_PROFESSOR,
-                t.CAPACIDADE, t.ATIVO,
+        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.ETAPA_ENSINO, t.ID_PERIODO, t.ID_PROFESSOR,
+                t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
                 u.unidade AS UNIDADE,
                 p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM
          FROM TB_TURMAS t
@@ -313,7 +526,7 @@ function ch_na_equipe($idTurma, $idUsuario = null)
     return eq_na_equipe_em($idTurma, $idUsuario, ch_hoje());
 }
 
-/** Acesso à turma: admin = todas; diretor = unidades vinculadas;
+/** Acesso à turma: rede = todas; gestão escolar = unidades vinculadas;
  *  professor = somente turmas em que está na equipe. */
 function ch_pode_turma($idTurma)
 {
@@ -325,11 +538,16 @@ function ch_pode_turma($idTurma)
     return ch_pode_unidade($t['ID_UNIDADE']);
 }
 
-/** Quem pode retificar uma chamada já confirmada: a gestão da unidade
- *  ou qualquer professor da equipe da turma. */
+/** Quem pode retificar uma chamada já confirmada: gestão ou equipe docente. */
 function ch_pode_retificar($idTurma)
 {
-    return ch_pode_turma($idTurma);
+    return !ch_secretario_escolar() && ch_pode_turma($idTurma);
+}
+
+/** A secretaria escolar consulta a chamada, mas não confirma presenças. */
+function ch_pode_lancar_chamada($idTurma)
+{
+    return !ch_secretario_escolar() && ch_pode_turma($idTurma);
 }
 
 /** Aluno completo, com turma/unidade/período. */
@@ -454,7 +672,13 @@ function ch_cpf_mask($s)
 /** Rótulo do nível de acesso. */
 function ch_nivel_nome($n)
 {
-    return [1 => 'Administrador', 2 => 'Diretor', 3 => 'Professor'][(int)$n] ?? 'Indefinido';
+    return [
+        1 => 'Administrador do sistema',
+        2 => 'Diretor Escolar',
+        3 => 'Professor',
+        4 => 'Secretaria de Educação',
+        5 => 'Secretário Escolar',
+    ][(int)$n] ?? 'Indefinido';
 }
 
 /* ------------------------------------------------------------ mensagens */
@@ -485,6 +709,25 @@ function ch_flash_html()
 function ch_h($s)
 {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
+/** Etapas de ensino disponíveis para classificação das turmas. */
+function ch_etapas_ensino()
+{
+    return [
+        'INFANTIL_CRECHE' => 'Infantil — Creche',
+        'FUNDAMENTAL_1_5' => 'Fundamental — 1º ao 5º Ano',
+        'FUNDAMENTAL_6_9' => 'Fundamental — 6º ao 9º Ano',
+        'INFANTIL_PRE_ESCOLA' => 'Infantil — Pré-Escola',
+    ];
+}
+
+function ch_etapa_ensino_rotulo($etapa)
+{
+    $etapas = ch_etapas_ensino();
+    return is_string($etapa) && isset($etapas[$etapa])
+        ? $etapas[$etapa]
+        : 'Etapa não classificada';
 }
 
 /** '2026-11-05' -> '05/11/2026' */

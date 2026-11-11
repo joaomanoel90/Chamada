@@ -3,9 +3,11 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
+ch_require_relatorios();
 $fTurma = (int)($_GET['turma_id'] ?? 0);
 $fAno   = (int)($_GET['ano'] ?? (int)date('Y'));
-$filtro = ch_filtro_turma('t');
+$filtro = ch_filtro_turma_relatorios('t');
+$semUnidadesVinculadas = ch_secretario_escolar() && !ch_unidades_relatorios_ids();
 
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE
@@ -16,9 +18,10 @@ $turmas = ch_rows(
 
 /* Dentro do subselect o aluno é "a", então o filtro usa esse alias. */
 $fObsIdx = eq_obs_filtro('o', 'a');
+$fObsPermissaoIdx = ch_filtro_observacao_aluno('a');
 $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, t.NOME AS TURMA, t.ANO_LETIVO, u.unidade AS UNIDADE,
                (SELECT COUNT(*) FROM TB_CHAMADA c WHERE c.ID_ALUNO = a.ID AND YEAR(c.DATA) = ?) AS DIAS,
-               (SELECT COUNT(*) FROM TB_OBSERVACOES o WHERE o.ID_ALUNO = a.ID AND YEAR(o.DATA) = ?' . $fObsIdx['sql'] . ') AS OBSERVACOES,
+               (SELECT COUNT(*) FROM TB_OBSERVACOES o WHERE o.ID_ALUNO = a.ID AND YEAR(o.DATA) = ?' . $fObsIdx['sql'] . $fObsPermissaoIdx['sql'] . ') AS OBSERVACOES,
                CASE WHEN r.ID IS NULL THEN 0 ELSE 1 END AS TEM_PARECER
         FROM TB_ALUNOS a
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
@@ -28,7 +31,7 @@ $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, t.NOME AS TURMA, t.ANO_LETIVO, u.unida
 /* A ordem importa: os ? do filtro de observação ficam no SELECT, entre o
    ano do contador de observações e o ano do LEFT JOIN. São quatro anos no
    total — dois antes do filtro, dois depois. */
-$params = array_merge([$fAno, $fAno], $fObsIdx['params'], [$fAno, $fAno], $filtro['params']);
+$params = array_merge([$fAno, $fAno], $fObsIdx['params'], $fObsPermissaoIdx['params'], [$fAno, $fAno], $filtro['params']);
 
 if ($fTurma > 0) { $sql .= ' AND a.ID_TURMA = ?'; $params[] = $fTurma; }
 $sql .= ' ORDER BY u.unidade, t.NOME, a.NOME';

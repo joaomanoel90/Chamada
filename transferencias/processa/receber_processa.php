@@ -10,7 +10,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_gestor();
+ch_require_gestao_alunos();
 
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 $t  = tr_transferencia($id);

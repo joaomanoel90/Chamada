@@ -228,9 +228,11 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
         <h5 class="mb-3"><i class="fas fa-tags"></i> Observações por área</h5>
         <?php if (!$porCategoria): ?>
           <p class="text-muted">
-            <?= !empty($obsOcultas)
+            <?= ch_secretario_escolar() && !$obsLeituraPermitida
+                  ? 'A Direção não autorizou a consulta de observações nesta unidade.'
+                  : (!empty($obsOcultas)
                   ? 'Nenhuma observação sua registrada neste ano.'
-                  : 'Nenhuma observação registrada neste ano.' ?>
+                  : 'Nenhuma observação registrada neste ano.') ?>
           </p>
         <?php else: ?>
           <?php foreach ($porCategoria as $cat => $qt): ?>
@@ -297,9 +299,11 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
     <h5 class="mb-3"><i class="far fa-comment-dots"></i> Observações do desenvolvimento (<?= count($observacoes) ?>)</h5>
     <?php if (!$observacoes): ?>
       <p class="text-muted">
-        <?= !empty($obsOcultas)
+        <?= ch_secretario_escolar() && !$obsLeituraPermitida
+              ? 'A Direção não autorizou a consulta de observações nesta unidade.'
+              : (!empty($obsOcultas)
               ? 'Nenhuma observação sua registrada em ' . (int)$ano . '.'
-              : 'Nenhuma observação registrada em ' . (int)$ano . '.' ?>
+              : 'Nenhuma observação registrada em ' . (int)$ano . '.') ?>
       </p>
     <?php else: ?>
       <?php foreach ($observacoes as $o): ?>
@@ -319,7 +323,9 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 <div class="card<?= $classeParecer ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="fas fa-pen-to-square"></i> Parecer final e encaminhamentos</h5>
+    <?php if ($podeEditarParecer): ?>
     <form method="post" action="salvar.php">
+      <?= ch_csrf_campo() ?>
       <input type="hidden" name="aluno_id" value="<?= (int)$alunoId ?>">
       <input type="hidden" name="ano" value="<?= (int)$ano ?>">
 
@@ -339,6 +345,21 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
         <small class="text-muted ms-2">Parecer registrado. Ele aparece na versão impressa.</small>
       <?php endif; ?>
     </form>
+    <?php else: ?>
+      <?php if (!ch_secretario_escolar()): ?>
+      <div class="alert alert-warning no-print">
+        Aluno inativo após saída da rede. O relatório anual está disponível somente para consulta.
+      </div>
+      <?php endif; ?>
+      <div class="mb-3">
+        <strong>Parecer descritivo do desenvolvimento</strong>
+        <p class="parecer-texto mb-0"><?= $parecer && trim((string)$parecer['PARECER']) !== '' ? nl2br(ch_h($parecer['PARECER'])) : '<span class="text-muted">Parecer ainda não preenchido.</span>' ?></p>
+      </div>
+      <div class="mb-3">
+        <strong>Encaminhamentos e recomendações</strong>
+        <p class="parecer-texto mb-0"><?= $parecer && trim((string)$parecer['ENCAMINHAMENTOS']) !== '' ? nl2br(ch_h($parecer['ENCAMINHAMENTOS'])) : '<span class="text-muted">Nenhum encaminhamento registrado.</span>' ?></p>
+      </div>
+    <?php endif; ?>
 
     <?php /* Versão impressa: o textarea imprime só as linhas visíveis e corta o
              resto do parecer. Aqui o texto sai inteiro, justificado. */ ?>

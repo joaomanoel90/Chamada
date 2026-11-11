@@ -2,11 +2,88 @@
 require_once('processa/acesso_processa.php'); 
 include(HEADER_TEMPLATE); 
 
-if ($_SESSION['usuarioNiveisAcessoId'] != 1) {
-    header("location:" . BASEURL);
-    exit;
-}
+if ($modoLiberacaoRelatorios): ?>
+<h2><i class="fas fa-file-shield"></i> Leitura de relatórios: <?= ch_h($usuario['NOME']) ?></h2>
+<p class="text-muted">Escolha se este Secretário Escolar poderá consultar relatórios anuais em cada unidade.</p>
+<?= ch_flash_html() ?>
 
+<?php if (!$unidadesRelatorio): ?>
+  <div class="alert alert-warning">
+    Este Secretário Escolar não possui vínculo ativo com nenhuma unidade sob sua direção.
+    Peça ao administrador para vincular as unidades em <strong>Acesso Unidades</strong>.
+  </div>
+<?php else: ?>
+  <form action="<?= ch_url('usuarios/acesso.php?id=' . (int)$usuario['ID'] . '&relatorios=1') ?>" method="post">
+    <?= ch_csrf_campo() ?>
+    <div class="card-escola">
+      <div class="card-escola-corpo">
+        <?php foreach ($unidadesRelatorio as $unidade): ?>
+          <div class="row align-items-center mb-3">
+            <label class="col-md-5 fw-bold" for="relatorio<?= (int)$unidade['id'] ?>">
+              <?= ch_h($unidade['unidade']) ?>
+            </label>
+            <div class="col-md-7">
+              <select class="form-select" name="permissoes[<?= (int)$unidade['id'] ?>]"
+                      id="relatorio<?= (int)$unidade['id'] ?>">
+                <option value="0" <?= (int)$unidade['PERMITIDO'] === 0 ? 'selected' : '' ?>>Sem acesso</option>
+                <option value="1" <?= (int)$unidade['PERMITIDO'] === 1 ? 'selected' : '' ?>>Somente ler</option>
+              </select>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div class="my-4">
+      <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Salvar permissões</button>
+      <a href="<?= ch_url('usuarios/secretarios.php') ?>" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+  </form>
+<?php endif; ?>
+<?php include(FOOTER_TEMPLATE); exit; ?>
+<?php endif; ?>
+
+<?php if (!empty($modoLiberacaoObservacoes)): ?>
+<h2><i class="fas fa-comment-dots"></i> Registro de observações: <?= ch_h($usuario['NOME']) ?></h2>
+<p class="text-muted">Escolha se este Secretário Escolar pode consultar observações ou consultar e inserir novas observações em cada unidade.</p>
+<?= ch_flash_html() ?>
+
+<?php if (!$unidadesObservacoes): ?>
+  <div class="alert alert-warning">
+    Este Secretário Escolar não possui vínculo ativo com nenhuma unidade sob sua direção.
+    Peça ao administrador para vincular as unidades em <strong>Acesso Unidades</strong>.
+  </div>
+<?php else: ?>
+  <form action="<?= ch_url('usuarios/acesso.php?id=' . (int)$usuario['ID'] . '&observacoes=1') ?>" method="post">
+    <?= ch_csrf_campo() ?>
+    <div class="card-escola">
+      <div class="card-escola-corpo">
+        <?php foreach ($unidadesObservacoes as $unidade): ?>
+          <div class="row align-items-center mb-3">
+            <label class="col-md-5 fw-bold" for="permissao<?= (int)$unidade['id'] ?>">
+              <?= ch_h($unidade['unidade']) ?>
+            </label>
+            <div class="col-md-7">
+              <select class="form-select" name="permissoes[<?= (int)$unidade['id'] ?>]"
+                      id="permissao<?= (int)$unidade['id'] ?>">
+                <option value="0" <?= (int)$unidade['PERMITIDO'] === 0 ? 'selected' : '' ?>>Sem acesso</option>
+                <option value="1" <?= (int)$unidade['PERMITIDO'] === 1 ? 'selected' : '' ?>>Somente ler</option>
+                <option value="2" <?= (int)$unidade['PERMITIDO'] === 2 ? 'selected' : '' ?>>Ler e inserir</option>
+              </select>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div class="my-4">
+      <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Salvar permissões</button>
+      <a href="<?= ch_url('usuarios/secretarios.php?observacoes=1') ?>" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+  </form>
+<?php endif; ?>
+<?php include(FOOTER_TEMPLATE); exit; ?>
+<?php endif; ?>
+
+<?php
 if (!empty($_GET['id'])) {
     $id = $_GET['id'];
 
@@ -16,8 +93,15 @@ if (!empty($_GET['id'])) {
 
 <h2>
     <i class="far fa-check-square"></i> 
-    Acessos do usuário: <?php echo $usuario['NOME']; ?>
+    Acessos do usuário: <?= ch_h($usuario['NOME']) ?>
 </h2>
+
+<?php if (ch_secretaria_educacao()): ?>
+  <div class="alert alert-info">
+    Você pode vincular este <?= (int)$usuario['NIVEL'] === 2 ? 'Diretor' : 'Secretário Escolar' ?>
+    às unidades escolares. A administração da conta continua restrita ao administrador.
+  </div>
+<?php endif; ?>
 
 <?php if (!empty($_GET['erro']) && $_GET['erro'] == 'duplicado'): ?>
 <div class="alert alert-warning">
@@ -37,7 +121,7 @@ if (!empty($_GET['id'])) {
                 <option selected disabled>Selecione...</option>
                 <?php while ($unidade = sqlsrv_fetch_array($stmt_unidades, SQLSRV_FETCH_ASSOC)) : ?>
                     <option value="<?php echo $unidade['id']; ?>">
-                        <?php echo $unidade['unidade']; ?>
+                        <?= ch_h($unidade['unidade']) ?>
                     </option>
                 <?php endwhile; ?>
             </select>
@@ -49,15 +133,15 @@ if (!empty($_GET['id'])) {
             Salvar
         </button>
 
-        <a href="index.php" class="btn btn-outline-secondary">
-            Cancelar
-        </a>
+        <a href="<?= ch_url(ch_secretaria_educacao() ? 'usuarios/vinculos.php' : 'usuarios/index.php') ?>"
+           class="btn btn-outline-secondary">Voltar</a>
     </div>
 </form>
 
 <!-- 🔴 AÇÃO SEPARADA (SEGURO) -->
 <hr>
 
+<?php if (ch_admin()): ?>
 <div class="alert alert-warning d-flex justify-content-between align-items-center">
     <div>
         <strong>Atenção:</strong> Esta ação irá adicionar <b>TODAS</b> as unidades ao usuário.
@@ -71,6 +155,7 @@ if (!empty($_GET['id'])) {
         </button>
     </form>
 </div>
+<?php endif; ?>
 
 <!-- 🔹 TABELA -->
 <hr>

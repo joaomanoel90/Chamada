@@ -2,8 +2,21 @@
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
 <?php ch_cabecalho('Observações dos Alunos', 'fa-comment-dots',
-    '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Observação</a>'); ?>
+    ch_pode_escrever_observacoes()
+      ? '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Observação</a>'
+      : ''); ?>
 
+<?php if (ch_secretario_escolar() && !$podeLerObservacoes): ?>
+  <div class="alert alert-info">
+    <i class="fas fa-lock"></i>
+    O Diretor ainda não liberou a consulta de observações para nenhuma unidade vinculada.
+  </div>
+<?php elseif (ch_secretario_escolar() && !ch_pode_escrever_observacoes()): ?>
+  <div class="alert alert-info">
+    <i class="fas fa-eye"></i>
+    Consulta autorizada. Para inserir novas observações, o Diretor precisa liberar essa opção na unidade.
+  </div>
+<?php endif; ?>
 <?php if (!empty($avisoObs)): ?>
   <div class="alert alert-warning">
     <i class="fas fa-eye-slash"></i> <?= ch_h($avisoObs) ?>
@@ -56,7 +69,7 @@
   <div class="alert alert-info">
     Nenhuma observação encontrada no período.
     <?php if (!empty($obsOcultas)): ?>
-      As observações da equipe estão ocultas — a lista mostra apenas as suas.
+      As observações da equipe estão ocultas ou não há autorização de leitura para essas unidades.
     <?php endif; ?>
   </div>
 <?php else: ?>
@@ -77,7 +90,9 @@
             <small class="text-muted"><?= ch_data_br($o['DATA']) ?> &middot; <?= ch_h($o['AUTOR']) ?></small>
             <div>
               <a class="btn btn-sm btn-outline-secondary" href="<?= ch_url('alunos/view.php?id=' . (int)$o['ID_ALUNO']) ?>"><i class="far fa-eye"></i></a>
-              <?php if (ch_gestor() || (int)$o['ID_USUARIO'] === ch_uid()): ?>
+              <?php if (!ch_secretario_escolar()
+                    && ch_pode_escrever_observacao_turma($o['ID_TURMA'], $o['ID_UNIDADE'])
+                    && (ch_gestor() || (int)$o['ID_USUARIO'] === ch_uid())): ?>
                 <a class="btn btn-sm btn-outline-success" href="edit.php?id=<?= (int)$o['ID'] ?>"><i class="far fa-edit"></i></a>
               <?php endif; ?>
             </div>

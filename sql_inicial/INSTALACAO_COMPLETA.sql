@@ -94,7 +94,8 @@ GO
 
 /* ============================================================================
    3. TB_USUARIOS — gestão e professores
-      NIVEL: 1 e 2 = gestão | 3 = professor/unidade
+      NIVEL: 1 = administrador | 2 = diretor | 3 = professor
+              4 = Secretaria de Educação | 5 = Secretário Escolar
    ============================================================================ */
 IF OBJECT_ID(N'dbo.TB_USUARIOS', N'U') IS NULL
 BEGIN
@@ -111,7 +112,7 @@ BEGIN
         USUARIO  int           NULL,
         CONSTRAINT PK_TB_USUARIOS PRIMARY KEY CLUSTERED (ID),
         CONSTRAINT UQ_USUARIOS_CPF UNIQUE (CPF),
-        CONSTRAINT CK_USUARIOS_NIVEL CHECK (NIVEL IN (1, 2, 3))
+        CONSTRAINT CK_USUARIOS_NIVEL CHECK (NIVEL IN (1, 2, 3, 4, 5))
     );
     PRINT '  + TB_USUARIOS criada';
 END
@@ -141,6 +142,21 @@ BEGIN
 END
 GO
 
+/* Atualiza bases preexistentes quando a instalação completa for reaplicada. */
+IF EXISTS (SELECT 1 FROM sys.check_constraints
+           WHERE parent_object_id = OBJECT_ID('dbo.TB_USUARIOS')
+             AND name = 'CK_USUARIOS_NIVEL'
+             AND (definition NOT LIKE '%4%' OR definition NOT LIKE '%5%'))
+    ALTER TABLE dbo.TB_USUARIOS DROP CONSTRAINT CK_USUARIOS_NIVEL;
+GO
+IF OBJECT_ID(N'dbo.TB_USUARIOS', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.check_constraints
+                   WHERE parent_object_id = OBJECT_ID('dbo.TB_USUARIOS')
+                     AND name = 'CK_USUARIOS_NIVEL')
+    ALTER TABLE dbo.TB_USUARIOS ADD CONSTRAINT CK_USUARIOS_NIVEL
+        CHECK (NIVEL IN (1, 2, 3, 4, 5));
+GO
+
 /* ============================================================================
    4. TB_ACESSO — vínculo usuário <-> unidade
    ============================================================================ */
@@ -165,7 +181,50 @@ ELSE
     PRINT '  = TB_ACESSO já existe';
 GO
 
-/* ============================================================================
+/* Autorização individual, concedida pelo Diretor, para Secretário ler relatórios. */
+IF OBJECT_ID(N'dbo.TB_SECRETARIO_RELATORIOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_SECRETARIO_RELATORIOS (
+        ID_USUARIO     int      NOT NULL,
+        ID_UNIDADE     int      NOT NULL,
+        PERMITIDO      bit      NOT NULL CONSTRAINT DF_SEC_REL_PERMITIDO DEFAULT (0),
+        ID_DIRETOR     int      NULL,
+        ATUALIZADO_EM  datetime NOT NULL CONSTRAINT DF_SEC_REL_ATUALIZADO DEFAULT (GETDATE()),
+        CONSTRAINT PK_SECRETARIO_RELATORIO PRIMARY KEY CLUSTERED (ID_USUARIO, ID_UNIDADE),
+        CONSTRAINT FK_SEC_REL_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_SEC_REL_UNIDADE FOREIGN KEY (ID_UNIDADE) REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT FK_SEC_REL_DIRETOR FOREIGN KEY (ID_DIRETOR) REFERENCES dbo.TB_USUARIOS (ID)
+    );
+    CREATE INDEX IX_SEC_REL_UNIDADE ON dbo.TB_SECRETARIO_RELATORIOS (ID_UNIDADE, PERMITIDO);
+    PRINT '  + TB_SECRETARIO_RELATORIOS criada';
+END
+ELSE
+    PRINT '  = TB_SECRETARIO_RELATORIOS já existe';
+GO
+
+/* Autorização individual, concedida pelo Diretor, para Secretário registrar observações. */
+IF OBJECT_ID(N'dbo.TB_SECRETARIO_OBSERVACOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_SECRETARIO_OBSERVACOES (
+        ID_USUARIO     int      NOT NULL,
+        ID_UNIDADE     int      NOT NULL,
+        PERMITIDO      tinyint  NOT NULL CONSTRAINT DF_SEC_OBS_PERMITIDO DEFAULT (0),
+        ID_DIRETOR     int      NULL,
+        ATUALIZADO_EM  datetime NOT NULL CONSTRAINT DF_SEC_OBS_ATUALIZADO DEFAULT (GETDATE()),
+        CONSTRAINT PK_SECRETARIO_OBSERVACAO PRIMARY KEY CLUSTERED (ID_USUARIO, ID_UNIDADE),
+        CONSTRAINT FK_SEC_OBS_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_SEC_OBS_UNIDADE FOREIGN KEY (ID_UNIDADE) REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT FK_SEC_OBS_DIRETOR FOREIGN KEY (ID_DIRETOR) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_SEC_OBS_PERMITIDO CHECK (PERMITIDO IN (0, 1, 2))
+    );
+    CREATE INDEX IX_SEC_OBS_UNIDADE ON dbo.TB_SECRETARIO_OBSERVACOES (ID_UNIDADE, PERMITIDO);
+    PRINT '  + TB_SECRETARIO_OBSERVACOES criada';
+END
+ELSE
+    PRINT '  = TB_SECRETARIO_OBSERVACOES já existe';
+GO
+
+/* ============================================================================ 
    5. TB_PERIODOS — Manhã, Tarde, Integral
       Horários como nvarchar(5) 'HH:MM': evita o driver sqlsrv devolver
       objetos DateTime para colunas time, e a comparação lexicográfica
@@ -199,10 +258,12 @@ BEGIN
         ID           int IDENTITY(1,1) NOT NULL,
         ID_UNIDADE   int          NOT NULL,
         NOME         nvarchar(80) NOT NULL,
+        ETAPA_ENSINO nvarchar(30) NULL,
         ANO_LETIVO   int          NOT NULL,
         ID_PERIODO   int          NOT NULL,
         ID_PROFESSOR int          NULL,
         CAPACIDADE   int          NOT NULL CONSTRAINT DF_TURMAS_CAP DEFAULT (20),
+        NOTAS_ATIVAS bit          NOT NULL CONSTRAINT DF_TURMAS_NOTAS_ATIVAS DEFAULT (0),
         ATIVO        bit          NOT NULL CONSTRAINT DF_TURMAS_ATIVO DEFAULT (1),
         CREATED      datetime     NOT NULL CONSTRAINT DF_TURMAS_CREATED DEFAULT (GETDATE()),
         CONSTRAINT PK_TB_TURMAS PRIMARY KEY CLUSTERED (ID),
@@ -211,7 +272,9 @@ BEGIN
         CONSTRAINT FK_TURMAS_PERIODO   FOREIGN KEY (ID_PERIODO)   REFERENCES dbo.TB_PERIODOS (ID),
         CONSTRAINT FK_TURMAS_PROFESSOR FOREIGN KEY (ID_PROFESSOR) REFERENCES dbo.TB_USUARIOS (ID),
         CONSTRAINT CK_TURMAS_ANO CHECK (ANO_LETIVO BETWEEN 2000 AND 2100),
-        CONSTRAINT CK_TURMAS_CAP CHECK (CAPACIDADE BETWEEN 1 AND 500)
+        CONSTRAINT CK_TURMAS_CAP CHECK (CAPACIDADE BETWEEN 1 AND 500),
+        CONSTRAINT CK_TURMAS_ETAPA_ENSINO CHECK (ETAPA_ENSINO IS NULL OR ETAPA_ENSINO IN
+            ('INFANTIL_CRECHE', 'INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5', 'FUNDAMENTAL_6_9'))
     );
     CREATE INDEX IX_TURMAS_PROFESSOR ON dbo.TB_TURMAS (ID_PROFESSOR);
     CREATE INDEX IX_TURMAS_UNIDADE   ON dbo.TB_TURMAS (ID_UNIDADE, ANO_LETIVO);
@@ -219,6 +282,25 @@ BEGIN
 END
 ELSE
     PRINT '  = TB_TURMAS já existe';
+GO
+
+IF COL_LENGTH('dbo.TB_TURMAS', 'NOTAS_ATIVAS') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_TURMAS ADD NOTAS_ATIVAS bit NOT NULL
+        CONSTRAINT DF_TURMAS_NOTAS_ATIVAS DEFAULT (0);
+    PRINT '  + TB_TURMAS.NOTAS_ATIVAS adicionada (notas desativadas por padrão)';
+END
+GO
+
+IF COL_LENGTH('dbo.TB_TURMAS', 'ETAPA_ENSINO') IS NULL
+    ALTER TABLE dbo.TB_TURMAS ADD ETAPA_ENSINO nvarchar(30) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints
+               WHERE parent_object_id = OBJECT_ID('dbo.TB_TURMAS') AND name = 'CK_TURMAS_ETAPA_ENSINO')
+    ALTER TABLE dbo.TB_TURMAS ADD CONSTRAINT CK_TURMAS_ETAPA_ENSINO
+        CHECK (ETAPA_ENSINO IS NULL OR ETAPA_ENSINO IN
+            ('INFANTIL_CRECHE', 'INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5', 'FUNDAMENTAL_6_9'));
 GO
 
 /* ============================================================================
@@ -304,6 +386,78 @@ BEGIN
     CREATE UNIQUE INDEX UX_ALUNOS_CPF ON dbo.TB_ALUNOS (CPF) WHERE CPF IS NOT NULL;
     PRINT '  + UX_ALUNOS_CPF criado';
 END
+GO
+
+IF OBJECT_ID(N'dbo.TB_TURMA_DISCIPLINAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_TURMA_DISCIPLINAS (
+        ID       int IDENTITY(1,1) NOT NULL,
+        ID_TURMA int           NOT NULL,
+        NOME     nvarchar(80)  NOT NULL,
+        ID_PROFESSOR int       NULL,
+        CREATED  datetime      NOT NULL CONSTRAINT DF_TURMA_DISC_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_TURMA_DISCIPLINAS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_TURMA_DISCIPLINA UNIQUE (ID_TURMA, NOME),
+        CONSTRAINT FK_TURMA_DISC_TURMA FOREIGN KEY (ID_TURMA) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_TURMA_DISC_PROFESSOR FOREIGN KEY (ID_PROFESSOR) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_TURMA_DISC_NOME CHECK (LEN(LTRIM(RTRIM(NOME))) BETWEEN 1 AND 80)
+    );
+    PRINT '  + TB_TURMA_DISCIPLINAS criada';
+END
+GO
+
+IF COL_LENGTH('dbo.TB_TURMA_DISCIPLINAS', 'ID_PROFESSOR') IS NULL
+    ALTER TABLE dbo.TB_TURMA_DISCIPLINAS ADD ID_PROFESSOR int NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys
+               WHERE parent_object_id = OBJECT_ID('dbo.TB_TURMA_DISCIPLINAS')
+                 AND name = 'FK_TURMA_DISC_PROFESSOR')
+    ALTER TABLE dbo.TB_TURMA_DISCIPLINAS ADD CONSTRAINT FK_TURMA_DISC_PROFESSOR
+        FOREIGN KEY (ID_PROFESSOR) REFERENCES dbo.TB_USUARIOS (ID);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_TURMA_DISCIPLINAS') AND name = 'IX_TURMA_DISC_PROFESSOR')
+    CREATE INDEX IX_TURMA_DISC_PROFESSOR ON dbo.TB_TURMA_DISCIPLINAS (ID_PROFESSOR);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_TURMA_DISCIPLINAS') AND name = 'UQ_TURMA_DISCIPLINA')
+    CREATE UNIQUE INDEX UQ_TURMA_DISCIPLINA ON dbo.TB_TURMA_DISCIPLINAS (ID_TURMA, NOME);
+GO
+
+IF OBJECT_ID(N'dbo.TB_NOTAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_NOTAS (
+        ID           int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO     int           NOT NULL,
+        ID_DISCIPLINA int          NOT NULL,
+        BIMESTRE     tinyint       NOT NULL,
+        NOTA         decimal(4,2)  NOT NULL,
+        ID_USUARIO   int           NOT NULL,
+        ATUALIZADA_EM datetime     NOT NULL CONSTRAINT DF_NOTAS_ATUALIZADA DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_NOTAS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_NOTA_ALUNO_DISC_BIM UNIQUE (ID_ALUNO, ID_DISCIPLINA, BIMESTRE),
+        CONSTRAINT FK_NOTA_ALUNO FOREIGN KEY (ID_ALUNO) REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_NOTA_DISCIPLINA FOREIGN KEY (ID_DISCIPLINA) REFERENCES dbo.TB_TURMA_DISCIPLINAS (ID),
+        CONSTRAINT FK_NOTA_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_NOTA_BIMESTRE CHECK (BIMESTRE BETWEEN 1 AND 4),
+        CONSTRAINT CK_NOTA_VALOR CHECK (NOTA BETWEEN 0 AND 10)
+    );
+    CREATE INDEX IX_NOTAS_DISC_BIM ON dbo.TB_NOTAS (ID_DISCIPLINA, BIMESTRE);
+    PRINT '  + TB_NOTAS criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_NOTAS') AND name = 'UQ_NOTA_ALUNO_DISC_BIM')
+    CREATE UNIQUE INDEX UQ_NOTA_ALUNO_DISC_BIM ON dbo.TB_NOTAS (ID_ALUNO, ID_DISCIPLINA, BIMESTRE);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_NOTAS') AND name = 'IX_NOTAS_DISC_BIM')
+    CREATE INDEX IX_NOTAS_DISC_BIM ON dbo.TB_NOTAS (ID_DISCIPLINA, BIMESTRE);
 GO
 
 /* ============================================================================ 
@@ -733,11 +887,68 @@ ELSE
     PRINT '  = UX_TRANSFER_PENDENTE já existe';
 GO
 
+IF OBJECT_ID(N'dbo.TB_ALUNO_SAIDAS_EXTERNAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_ALUNO_SAIDAS_EXTERNAS (
+        ID                  int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO            int NOT NULL,
+        ID_TURMA_ORIGEM     int NOT NULL,
+        DATA_SAIDA          date NOT NULL,
+        ESCOLA_DESTINO      nvarchar(150) NOT NULL,
+        MUNICIPIO_DESTINO   nvarchar(100) NOT NULL,
+        UF_DESTINO          char(2) NOT NULL,
+        MOTIVO              nvarchar(500) NOT NULL,
+        ID_USUARIO_SAIDA    int NOT NULL,
+        REGISTRADA_EM       datetime NOT NULL CONSTRAINT DF_SAIDA_EXT_REGISTRADA DEFAULT (GETDATE()),
+        DATA_RETORNO        date NULL,
+        ID_TURMA_RETORNO    int NULL,
+        ID_USUARIO_RETORNO  int NULL,
+        RETORNADA_EM        datetime NULL,
+        CONSTRAINT PK_TB_ALUNO_SAIDAS_EXTERNAS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_SAIDA_EXT_ALUNO FOREIGN KEY (ID_ALUNO) REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_SAIDA_EXT_TURMA FOREIGN KEY (ID_TURMA_ORIGEM) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_SAIDA_EXT_USUARIO FOREIGN KEY (ID_USUARIO_SAIDA) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_RETORNO_EXT_TURMA FOREIGN KEY (ID_TURMA_RETORNO) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_RETORNO_EXT_USUARIO FOREIGN KEY (ID_USUARIO_RETORNO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_SAIDA_EXT_TEXTO CHECK (
+            LTRIM(RTRIM(ESCOLA_DESTINO)) <> '' AND LTRIM(RTRIM(MUNICIPIO_DESTINO)) <> ''
+            AND LTRIM(RTRIM(MOTIVO)) <> ''
+        ),
+        CONSTRAINT CK_RETORNO_EXT_COMPLETO CHECK (
+            (DATA_RETORNO IS NULL AND ID_TURMA_RETORNO IS NULL
+                AND ID_USUARIO_RETORNO IS NULL AND RETORNADA_EM IS NULL)
+            OR (DATA_RETORNO IS NOT NULL AND ID_TURMA_RETORNO IS NOT NULL
+                AND ID_USUARIO_RETORNO IS NOT NULL AND RETORNADA_EM IS NOT NULL
+                AND DATA_RETORNO > DATA_SAIDA)
+        )
+    );
+    CREATE INDEX IX_SAIDA_EXT_ALUNO ON dbo.TB_ALUNO_SAIDAS_EXTERNAS (ID_ALUNO, DATA_SAIDA);
+    PRINT '  + TB_ALUNO_SAIDAS_EXTERNAS criada';
+END
+ELSE
+    PRINT '  = TB_ALUNO_SAIDAS_EXTERNAS já existe';
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'UX_SAIDA_EXT_ABERTA'
+      AND object_id = OBJECT_ID(N'dbo.TB_ALUNO_SAIDAS_EXTERNAS')
+)
+BEGIN
+    CREATE UNIQUE INDEX UX_SAIDA_EXT_ABERTA
+        ON dbo.TB_ALUNO_SAIDAS_EXTERNAS (ID_ALUNO)
+        WHERE DATA_RETORNO IS NULL;
+    PRINT '  + UX_SAIDA_EXT_ABERTA criado';
+END
+ELSE
+    PRINT '  = UX_SAIDA_EXT_ABERTA já existe';
+GO
+
 /* ============================================================================
    18b. VW_ALUNO_VINCULO — em que turma o aluno estava, e em que período
       ----------------------------------------------------------------------------
       A tabela TB_ALUNOS guarda só a turma ATUAL. Esta visão reconstrói a linha
-      do tempo a partir das transferências concluídas, sem duplicar informação:
+      do tempo a partir das transferências concluídas e das saídas/retornos:
 
         DATA_INICIO NULL = desde o início (primeiro período do aluno)
         DATA_FIM    NULL = até hoje (período em aberto)
@@ -750,50 +961,56 @@ GO
    ============================================================================ */
 CREATE OR ALTER VIEW dbo.VW_ALUNO_VINCULO
 AS
-WITH transf AS (
-    SELECT
-        ID_ALUNO,
-        ID_TURMA_ORIGEM,
-        ID_TURMA_DESTINO,
-        DATA_INICIO,
-        ROW_NUMBER() OVER (PARTITION BY ID_ALUNO ORDER BY DATA_INICIO, ID) AS ORDEM
+WITH transferencias AS (
+    SELECT ID, ID_ALUNO, ID_TURMA_ORIGEM, ID_TURMA_DESTINO, DATA_INICIO
     FROM dbo.TB_TRANSFERENCIAS
     WHERE SITUACAO = 'CONCLUIDA'
-)
-SELECT v.ID_ALUNO, v.ID_TURMA, v.DATA_INICIO, v.DATA_FIM
-FROM (
-    /* nunca transferido: um vínculo em aberto com a turma atual */
-    SELECT
-        a.ID           AS ID_ALUNO,
-        a.ID_TURMA     AS ID_TURMA,
-        CAST(NULL AS date) AS DATA_INICIO,
-        CAST(NULL AS date) AS DATA_FIM
+),
+eventos_origem AS (
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM, DATA_INICIO AS DATA_EVENTO, ID AS ORDEM_ID
+    FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM, DATA_SAIDA, ID
+    FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+),
+primeira_origem AS (
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM,
+           ROW_NUMBER() OVER (PARTITION BY ID_ALUNO ORDER BY DATA_EVENTO, ORDEM_ID) AS ORDEM
+    FROM eventos_origem
+),
+limites AS (
+    SELECT ID_ALUNO, DATA_INICIO AS DATA_LIMITE FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, DATEADD(DAY, 1, DATA_SAIDA) FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    UNION ALL
+    SELECT ID_ALUNO, DATA_RETORNO FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    WHERE DATA_RETORNO IS NOT NULL
+),
+inicios AS (
+    SELECT ID_ALUNO, ID_TURMA_DESTINO AS ID_TURMA, DATA_INICIO
+    FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, ID_TURMA_RETORNO, DATA_RETORNO
+    FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    WHERE DATA_RETORNO IS NOT NULL
+),
+periodos AS (
+    SELECT a.ID AS ID_ALUNO,
+           COALESCE(o.ID_TURMA_ORIGEM, a.ID_TURMA) AS ID_TURMA,
+           CAST(NULL AS date) AS DATA_INICIO
     FROM dbo.TB_ALUNOS a
-    WHERE NOT EXISTS (SELECT 1 FROM transf f WHERE f.ID_ALUNO = a.ID)
-
+    LEFT JOIN primeira_origem o ON o.ID_ALUNO = a.ID AND o.ORDEM = 1
     UNION ALL
-
-    /* período anterior à primeira transferência: turma de origem */
-    SELECT
-        f.ID_ALUNO,
-        f.ID_TURMA_ORIGEM,
-        CAST(NULL AS date),
-        DATEADD(DAY, -1, f.DATA_INICIO)
-    FROM transf f
-    WHERE f.ORDEM = 1
-
-    UNION ALL
-
-    /* cada transferência abre um período na turma de destino, que fecha na
-       véspera da transferência seguinte (ou fica em aberto, se for a última) */
-    SELECT
-        f.ID_ALUNO,
-        f.ID_TURMA_DESTINO,
-        f.DATA_INICIO,
-        DATEADD(DAY, -1, g.DATA_INICIO)
-    FROM transf f
-    LEFT JOIN transf g ON g.ID_ALUNO = f.ID_ALUNO AND g.ORDEM = f.ORDEM + 1
-) v;
+    SELECT ID_ALUNO, ID_TURMA, DATA_INICIO FROM inicios
+)
+SELECT p.ID_ALUNO, p.ID_TURMA, p.DATA_INICIO,
+       DATEADD(DAY, -1, (
+           SELECT MIN(l.DATA_LIMITE)
+           FROM limites l
+           WHERE l.ID_ALUNO = p.ID_ALUNO
+             AND (p.DATA_INICIO IS NULL OR l.DATA_LIMITE > p.DATA_INICIO)
+       )) AS DATA_FIM
+FROM periodos p;
 GO
 PRINT '  + VW_ALUNO_VINCULO criada/atualizada';
 GO
@@ -1180,7 +1397,10 @@ SELECT
 FROM sys.tables t
 WHERE t.name IN ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
                  'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS',
-                 'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS')
+                 'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
+                 'TB_ALUNO_SAIDAS_EXTERNAS',
+                 'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
+                 'TB_SECRETARIO_OBSERVACOES')
 ORDER BY t.name;
 
 SELECT
@@ -1207,8 +1427,11 @@ ELSE
 IF (SELECT COUNT(*) FROM sys.tables WHERE name IN
       ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMAS',
        'TB_ALUNOS','TB_FERIADOS','TB_CHAMADA','TB_OBSERVACOES','TB_RELATORIOS_ANUAIS',
-       'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS')) = 13
-    PRINT 'As 13 tabelas estão presentes. Instalação concluída.';
+       'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
+       'TB_ALUNO_SAIDAS_EXTERNAS',
+       'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
+       'TB_SECRETARIO_OBSERVACOES')) = 18
+    PRINT 'As 18 tabelas estão presentes. Instalação concluída.';
 ELSE
     PRINT 'ATENÇÃO: alguma tabela está faltando. Revise as mensagens acima.';
 GO

@@ -18,9 +18,11 @@ function turma_validar($post, $idAtual = 0)
         'ID_UNIDADE'   => (int)($post['id_unidade'] ?? 0),
         'NOME'         => strip_tags(trim($post['nome'] ?? '')),
         'ANO_LETIVO'   => (int)($post['ano_letivo'] ?? 0),
+        'ETAPA_ENSINO' => is_string($post['etapa_ensino'] ?? null) ? $post['etapa_ensino'] : '',
         'ID_PERIODO'   => (int)($post['id_periodo'] ?? 0),
         'ID_PROFESSOR' => 0,
         'CAPACIDADE'   => (int)($post['capacidade'] ?? 0),
+        'NOTAS_ATIVAS' => !empty($post['notas_ativas']) ? 1 : 0,
         'EQUIPE'       => $equipe,
     ];
     $e = [];
@@ -32,6 +34,12 @@ function turma_validar($post, $idAtual = 0)
     }
     if ($d['NOME'] === '' || mb_strlen($d['NOME']) > 80) {
         $e[] = 'Informe o nome da turma (até 80 caracteres).';
+    }
+    if (!array_key_exists($d['ETAPA_ENSINO'], ch_etapas_ensino())) {
+        $e[] = 'Selecione uma etapa de ensino válida.';
+    }
+    if ($d['ETAPA_ENSINO'] === 'INFANTIL_CRECHE' && $d['NOTAS_ATIVAS']) {
+        $e[] = 'O diário de notas não pode ser habilitado para turmas de creche.';
     }
     if ($d['ANO_LETIVO'] < 2000 || $d['ANO_LETIVO'] > 2100) {
         $e[] = 'Ano letivo inválido.';

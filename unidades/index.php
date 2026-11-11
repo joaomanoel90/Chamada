@@ -2,20 +2,7 @@
 require_once('processa/index_processa.php');
 ?>
 
-<?php
-
-if (!isset($_SESSION['usuarioId'])) {
-	header("Location: " . BASEURL . "login.php");
-	exit;
-}
-
-if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'] != 2) {
-	header("location:" . BASEURL);
-	exit();
-} else {
-	include(HEADER_TEMPLATE);
-}
-?>
+<?php include(HEADER_TEMPLATE); ?>
 
 <header>
 	<div class="row">

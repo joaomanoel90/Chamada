@@ -6,9 +6,13 @@
 
 <div class="alert alert-info">
   <i class="fas fa-circle-info"></i>
+  <?php if (ch_secretario_escolar()): ?>
+    Esta tela é somente para consulta: mostra transferências ligadas às suas unidades.
+  <?php else: ?>
   A transferência tem <b>duas etapas</b>: a escola de origem indica a escola de destino
   (em <i>Alunos → o aluno → Transferir</i>) e a <b>escola de destino</b> escolhe a turma e a
   <b>data de início</b>. O aluno continua na turma atual, com chamada normal, até o destino aceitar.
+  <?php endif; ?>
 </div>
 
 <?php if ($aguardando > 0): ?>
@@ -86,12 +90,12 @@
                   <a class="btn btn-sm btn-outline-secondary" href="ver.php?id=<?= (int)$x['ID'] ?>" title="Detalhes">
                     <i class="far fa-eye"></i>
                   </a>
-                  <?php if ($x['SITUACAO'] === 'PENDENTE' && ch_pode_unidade($x['ID_UNIDADE_DESTINO'])): ?>
+                  <?php if (ch_gestor() && $x['SITUACAO'] === 'PENDENTE' && ch_pode_unidade($x['ID_UNIDADE_DESTINO'])): ?>
                     <a class="btn btn-sm btn-success" href="receber.php?id=<?= (int)$x['ID'] ?>">
                       <i class="fas fa-door-open"></i> Receber
                     </a>
                   <?php endif; ?>
-                  <?php if ($x['SITUACAO'] === 'PENDENTE'
+                  <?php if (ch_gestor() && $x['SITUACAO'] === 'PENDENTE'
                             && (ch_pode_unidade($x['ID_UNIDADE_ORIGEM']) || ch_pode_unidade($x['ID_UNIDADE_DESTINO']))): ?>
                     <a class="btn btn-sm btn-outline-danger" href="cancelar.php?id=<?= (int)$x['ID'] ?>" title="Cancelar">
                       <i class="fas fa-ban"></i>

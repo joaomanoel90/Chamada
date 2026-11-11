@@ -27,18 +27,25 @@ $ultimas = ch_rows(
 
 /* Substituto sem liberação vê só as próprias observações nesta ficha. */
 $fObsAluno = eq_obs_filtro_aluno($id, 'o');
+$fObsPermissaoAluno = ch_filtro_observacao_aluno('a');
 $observacoes = ch_rows(
     'SELECT TOP 10 o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, u.NOME AS AUTOR
      FROM TB_OBSERVACOES o INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
-     WHERE o.ID_ALUNO = ?' . $fObsAluno['sql'] . ' ORDER BY o.DATA DESC, o.ID DESC',
-    array_merge([$id], $fObsAluno['params'])
+     INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
+     WHERE o.ID_ALUNO = ?' . $fObsAluno['sql'] . $fObsPermissaoAluno['sql'] . ' ORDER BY o.DATA DESC, o.ID DESC',
+    array_merge([$id], $fObsAluno['params'], $fObsPermissaoAluno['params'])
 );
-$obsOcultas = $fObsAluno['sql'] !== '';
-$avisoObs   = eq_obs_aviso_bloqueio();
+$obsLeituraPermitida = ch_pode_ler_observacao_aluno($id);
+$obsOcultas = $fObsAluno['sql'] !== '' || !$obsLeituraPermitida;
+$avisoObs   = ch_secretario_escolar() && !$obsLeituraPermitida
+    ? 'A Direção não autorizou a consulta de observações nesta unidade.'
+    : eq_obs_aviso_bloqueio();
 
 /* Transferências: linha do tempo, histórico e o que ainda está aguardando. */
 $vinculos                = tr_vinculos($id);
 $historicoTransferencias = tr_historico_aluno($id);
+$saidasExternas           = tr_saidas_externas($id);
+$saidaExternaAberta       = tr_saida_externa_aberta($id);
 $transferenciaPendente   = tr_pendente($id);
 $podeTransferir          = tr_pode_solicitar($aluno);
 /* quem vê esta ficha só porque o aluno já foi da sua escola */

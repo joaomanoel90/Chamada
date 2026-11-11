@@ -3,9 +3,10 @@ require_once(dirname(__DIR__) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
+ch_require_relatorios();
 $alunoId = (int)($_GET['aluno_id'] ?? 0);
 $ano     = (int)($_GET['ano'] ?? (int)date('Y'));
-$aluno   = ch_exige_aluno($alunoId);
+$aluno   = ch_exige_relatorio_aluno($alunoId);
 
 $inicio = $ano . '-01-01';
 $fim    = $ano . '-12-31';

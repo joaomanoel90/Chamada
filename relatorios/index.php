@@ -26,6 +26,17 @@
   <div class="col-md-2"><button class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filtrar</button></div>
 </form>
 
+<?php if ($semUnidadesVinculadas): ?>
+  <div class="alert alert-warning">
+    Ainda não há unidades com leitura de relatórios liberada para você.
+    Peça ao Diretor da unidade para autorizar seu acesso em <strong>Acesso Unidades</strong>.
+  </div>
+<?php elseif (ch_secretario_escolar()): ?>
+  <div class="alert alert-info">
+    Você está no modo de consulta. O parecer pedagógico pode ser visualizado, mas não editado por este perfil.
+  </div>
+<?php endif; ?>
+
 <div class="alert alert-info">
   <i class="fas fa-circle-info"></i>
   A frequência é calculada <strong>somente sobre os dias com chamada lançada</strong>.

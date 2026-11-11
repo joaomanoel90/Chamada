@@ -68,12 +68,13 @@ $presencasMes = (int)($resumoMes['PRESENCAS'] ?? 0);
 $freqMes      = $diasMes > 0 ? round($presencasMes * 100 / $diasMes, 1) : null;
 
 $fObsDash = eq_obs_filtro('o', 'a');
+$fObsPermissaoDash = ch_filtro_observacao_aluno('a');
 $obsMes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_OBSERVACOES o
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'] . $fObsDash['sql'],
-    array_merge([$inicioMes, $hoje], $p, $fObsDash['params'])
+     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'],
+    array_merge([$inicioMes, $hoje], $p, $fObsDash['params'], $fObsPermissaoDash['params'])
 );
 
 /* ------------------------------------------- série mensal do gráfico */
@@ -121,20 +122,22 @@ $obsRecentes = ch_rows(
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
      INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-     WHERE 1 = 1' . $filtro['sql'] . $fObsDash['sql'] . '
+     WHERE 1 = 1' . $filtro['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . '
      ORDER BY o.DATA DESC, o.ID DESC',
-    array_merge($p, $fObsDash['params'])
+    array_merge($p, $fObsDash['params'], $fObsPermissaoDash['params'])
 );
 
 /* ------------------------------------------------ relatórios pendentes */
+$filtroRelatorios = ch_filtro_turma_relatorios('t');
 $relatoriosPendentes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_ALUNOS a
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
      LEFT  JOIN TB_RELATORIOS_ANUAIS r ON r.ID_ALUNO = a.ID AND r.ANO = ?
-     WHERE a.ATIVO = 1 AND t.ANO_LETIVO = ? AND r.ID IS NULL' . $filtro['sql'],
-    array_merge([$ano, $ano], $p)
+     WHERE a.ATIVO = 1 AND t.ANO_LETIVO = ? AND r.ID IS NULL' . $filtroRelatorios['sql'],
+    array_merge([$ano, $ano], $filtroRelatorios['params'])
 );
 
 /* Transferências aguardando esta escola: é a primeira tela depois do login,
    então o aviso precisa estar aqui — não só no menu. */
-$transfAguardando = ch_gestor() ? tr_pendentes_recebidas() : 0;
+$transfAguardando = ch_gestao_alunos() ? tr_pendentes_recebidas() : 0;
+$mostrarRelatorios = ch_pode_ver_relatorios();

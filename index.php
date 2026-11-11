@@ -7,7 +7,7 @@ if (!isset($_SESSION['usuarioId'])) {
 }
 
 $nivel = $_SESSION['usuarioNiveisAcessoId'] ?? 0;
-if ($nivel != 1 && $nivel != 2) {
+if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 	include(HEADER_TEMPLATE2);
 } else {
 	include(HEADER_TEMPLATE);
@@ -32,11 +32,39 @@ if ($nivel != 1 && $nivel != 2) {
 
 <h1><i class="fas fa-clipboard-user"></i> Chamada de Alunos</h1>
 <p class="text-muted mb-0"><?= ch_data_longa($hoje) ?></p>
+<p class="text-muted">
+	Perfil: <strong><?= ch_h(ch_nivel_nome(ch_nivel())) ?></strong>.
+	<?php if (ch_secretaria_educacao()): ?>
+		Acesso aos dados escolares de toda a rede; usuários e configuração técnica permanecem restritos ao administrador.
+	<?php elseif (ch_secretario_escolar()): ?>
+		Acesso limitado às unidades liberadas; você pode cuidar dos alunos e transferências e consultar turmas e chamadas.
+	<?php elseif (ch_professor()): ?>
+		Seu acesso acompanha as turmas em que você está na equipe.
+	<?php elseif (ch_diretor()): ?>
+		Seu acesso acompanha as unidades liberadas para sua conta.
+	<?php else: ?>
+		Acesso administrativo a toda a rede.
+	<?php endif; ?>
+</p>
 <hr>
 
 <?= ch_flash_html() ?>
 
 <div class="container-fluid px-0">
+
+	<?php if (ch_secretario_escolar()): ?>
+		<div class="d-flex flex-wrap gap-2 mb-3">
+			<a class="btn btn-primary" href="<?= ch_url('alunos/index.php') ?>"><i class="fas fa-child-reaching"></i> Alunos</a>
+			<a class="btn btn-outline-primary" href="<?= ch_url('transferencias/index.php') ?>"><i class="fas fa-right-left"></i> Transferências</a>
+			<a class="btn btn-outline-secondary" href="<?= ch_url('turmas/index.php') ?>"><i class="fas fa-children"></i> Consultar turmas</a>
+		</div>
+	<?php elseif (ch_secretaria_educacao()): ?>
+		<div class="d-flex flex-wrap gap-2 mb-3">
+			<a class="btn btn-primary" href="<?= ch_url('turmas/index.php') ?>"><i class="fas fa-children"></i> Gestão de turmas</a>
+			<a class="btn btn-outline-primary" href="<?= ch_url('alunos/index.php') ?>"><i class="fas fa-child-reaching"></i> Alunos da rede</a>
+			<a class="btn btn-outline-secondary" href="<?= ch_url('transferencias/index.php') ?>"><i class="fas fa-right-left"></i> Transferências</a>
+		</div>
+	<?php endif; ?>
 
 	<!-- CARDS -->
 	<div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 mb-4">
@@ -130,6 +158,8 @@ if ($nivel != 1 && $nivel != 2) {
 							Nenhuma turma disponível.
 							<?php if (ch_gestor()): ?>
 								Cadastre em <a href="<?= ch_url('turmas/index.php') ?>">Turmas</a>.
+							<?php elseif (ch_secretario_escolar()): ?>
+								Peça à gestão o vínculo com a sua unidade.
 							<?php else: ?>
 								Peça à gestão o vínculo com a sua unidade.
 							<?php endif; ?>
@@ -151,7 +181,7 @@ if ($nivel != 1 && $nivel != 2) {
 										<td class="text-center"><?= (int)$t['ALUNOS'] ?></td>
 										<td class="text-end">
 											<a class="btn btn-sm btn-primary" href="<?= ch_url('chamada/index.php?turma_id=' . (int)$t['ID'] . '&data=' . $hoje) ?>">
-												<i class="fas fa-pen"></i> Lançar
+												<i class="fas fa-<?= ch_secretario_escolar() ? 'eye' : 'pen' ?>"></i> <?= ch_secretario_escolar() ? 'Consultar' : 'Lançar' ?>
 											</a>
 										</td>
 									</tr>
@@ -239,6 +269,7 @@ if ($nivel != 1 && $nivel != 2) {
 
 	</div>
 
+	<?php if ($mostrarRelatorios): ?>
 	<!-- RELATÓRIOS -->
 	<div class="row g-3 mt-1 mb-4">
 		<div class="col-12">
@@ -250,6 +281,7 @@ if ($nivel != 1 && $nivel != 2) {
 							<?= $relatoriosPendentes ?> aluno(s) ainda sem parecer registrado.
 						</span>
 					</div>
+					<?php endif; ?>
 					<a class="btn btn-primary" href="<?= ch_url('relatorios/index.php?ano=' . $ano) ?>">
 						<i class="fas fa-folder-open"></i> Abrir relatórios
 					</a>

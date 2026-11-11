@@ -3,7 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_gestor();
+ch_require_consulta_turmas();
 
 $anos = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC');
 $unidades = ch_unidades_opcoes();
@@ -12,10 +12,10 @@ $fAno    = (int)($_GET['ano'] ?? (int)date('Y'));
 $fUnidade = (int)($_GET['unidade'] ?? 0);
 $fSituacao = $_GET['situacao'] ?? 'ativas';
 
-/* Diretor só vê as turmas da sua unidade. */
+/* Usuários sem alcance de rede só veem turmas das unidades liberadas. */
 $filtro = ch_filtro_turma('t');
 
-$sql = 'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, t.ATIVO,
+$sql = 'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.ETAPA_ENSINO, t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
                u.unidade AS UNIDADE, p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM,
                (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS ALUNOS
         FROM TB_TURMAS t

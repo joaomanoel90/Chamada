@@ -3,9 +3,8 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_admin();
 
-$volta = BASEURL . 'usuarios/index.php';
+$volta = ch_url(ch_secretaria_educacao() ? 'usuarios/vinculos.php' : 'usuarios/index.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id_acesso'])) {
     if (!ch_csrf_ok()) { header('Location: ' . $volta); exit; }
@@ -14,13 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id_acesso'])) {
     // Descobre o usuário antes de desativar, para voltar à tela certa.
     $idUsuario = (int)ch_val('SELECT id_usuario FROM TB_ACESSO WHERE ID = ?', [$idAcesso]);
 
-    if ($idUsuario > 0) {
+    if (!$idUsuario || !ch_pode_gerenciar_vinculos_usuario($idUsuario)) {
+        ch_flash('Você não pode remover este vínculo de unidade.', 'danger');
+    } else {
         $ok = ch_exec('UPDATE TB_ACESSO SET ATIVO = 0, DESATIVADO = GETDATE() WHERE ID = ?', [$idAcesso]);
         ch_flash($ok ? 'Acesso à unidade removido.' : 'Não foi possível remover o acesso.',
                  $ok ? 'success' : 'danger');
-        $volta = BASEURL . 'usuarios/acesso.php?id=' . $idUsuario;
-    } else {
-        ch_flash('Acesso não encontrado.', 'warning');
+        $volta = ch_url('usuarios/acesso.php?id=' . $idUsuario);
     }
 }
 

@@ -200,11 +200,14 @@ antigos de chamada recebem `CONFIRMADA_EM = CREATED` e `CONFIRMADA_POR = ID_USUA
 
 ### Alcance por nível (mudou)
 
-Antes, níveis 1 e 2 viam **todas** as unidades. Agora:
+O modelo atual separa administração técnica, gestão da rede e operação escolar:
 
-- **1** — rede toda;
-- **2 (diretor)** — apenas as unidades do seu `TB_ACESSO`;
-- **3 (professor)** — apenas as turmas em que é membro ativo da equipe.
+- **1 (administrador do sistema)** — rede toda e administração de usuários;
+- **2 (Diretor Escolar)** — gestão nas unidades do seu `TB_ACESSO`;
+- **3 (professor)** — apenas as turmas em que é membro ativo da equipe;
+- **4 (Secretaria de Educação)** — gestão escolar em toda a rede, sem usuários;
+- **5 (Secretário Escolar)** — alunos e transferências nas unidades liberadas,
+  com consulta de turmas e chamadas.
 
 Novas funções: `ch_admin`, `ch_diretor`, `ch_professor`, `ch_require_admin`,
 `ch_turmas_ids`, `ch_filtro_turma`, `ch_unidades_opcoes`, `ch_turma_professores`,

@@ -1,8 +1,9 @@
 <?php require_once('processa/index_processa.php'); ?>
 <?php include(HEADER_TEMPLATE); ?>
 
+<?php $podeGerirTurmas = ch_gestor(); ?>
 <?php ch_cabecalho('Turmas', 'fa-children',
-    '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Turma</a>'); ?>
+    $podeGerirTurmas ? '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Turma</a>' : ''); ?>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
   <div class="col-md-3">
@@ -52,7 +53,12 @@
       <?php foreach ($turmas as $row): ?>
       <tr>
         <td><?= ch_h($row['UNIDADE']) ?></td>
-        <td><?= ch_h($row['NOME']) ?></td>
+        <td><?= ch_h($row['NOME']) ?>
+          <br><small class="text-muted"><?= ch_h(ch_etapa_ensino_rotulo($row['ETAPA_ENSINO'])) ?></small>
+          <?php if (!empty($row['NOTAS_ATIVAS']) && $row['ETAPA_ENSINO'] !== 'INFANTIL_CRECHE'): ?>
+            <br><span class="badge bg-primary"><i class="fas fa-book-open"></i> Diário escolar</span>
+          <?php endif; ?>
+        </td>
         <td><?= ch_h($row['PERIODO']) ?> <small class="text-muted"><?= ch_h($row['HORA_INICIO']) ?>–<?= ch_h($row['HORA_FIM']) ?></small></td>
         <td>
           <?php $eq = $equipePorTurma[(int)$row['ID']] ?? []; ?>
@@ -91,9 +97,14 @@
               <i class="fa-solid fa-gear"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-              <li><a class="dropdown-item" href="edit.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-edit"></i> Editar</a></li>
+              <?php if ($podeGerirTurmas): ?>
+                <li><a class="dropdown-item" href="edit.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-edit"></i> Editar</a></li>
+              <?php endif; ?>
               <li><a class="dropdown-item" href="<?= ch_url('chamada/index.php?turma_id=' . (int)$row['ID']) ?>"><i class="fas fa-clipboard-user"></i> Chamada</a></li>
-              <li>
+              <?php if (!empty($row['NOTAS_ATIVAS']) && $row['ETAPA_ENSINO'] !== 'INFANTIL_CRECHE'): ?>
+                <li><a class="dropdown-item" href="<?= ch_url('diario/index.php?turma_id=' . (int)$row['ID']) ?>"><i class="fas fa-book-open"></i> Diário de classe</a></li>
+              <?php endif; ?>
+              <?php if ($podeGerirTurmas): ?><li>
                 <form method="post" action="processa/toggle_processa.php" class="px-3 py-1">
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
@@ -101,7 +112,7 @@
                     <?= (int)$row['ATIVO'] === 1 ? 'Inativar' : 'Reativar' ?>
                   </button>
                 </form>
-              </li>
+              </li><?php endif; ?>
             </ul>
           </div>
         </td>

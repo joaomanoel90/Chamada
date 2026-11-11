@@ -341,12 +341,18 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 		$rs = sqlsrv_query($conn, "SELECT name FROM sys.indexes WHERE name IS NOT NULL");
 		if ($rs) while ($r = sqlsrv_fetch_array($rs, SQLSRV_FETCH_NUMERIC)) $tem_indice[] = $r[0];
 
+		$rs = sqlsrv_query($conn, "SELECT name FROM sys.objects WHERE type IN ('C', 'F')");
+		if ($rs) while ($r = sqlsrv_fetch_array($rs, SQLSRV_FETCH_NUMERIC)) $tem_indice[] = $r[0];
+
 		$rs = sqlsrv_query($conn, "SELECT name FROM sys.views");
 		if ($rs) while ($r = sqlsrv_fetch_array($rs, SQLSRV_FETCH_NUMERIC)) $tem_view[] = $r[0];
 
 		$tabelas = array('TB_UNIDADES', 'TB_USUARIOS', 'TB_ACESSO', 'TB_PERIODOS', 'TB_TURMAS',
 			'TB_TURMA_PROFESSORES', 'TB_ALUNOS', 'TB_FERIADOS', 'TB_CHAMADA', 'TB_OBSERVACOES',
-			'TB_RELATORIOS_ANUAIS', 'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS');
+			'TB_RELATORIOS_ANUAIS', 'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS',
+			'TB_ALUNO_SAIDAS_EXTERNAS',
+			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
+			'TB_SECRETARIO_OBSERVACOES');
 
 		$falta = array_values(array_diff($tabelas, $tem_tabela));
 		if ($falta) {
@@ -363,7 +369,8 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'nome'   => 'Transferência de alunos',
 				'script' => 'sql_inicial/ATUALIZAR_TRANSFERENCIAS.sql',
 				'cols'   => array('TB_ALUNOS.DATA_MATRICULA'),
-				'objs'   => array('TB_TRANSFERENCIAS', 'VW_ALUNO_VINCULO', 'UX_TRANSFER_PENDENTE'),
+				'objs'   => array('TB_TRANSFERENCIAS', 'TB_ALUNO_SAIDAS_EXTERNAS',
+					'VW_ALUNO_VINCULO', 'UX_TRANSFER_PENDENTE', 'UX_SAIDA_EXT_ABERTA'),
 			),
 			array(
 				'nome'   => 'Equipe por turno e saúde do aluno',
@@ -385,6 +392,36 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'script' => 'sql_inicial/ATUALIZAR_CPF_ALUNO.sql',
 				'cols'   => array('TB_ALUNOS.CPF'),
 				'objs'   => array('UX_ALUNOS_CPF', 'CK_ALUNOS_CPF'),
+			),
+			array(
+				'nome'   => 'Diário de classe e notas',
+				'script' => 'sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql',
+				'cols'   => array('TB_TURMAS.NOTAS_ATIVAS', 'TB_TURMAS.ETAPA_ENSINO',
+					'TB_TURMA_DISCIPLINAS.ID_PROFESSOR'),
+				'objs'   => array('TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'UQ_TURMA_DISCIPLINA',
+					'FK_TURMA_DISC_PROFESSOR', 'IX_TURMA_DISC_PROFESSOR',
+					'CK_TURMAS_ETAPA_ENSINO', 'UQ_NOTA_ALUNO_DISC_BIM', 'IX_NOTAS_DISC_BIM'),
+			),
+			array(
+				'nome'   => 'Perfis de acesso',
+				'script' => 'sql_inicial/ATUALIZAR_NIVEIS_ACESSO.sql',
+				'cols'   => array('TB_USUARIOS.NIVEL'),
+				'objs'   => array('CK_USUARIOS_NIVEL'),
+			),
+			array(
+				'nome'   => 'Permissão de relatórios do Secretário Escolar',
+				'script' => 'sql_inicial/ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql',
+				'cols'   => array('TB_SECRETARIO_RELATORIOS.PERMITIDO', 'TB_SECRETARIO_RELATORIOS.ID_DIRETOR'),
+				'objs'   => array('TB_SECRETARIO_RELATORIOS', 'PK_SECRETARIO_RELATORIO',
+					'FK_SEC_REL_USUARIO', 'FK_SEC_REL_UNIDADE', 'FK_SEC_REL_DIRETOR'),
+			),
+			array(
+				'nome'   => 'Permissões de leitura e inserção de observações do Secretário Escolar',
+				'script' => 'sql_inicial/ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql',
+				'cols'   => array('TB_SECRETARIO_OBSERVACOES.PERMITIDO', 'TB_SECRETARIO_OBSERVACOES.ID_DIRETOR'),
+				'objs'   => array('TB_SECRETARIO_OBSERVACOES', 'PK_SECRETARIO_OBSERVACAO',
+					'FK_SEC_OBS_USUARIO', 'FK_SEC_OBS_UNIDADE', 'FK_SEC_OBS_DIRETOR',
+					'CK_SEC_OBS_PERMITIDO'),
 			),
 		);
 

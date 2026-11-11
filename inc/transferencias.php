@@ -44,13 +44,10 @@ function tr_situacao_badge($s)
 
 /* ------------------------------------------------- linha do tempo do aluno */
 
-/** Todos os períodos do aluno, do mais antigo ao mais recente, com escola,
-    turma e período. Vem da VW_ALUNO_VINCULO, que deriva tudo das transferências
-    concluídas — não há uma segunda fonte de verdade para manter em sincronia. */
+/** Períodos do aluno na rede, incluindo retornos após saídas externas. */
 function tr_vinculos($idAluno)
 {
-    return ch_rows(
-        'SELECT v.ID_TURMA,
+    $sql = 'SELECT v.ID_TURMA,
                 CONVERT(varchar(10), v.DATA_INICIO, 23) AS DATA_INICIO,
                 CONVERT(varchar(10), v.DATA_FIM, 23)    AS DATA_FIM,
                 t.NOME AS TURMA, t.ANO_LETIVO, t.ID_UNIDADE,
@@ -60,9 +57,17 @@ function tr_vinculos($idAluno)
          INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
          INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
          WHERE v.ID_ALUNO = ?
-         ORDER BY CASE WHEN v.DATA_INICIO IS NULL THEN 0 ELSE 1 END, v.DATA_INICIO',
-        [(int)$idAluno]
-    ) ?: [];
+         ';
+    $params = [(int)$idAluno];
+    if (ch_secretario_escolar()) {
+        $ids = ch_unidades_ids();
+        if (!$ids) return [];
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $sql .= " AND t.ID_UNIDADE IN ({$ph})";
+        $params = array_merge($params, $ids);
+    }
+    $sql .= ' ORDER BY CASE WHEN v.DATA_INICIO IS NULL THEN 0 ELSE 1 END, v.DATA_INICIO';
+    return ch_rows($sql, $params) ?: [];
 }
 
 /** Períodos do aluno que tocam o ano informado, já recortados no ano.
@@ -140,6 +145,47 @@ function tr_pendente($idAluno)
     );
 }
 
+function tr_saida_externa_aberta($idAluno)
+{
+    return ch_row(
+        'SELECT s.ID, s.ID_ALUNO, s.ID_TURMA_ORIGEM, s.DATA_SAIDA,
+                s.ESCOLA_DESTINO, s.MUNICIPIO_DESTINO, s.UF_DESTINO, s.MOTIVO,
+                CONVERT(varchar(10), s.DATA_SAIDA, 23) AS DATA_SAIDA_ISO,
+                t.ID_UNIDADE, u.unidade AS UNIDADE_ORIGEM, t.NOME AS TURMA_ORIGEM
+         FROM TB_ALUNO_SAIDAS_EXTERNAS s
+         INNER JOIN TB_TURMAS t ON t.ID = s.ID_TURMA_ORIGEM
+         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+         WHERE s.ID_ALUNO = ? AND s.DATA_RETORNO IS NULL',
+        [(int)$idAluno]
+    );
+}
+
+function tr_saidas_externas($idAluno)
+{
+    $sql = 'SELECT s.ID, s.DATA_SAIDA, s.ESCOLA_DESTINO, s.MUNICIPIO_DESTINO,
+                   s.UF_DESTINO, s.MOTIVO,
+                   CONVERT(varchar(10), s.DATA_SAIDA, 23) AS DATA_SAIDA_ISO,
+                   CONVERT(varchar(10), s.DATA_RETORNO, 23) AS DATA_RETORNO,
+                   tor.NOME AS TURMA_ORIGEM, uor.unidade AS UNIDADE_ORIGEM,
+                   tr.NOME AS TURMA_RETORNO, ur.unidade AS UNIDADE_RETORNO
+            FROM TB_ALUNO_SAIDAS_EXTERNAS s
+            INNER JOIN TB_TURMAS tor ON tor.ID = s.ID_TURMA_ORIGEM
+            INNER JOIN TB_UNIDADES uor ON uor.id = tor.ID_UNIDADE
+            LEFT JOIN TB_TURMAS tr ON tr.ID = s.ID_TURMA_RETORNO
+            LEFT JOIN TB_UNIDADES ur ON ur.id = tr.ID_UNIDADE
+            WHERE s.ID_ALUNO = ?';
+    $params = [(int)$idAluno];
+    if (ch_secretario_escolar()) {
+        $ids = ch_unidades_ids();
+        if (!$ids) return [];
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $sql .= " AND (tor.ID_UNIDADE IN ({$ph}) OR tr.ID_UNIDADE IN ({$ph}))";
+        $params = array_merge($params, $ids, $ids);
+    }
+    $sql .= ' ORDER BY s.DATA_SAIDA DESC, s.ID DESC';
+    return ch_rows($sql, $params) ?: [];
+}
+
 /** Transferência completa, com nomes de escola, turma e pessoas. */
 function tr_transferencia($id)
 {
@@ -181,8 +227,7 @@ function tr_transferencia($id)
 /** Histórico de transferências do aluno, mais recente primeiro. */
 function tr_historico_aluno($idAluno)
 {
-    return ch_rows(
-        'SELECT tr.ID, tr.SITUACAO, tr.MOTIVO, tr.DOCUMENTO, tr.MOTIVO_CANCELAMENTO,
+    $sql = 'SELECT tr.ID, tr.SITUACAO, tr.MOTIVO, tr.DOCUMENTO, tr.MOTIVO_CANCELAMENTO,
                 CONVERT(varchar(10), tr.DATA_INICIO, 23)    AS DATA_INICIO,
                 CONVERT(varchar(16), tr.SOLICITADA_EM, 120) AS SOLICITADA_EM,
                 CONVERT(varchar(16), tr.EFETIVADA_EM, 120)  AS EFETIVADA_EM,
@@ -197,9 +242,17 @@ function tr_historico_aluno($idAluno)
          LEFT JOIN TB_TURMAS tde    ON tde.ID = tr.ID_TURMA_DESTINO
          LEFT JOIN TB_USUARIOS ue   ON ue.ID = tr.ID_USUARIO_EFETIVA
          WHERE tr.ID_ALUNO = ?
-         ORDER BY tr.ID DESC',
-        [(int)$idAluno]
-    ) ?: [];
+         ';
+    $params = [(int)$idAluno];
+    if (ch_secretario_escolar()) {
+        $ids = ch_unidades_ids();
+        if (!$ids) return [];
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $sql .= " AND (tor.ID_UNIDADE IN ({$ph}) OR tr.ID_UNIDADE_DESTINO IN ({$ph}))";
+        $params = array_merge($params, $ids, $ids);
+    }
+    $sql .= ' ORDER BY tr.ID DESC';
+    return ch_rows($sql, $params) ?: [];
 }
 
 /* ------------------------------------------------------------ permissões */
@@ -211,6 +264,7 @@ function tr_pode_solicitar($aluno)
         && ch_gestor()
         && (int)$aluno['ATIVO'] === 1
         && ch_pode_unidade($aluno['ID_UNIDADE'])
+        && !tr_saida_externa_aberta($aluno['ID'])
         && !tr_pendente($aluno['ID']);
 }
 
@@ -235,7 +289,7 @@ function tr_pode_cancelar($t)
 /** Ver a transferência: qualquer das duas pontas. */
 function tr_pode_ver($t)
 {
-    return $t && ch_gestor()
+    return $t && (ch_gestor() || ch_secretario_escolar())
         && (ch_pode_unidade($t['ID_UNIDADE_ORIGEM']) || ch_pode_unidade($t['ID_UNIDADE_DESTINO']));
 }
 

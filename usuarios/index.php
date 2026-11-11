@@ -20,7 +20,7 @@
     <tbody>
       <?php foreach ($usuarios as $u):
         $nivel = (int)$u['NIVEL'];
-        $cor   = [1 => 'primary', 2 => 'info', 3 => 'success'][$nivel] ?? 'secondary';
+        $cor   = [1 => 'primary', 2 => 'info', 3 => 'success', 4 => 'warning', 5 => 'secondary'][$nivel] ?? 'secondary';
       ?>
         <tr>
           <td>
@@ -33,9 +33,9 @@
           <td><?= ch_h($u['EMAIL'] ?? '') ?></td>
           <td><span class="badge bg-<?= $cor ?>"><?= ch_h(ch_nivel_nome($nivel)) ?></span></td>
           <td>
-            <?php if ($nivel === 1): ?>
+            <?php if (in_array($nivel, [1, 4], true)): ?>
               <small class="text-muted">Toda a rede</small>
-            <?php elseif ($nivel === 2): ?>
+            <?php elseif (in_array($nivel, [2, 5], true)): ?>
               <?php $n = $alcance[(int)$u['ID']] ?? 0; ?>
               <?= $n ?> unidade<?= $n === 1 ? '' : 's' ?>
               <?php if ($n === 0): ?><br><small class="text-danger">libere as unidades</small><?php endif; ?>
@@ -61,7 +61,7 @@
               <ul class="dropdown-menu dropdown-menu-end">
                 <li><a href="edit.php?id=<?= (int)$u['ID'] ?>" class="dropdown-item">
                   <i class="far fa-edit"></i> Editar</a></li>
-                <?php if ($nivel === 2): ?>
+                <?php if (in_array($nivel, [2, 5], true)): ?>
                   <li><a href="acesso.php?id=<?= (int)$u['ID'] ?>" class="dropdown-item">
                     <i class="far fa-check-square"></i> Acesso Unidades</a></li>
                 <?php endif; ?>

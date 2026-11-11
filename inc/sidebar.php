@@ -15,31 +15,23 @@
 require_once(ABSPATH . 'inc/chamada.php');
 
 $ch_nivel  = ch_nivel();
-$ch_gestor = ch_gestor();   // níveis 1 e 2
+$ch_gestor = ch_gestor();   // níveis 1, 2 e 4
 $ch_admin  = ch_admin();    // nível 1
 
 /* id do módulo => [rótulo, ícone, caminho, quem vê] */
 $ch_links_chamada = [
     ['chamada',     'Chamada do Dia',  'fas fa-clipboard-user',  'chamada/index.php',     true],
+    ['diario',      'Diário de Classe', 'fas fa-book-open',      'diario/index.php',      true],
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
-    ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  true],
+    ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
 ];
 /* O contador de transferências só é consultado para quem pode tratá-las. */
-$ch_transf_aguardando = $ch_gestor ? tr_pendentes_recebidas() : 0;
+$ch_transf_aguardando = ch_gestao_alunos() ? tr_pendentes_recebidas() : 0;
 
 $ch_links_cadastros = [
     ['alunos',   'Alunos',   'fas fa-child-reaching', 'alunos/index.php',   true],
-    ['transferencias', 'Transferências', 'fas fa-right-left', 'transferencias/index.php', $ch_gestor, $ch_transf_aguardando],
-    ['turmas',   'Turmas',   'fas fa-children',       'turmas/index.php',   $ch_gestor],
-    ['periodos', 'Períodos', 'fas fa-clock',          'periodos/index.php', $ch_gestor],
-    // Feriados é leitura para todos: o professor precisa saber que dia não
-    // tem aula. Só cadastrar/editar/excluir é que exige gestão.
-    ['feriados', 'Feriados', 'fas fa-calendar-day',   'feriados/index.php', true],
-    ['unidades', 'Unidades', 'far fa-building',       'unidades/index.php', $ch_gestor],
-    ['usuarios', 'Usuários', 'fas fa-users',          'usuarios/index.php', $ch_admin],
-    // Conferência da instalação: aponta arquivo faltando/atrasado e script
-    // de banco não executado. Só o nível 1 vê, porque mostra detalhe técnico.
-    ['verificacao', 'Verificar instalação', 'fas fa-stethoscope', 'verifica_instalacao.php', $ch_admin],
+    ['transferencias', 'Transferências', 'fas fa-right-left', 'transferencias/index.php', ch_gestao_alunos(), $ch_transf_aguardando],
+    ['turmas',   'Turmas',   'fas fa-children',       'turmas/index.php',   ch_gestao_alunos()],
 ];
 
 /** Um item do menu. O title aparece como dica quando o menu está recolhido.
@@ -73,12 +65,28 @@ function ch_menu_item($item)
       <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php" title="Dashboard"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
 
       <hr class="border-light">
-      <p class="text-white-50 small mb-1 px-2">CHAMADA</p>
+      <p class="text-white-50 small mb-1 px-2">ROTINA ESCOLAR</p>
       <?php foreach ($ch_links_chamada as $item) ch_menu_item($item); ?>
 
       <hr class="border-light">
-      <p class="text-white-50 small mb-1 px-2">CADASTROS</p>
+      <p class="text-white-50 small mb-1 px-2">ALUNOS E TURMAS</p>
       <?php foreach ($ch_links_cadastros as $item) ch_menu_item($item); ?>
+
+      <hr class="border-light">
+      <p class="text-white-50 small mb-1 px-2">GESTÃO</p>
+      <?php
+      // Feriados é leitura para todos; só a gestão cadastra ou altera.
+      foreach ([
+          ['periodos', 'Períodos', 'fas fa-clock', 'periodos/index.php', $ch_gestor],
+          ['feriados', 'Feriados', 'fas fa-calendar-day', 'feriados/index.php', true],
+          ['unidades', 'Unidades', 'far fa-building', 'unidades/index.php', $ch_gestor],
+          ['vinculos-escolares', 'Vínculos de unidades', 'fas fa-link', 'usuarios/vinculos.php', ch_secretaria_educacao()],
+          ['permissoes-relatorios', 'Permissões de relatórios', 'fas fa-file-shield', 'usuarios/secretarios.php', ch_diretor()],
+          ['permissoes-observacoes', 'Permissões de observações', 'fas fa-comment-dots', 'usuarios/secretarios.php?observacoes=1', ch_diretor()],
+          ['usuarios', 'Usuários', 'fas fa-users', 'usuarios/index.php', $ch_admin],
+          ['verificacao', 'Verificar instalação', 'fas fa-stethoscope', 'verifica_instalacao.php', $ch_admin],
+      ] as $item) ch_menu_item($item);
+      ?>
 
       <hr class="border-light">
       <a class="nav-link text-white" id="conta" href="<?php echo BASEURL; ?>conta/index.php" title="Alterar Senha"><i class="fas fa-key"></i> <span>Alterar Senha</span></a>
@@ -93,10 +101,8 @@ function ch_menu_item($item)
         var links   = [].slice.call(document.querySelectorAll('.sidebar .nav-link'));
 
         /* --- item ativo ---------------------------------------------------
-           Antes comparava link.href.includes(location.pathname), o que só
-           funcionava na listagem: em usuarios/add.php nenhum item ficava
-           marcado. Agora compara o MÓDULO (primeiro pedaço do caminho), então
-           o menu continua aceso nas telas de cadastro e edição. */
+           Telas internas continuam marcando o módulo; as duas páginas de
+           permissões compartilham módulo e precisam ser distinguidas pela ação. */
         function marcaAtivo() {
           var prefixo = '<?php echo BASEURL; ?>';
           function modulo(caminho) {
@@ -104,10 +110,23 @@ function ch_menu_item($item)
             var primeiro = p.split('/')[0];
             return primeiro === '' ? 'index.php' : primeiro;
           }
-          var atual = modulo(window.location.pathname);
+          var paginaAtual = window.location.pathname;
+          var atual = modulo(paginaAtual);
+          var parametrosAtuais = new URLSearchParams(window.location.search);
           links.forEach(function (a) {
-            var alvo = modulo(new URL(a.href, window.location.origin).pathname);
-            a.classList.toggle('active', alvo === atual);
+            var urlAlvo = new URL(a.href, window.location.origin);
+            var ativo = modulo(urlAlvo.pathname) === atual;
+            if (a.id === 'permissoes-relatorios' || a.id === 'permissoes-observacoes') {
+              var modoObservacoes = a.id === 'permissoes-observacoes';
+              var paginaSecretarios = /\/usuarios\/secretarios\.php$/.test(paginaAtual);
+              var paginaAcesso = /\/usuarios\/acesso\.php$/.test(paginaAtual);
+              var modoAtualObservacoes = parametrosAtuais.get('observacoes') === '1';
+              var modoAtualRelatorios = parametrosAtuais.get('relatorios') === '1';
+              ativo = paginaSecretarios
+                ? modoAtualObservacoes === modoObservacoes
+                : paginaAcesso && (modoObservacoes ? modoAtualObservacoes : modoAtualRelatorios);
+            }
+            a.classList.toggle('active', ativo);
           });
         }
 

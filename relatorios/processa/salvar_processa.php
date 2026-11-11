@@ -7,6 +7,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
     exit;
 }
+if (!ch_csrf_ok()) {
+    ch_flash('A sessão do formulário expirou. Tente salvar o relatório novamente.', 'danger');
+    header('Location: index.php');
+    exit;
+}
+if (ch_secretario_escolar()) {
+    ch_flash('O Secretário Escolar pode consultar o relatório, mas não editar o parecer pedagógico.', 'danger');
+    header('Location: ver.php?aluno_id=' . (int)($_POST['aluno_id'] ?? 0) . '&ano=' . (int)($_POST['ano'] ?? date('Y')));
+    exit;
+}
 
 $alunoId = (int)($_POST['aluno_id'] ?? 0);
 $ano     = (int)($_POST['ano'] ?? 0);
@@ -16,6 +26,12 @@ $encam   = trim(strip_tags($_POST['encaminhamentos'] ?? ''));
 if (!ch_pode_aluno_atual($alunoId)) {
     ch_flash('Você não tem acesso a esse aluno.', 'danger');
     header('Location: index.php');
+    exit;
+}
+$aluno = ch_aluno($alunoId);
+if (!$aluno || (int)$aluno['ATIVO'] !== 1) {
+    ch_flash('O aluno está inativo após a saída da rede. O relatório pode ser consultado, mas não criado ou alterado.', 'warning');
+    header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
     exit;
 }
 if ($ano < 2000 || $ano > 2100) {

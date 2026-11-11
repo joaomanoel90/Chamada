@@ -28,8 +28,8 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $d['ativo'] = !empty($post['ativo']) ? 1 : 0;
     $senha      = trim($post['senha'] ?? '');
 
-    /* Turno de trabalho. Só faz sentido para professor: diretor e administrador
-       não têm turno, e guardar um valor ali só confundiria a montagem da equipe. */
+    /* Turno de trabalho. Só faz sentido para professor; os demais perfis não
+       usam esse valor ao montar a equipe da turma. */
     $turno = strtoupper(trim((string)($post['turno'] ?? '')));
     $d['turno'] = ($d['nivel'] === 3 && isset(eq_turnos()[$turno])) ? $turno : null;
 
@@ -51,7 +51,7 @@ function usuario_validar($post, &$d, $idAtual = 0)
         }
     }
 
-    if (!in_array($d['nivel'], [1, 2, 3], true)) {
+    if (!in_array($d['nivel'], [1, 2, 3, 4, 5], true)) {
         $erros[] = 'Escolha o nível de acesso.';
     }
 

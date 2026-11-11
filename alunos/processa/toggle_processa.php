@@ -3,7 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_gestor();
+ch_require_gestao_alunos();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../index.php');
@@ -26,7 +26,9 @@ if (!$a) {
     ch_flash('Este aluno não está na sua escola.', 'danger');
 } else {
     $novo = (int)$a['ATIVO'] === 1 ? 0 : 1;
-    if (ch_exec('UPDATE TB_ALUNOS SET ATIVO = ? WHERE ID = ?', [$novo, $id])) {
+    if ($novo === 1 && tr_saida_externa_aberta($id)) {
+        ch_flash('O aluno tem saída da rede registrada. Use Retorno à rede para matriculá-lo novamente.', 'warning');
+    } elseif (ch_exec('UPDATE TB_ALUNOS SET ATIVO = ? WHERE ID = ?', [$novo, $id])) {
         ch_flash('Aluno ' . ($novo ? 'reativado' : 'inativado') . '. O histórico foi preservado.');
     } else {
         ch_flash('Não foi possível alterar a situação do aluno.', 'danger');

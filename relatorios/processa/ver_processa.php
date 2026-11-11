@@ -3,10 +3,12 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
+ch_require_relatorios();
 $alunoId = (int)($_POST['aluno_id'] ?? $_GET['aluno_id'] ?? 0);
 $ano     = (int)($_POST['ano'] ?? $_GET['ano'] ?? (int)date('Y'));
 
-$aluno = ch_exige_aluno($alunoId);
+$aluno = ch_exige_relatorio_aluno($alunoId);
+$podeEditarParecer = !ch_secretario_escolar() && (int)$aluno['ATIVO'] === 1;
 
 /* Transferências: o relatório é do ANO INTEIRO do aluno, mesmo que ele tenha
    mudado de escola no meio do ano. A chamada, as observações e o parecer já são
@@ -44,15 +46,21 @@ foreach ($porMes as $m) { $meses[(int)$m['MES']] = $m; }
 /* Relatório anual, inclusive na impressão: o substituto sem liberação não
    pode receber o texto dos outros professores por este caminho. */
 $fObsRel = eq_obs_filtro_aluno($alunoId, 'o');
+$fObsPermissaoRel = ch_filtro_observacao_aluno('a');
 $observacoes = ch_rows(
     'SELECT o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, u.NOME AS AUTOR
-     FROM TB_OBSERVACOES o INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
-     WHERE o.ID_ALUNO = ? AND o.DATA >= ? AND o.DATA <= ?' . $fObsRel['sql'] . '
+     FROM TB_OBSERVACOES o
+     INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
+     INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
+     WHERE o.ID_ALUNO = ? AND o.DATA >= ? AND o.DATA <= ?' . $fObsRel['sql'] . $fObsPermissaoRel['sql'] . '
      ORDER BY o.DATA, o.ID',
-    array_merge([$alunoId, $inicio, $fim], $fObsRel['params'])
+    array_merge([$alunoId, $inicio, $fim], $fObsRel['params'], $fObsPermissaoRel['params'])
 );
-$obsOcultas = $fObsRel['sql'] !== '';
-$avisoObs   = eq_obs_aviso_bloqueio();
+$obsLeituraPermitida = ch_pode_ler_observacao_aluno($alunoId);
+$obsOcultas = $fObsRel['sql'] !== '' || !$obsLeituraPermitida;
+$avisoObs   = ch_secretario_escolar() && !$obsLeituraPermitida
+    ? 'A Direção não autorizou a consulta de observações nesta unidade.'
+    : eq_obs_aviso_bloqueio();
 
 $porCategoria = [];
 foreach ($observacoes as $o) {

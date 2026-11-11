@@ -32,7 +32,9 @@ if (!$data || $chamadaId <= 0) {
 }
 
 if (!ch_pode_retificar($turmaId)) {
-    ch_flash('Você não tem acesso a essa turma.', 'danger');
+    ch_flash(ch_secretario_escolar()
+        ? 'O perfil Secretário Escolar não pode retificar chamadas.'
+        : 'Você não tem acesso a essa turma.', 'danger');
     header('Location: ' . $voltar);
     exit;
 }

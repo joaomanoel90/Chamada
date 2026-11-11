@@ -1,8 +1,10 @@
 <?php require_once('processa/index_processa.php'); ?>
-<?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
+<?php include(ch_gestao_alunos() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
 <?php ch_cabecalho('Alunos', 'fa-child-reaching',
-    ch_gestor() ? '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Aluno</a>' : ''); ?>
+    ch_gestao_alunos()
+        ? '<a class="btn btn-outline-primary" href="retorno.php"><i class="fas fa-right-to-bracket"></i> Retorno à rede</a> <a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Aluno</a>'
+        : ''); ?>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
   <div class="col-md-4">
@@ -62,6 +64,9 @@
           <?php if ((int)$row['TRANSF_PENDENTE'] > 0): ?>
             <br><span class="badge bg-warning text-dark"><i class="fas fa-right-left"></i> Transferência aguardando</span>
           <?php endif; ?>
+          <?php if (!empty($row['SAIDA_EXTERNA'])): ?>
+            <br><span class="badge bg-secondary"><i class="fas fa-right-from-bracket"></i> Saiu da rede</span>
+          <?php endif; ?>
         </td>
         <td><?= ch_h($row['RESPONSAVEL']) ?><br><small class="text-muted"><?= ch_h($row['TELEFONE']) ?></small></td>
         <td class="text-center"><?= ch_h(ch_idade_texto($row['NASCIMENTO'])) ?></td>
@@ -77,15 +82,17 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="view.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-eye"></i> Ficha do aluno</a></li>
-              <?php if (ch_gestor()): ?>
+              <?php if (ch_gestao_alunos()): ?>
                 <li><a class="dropdown-item" href="edit.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-edit"></i> Editar</a></li>
               <?php endif; ?>
-              <li><a class="dropdown-item" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$row['ID']) ?>"><i class="far fa-comment-dots"></i> Nova observação</a></li>
+              <?php if (ch_pode_escrever_observacao_turma($row['ID_TURMA'], $row['ID_UNIDADE'])): ?>
+                <li><a class="dropdown-item" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$row['ID']) ?>"><i class="far fa-comment-dots"></i> Nova observação</a></li>
+              <?php endif; ?>
               <li><a class="dropdown-item" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$row['ID'] . '&ano=' . (int)$row['ANO_LETIVO']) ?>"><i class="fas fa-file-lines"></i> Relatório anual</a></li>
-              <?php if (ch_gestor() && (int)$row['ATIVO'] === 1 && ch_pode_unidade((int)$row['ID_UNIDADE'])): ?>
+              <?php if (tr_pode_solicitar($row)): ?>
                 <li><a class="dropdown-item" href="<?= ch_url('transferencias/solicitar.php?aluno_id=' . (int)$row['ID']) ?>"><i class="fas fa-right-left"></i> Transferir de escola</a></li>
               <?php endif; ?>
-              <?php if (ch_gestor()): ?>
+              <?php if (ch_gestao_alunos() && empty($row['SAIDA_EXTERNA'])): ?>
               <li>
                 <form method="post" action="processa/toggle_processa.php" class="px-3 py-1">
                   <?= ch_csrf_campo() ?>
@@ -96,6 +103,8 @@
                   </button>
                 </form>
               </li>
+              <?php elseif (ch_gestao_alunos() && !empty($row['SAIDA_EXTERNA'])): ?>
+                <li><a class="dropdown-item" href="retorno.php"><i class="fas fa-right-to-bracket"></i> Retorno à rede</a></li>
               <?php endif; ?>
             </ul>
           </div>

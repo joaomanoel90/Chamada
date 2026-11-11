@@ -6,6 +6,15 @@ ch_db();
 require_once(__DIR__ . '/salvar_processa.php');
 
 $erros = [];
+$alunoInicial = (int)($_GET['aluno_id'] ?? $_POST['aluno_id'] ?? 0);
+if (($alunoInicial > 0 && !ch_pode_escrever_observacao_aluno($alunoInicial))
+    || ($alunoInicial === 0 && !ch_pode_escrever_observacoes())) {
+    ch_flash(ch_secretario_escolar()
+        ? 'O Diretor precisa autorizar o registro de observações nesta unidade.'
+        : 'Você não tem acesso para registrar observações neste aluno.', 'danger');
+    header('Location: ' . ch_url('observacoes/index.php'));
+    exit;
+}
 $alunosDisponiveis = observacao_alunos();
 $d = ['ID_ALUNO' => (int)($_GET['aluno_id'] ?? 0),
       'DATA' => ch_data_iso($_GET['data'] ?? '', ch_hoje()),

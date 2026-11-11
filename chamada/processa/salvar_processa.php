@@ -24,8 +24,10 @@ if (!$data) {
     exit;
 }
 
-if (!ch_pode_turma($turmaId)) {
-    ch_flash('Você não tem acesso a essa turma.', 'danger');
+if (!ch_pode_lancar_chamada($turmaId)) {
+    ch_flash(ch_secretario_escolar()
+        ? 'O perfil Secretário Escolar pode consultar a chamada, mas não pode confirmar presenças.'
+        : 'Você não tem acesso a essa turma.', 'danger');
     header('Location: index.php');
     exit;
 }

@@ -4,10 +4,6 @@ require_once('processa/add_processa.php');
 
 <?php include(HEADER_TEMPLATE); ?>
 
-<?PHP if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'] != 2) {
-  header("location:" . BASEURL);
-}
-?>
 <h2><i class="fas fa-plus"></i> Nova Unidade</h2>
 
 <form action="add.php" method="post">

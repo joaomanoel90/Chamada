@@ -34,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');
             if ($d['nivel'] === 2) {
                 ch_flash('Agora libere as unidades deste diretor em "Acesso Unidades".', 'info');
+            } elseif ($d['nivel'] === 5) {
+                ch_flash('Agora libere as unidades deste Secretário Escolar em "Acesso Unidades".', 'info');
             } elseif ($d['nivel'] === 3) {
                 ch_flash('Agora inclua este professor na equipe de uma turma.', 'info');
             }

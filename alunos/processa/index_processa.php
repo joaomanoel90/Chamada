@@ -17,12 +17,16 @@ $turmas = ch_rows(
     $filtro['params']
 );
 
-$sql = 'SELECT a.ID, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.ATIVO,
+$sql = 'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.ATIVO,
                a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
                CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO,
                t.NOME AS TURMA, t.ANO_LETIVO, t.ID_UNIDADE, u.unidade AS UNIDADE,
                (SELECT COUNT(*) FROM TB_TRANSFERENCIAS tr
-                 WHERE tr.ID_ALUNO = a.ID AND tr.SITUACAO = \'PENDENTE\') AS TRANSF_PENDENTE
+                 WHERE tr.ID_ALUNO = a.ID AND tr.SITUACAO = \'PENDENTE\') AS TRANSF_PENDENTE,
+               CASE WHEN EXISTS (
+                   SELECT 1 FROM TB_ALUNO_SAIDAS_EXTERNAS s
+                   WHERE s.ID_ALUNO = a.ID AND s.DATA_RETORNO IS NULL
+               ) THEN 1 ELSE 0 END AS SAIDA_EXTERNA
         FROM TB_ALUNOS a
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE

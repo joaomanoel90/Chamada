@@ -25,6 +25,7 @@ $pendentes = [];
 $confirmados = [];
 $equipe = [];
 $podeRetificar = false;
+$podeConfirmar = false;
 
 if ($turmaId > 0) {
     if (!ch_pode_turma($turmaId)) {
@@ -36,6 +37,7 @@ if ($turmaId > 0) {
     $equipe = ch_turma_professores($turmaId);
     $bloqueio = ch_bloqueio_chamada($data, $turma);
     $podeRetificar = ch_pode_retificar($turmaId);
+    $podeConfirmar = ch_pode_lancar_chamada($turmaId);
 
     /* A lista é de quem pertencia à turma NAQUELA data, não de quem pertence
        hoje. Sem isto, um aluno transferido apareceria na turma nova em datas
@@ -75,13 +77,14 @@ if ($turmaId > 0) {
     /* O contador também respeita o bloqueio: mostrar "3 observações" já
        revelaria que existe registro que ele não pode ler. */
     $fObsDia = eq_obs_filtro('o', 'a');
+    $fObsPermissaoDia = ch_filtro_observacao_aluno('a');
     $observacoesDoDia = ch_rows(
         'SELECT o.ID_ALUNO, COUNT(*) AS QTDE
          FROM TB_OBSERVACOES o
          INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-         WHERE o.DATA = ?' . $naData['sql'] . $fObsDia['sql'] . '
+         WHERE o.DATA = ?' . $naData['sql'] . $fObsDia['sql'] . $fObsPermissaoDia['sql'] . '
          GROUP BY o.ID_ALUNO',
-        array_merge([$data], $naData['params'], $fObsDia['params'])
+        array_merge([$data], $naData['params'], $fObsDia['params'], $fObsPermissaoDia['params'])
     );
 }
 $obsPorAluno = [];

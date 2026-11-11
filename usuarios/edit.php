@@ -49,8 +49,10 @@
         <label class="fw-bold">Nível de acesso</label>
         <select class="form-select" id="nivel" name="nivel" required>
           <option value="1" <?= $d['nivel'] === 1 ? 'selected' : '' ?>>Administrador — toda a rede</option>
-          <option value="2" <?= $d['nivel'] === 2 ? 'selected' : '' ?>>Diretor — unidades liberadas</option>
+          <option value="2" <?= $d['nivel'] === 2 ? 'selected' : '' ?>>Diretor Escolar — unidades liberadas</option>
           <option value="3" <?= $d['nivel'] === 3 ? 'selected' : '' ?>>Professor — turmas da equipe</option>
+          <option value="4" <?= $d['nivel'] === 4 ? 'selected' : '' ?>>Secretaria de Educação — toda a rede</option>
+          <option value="5" <?= $d['nivel'] === 5 ? 'selected' : '' ?>>Secretário Escolar — unidades liberadas</option>
         </select>
       </div>
       <div class="form-group col-md-4" id="grupoTurno">
@@ -78,7 +80,7 @@
     <div class="col-auto my-4">
       <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Salvar</button>
       <a href="index.php" class="btn btn-outline-secondary">Cancelar</a>
-      <?php if ($d['nivel'] === 2): ?>
+      <?php if (in_array($d['nivel'], [2, 5], true)): ?>
         <a href="acesso.php?id=<?= $id ?>" class="btn btn-outline-primary">
           <i class="far fa-check-square"></i> Acesso Unidades
         </a>

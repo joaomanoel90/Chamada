@@ -101,7 +101,7 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         $e[] = 'Já existe um aluno com essa matrícula.';
     }
     if (!$e && ch_val('SELECT ID FROM TB_ALUNOS WHERE CPF = ? AND ID <> ?', [$d['CPF'], $idAtual])) {
-        $e[] = 'Já existe um aluno cadastrado com esse CPF.';
+        $e[] = 'Já existe um aluno cadastrado com esse CPF. Se estiver retornando de uma escola externa, use Retorno à rede.';
     }
     /* Lotação só interessa quando o aluno está ENTRANDO na turma. Na edição
        ele já está lá, e conferir de novo impediria corrigir o nome de um aluno
@@ -120,7 +120,7 @@ function aluno_turmas_disponiveis()
 {
     $f = ch_filtro_turma('t');
     return ch_rows(
-        'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, u.unidade AS UNIDADE,
+        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, u.unidade AS UNIDADE,
                 (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS
          FROM TB_TURMAS t INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
          WHERE t.ATIVO = 1' . $f['sql'] . ' ORDER BY u.unidade, t.NOME',

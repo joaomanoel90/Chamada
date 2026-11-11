@@ -2,10 +2,6 @@
 require_once('processa/edit_processa.php');
 include(HEADER_TEMPLATE);
 
-if ($_SESSION['usuarioNiveisAcessoId'] != 1 && $_SESSION['usuarioNiveisAcessoId'] != 2) {
-  header("location:" . BASEURL);
-}
-
 if (!isset($unidade['id'])) {
   echo "<p>Unidade não encontrada.</p>";
   include(FOOTER_TEMPLATE);

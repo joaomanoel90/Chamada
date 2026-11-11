@@ -1,0 +1,78 @@
+/* Permite que o Diretor autorize leitura ou leitura e inserção de observações por unidade.
+   0 = sem acesso, 1 = somente leitura, 2 = leitura e inserção. */
+USE [db_chamada];
+GO
+
+IF OBJECT_ID(N'dbo.TB_USUARIOS', N'U') IS NULL
+   OR OBJECT_ID(N'dbo.TB_UNIDADES', N'U') IS NULL
+   OR OBJECT_ID(N'dbo.TB_ACESSO', N'U') IS NULL
+BEGIN
+    ;THROW 50003, 'Execute primeiro a instalação e as atualizações de usuários, unidades e acessos.', 1;
+END;
+GO
+
+IF OBJECT_ID(N'dbo.TB_SECRETARIO_OBSERVACOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_SECRETARIO_OBSERVACOES (
+        ID_USUARIO     int      NOT NULL,
+        ID_UNIDADE     int      NOT NULL,
+        PERMITIDO      tinyint  NOT NULL CONSTRAINT DF_SEC_OBS_PERMITIDO DEFAULT (0),
+        ID_DIRETOR     int      NULL,
+        ATUALIZADO_EM  datetime NOT NULL CONSTRAINT DF_SEC_OBS_ATUALIZADO DEFAULT (GETDATE()),
+        CONSTRAINT PK_SECRETARIO_OBSERVACAO PRIMARY KEY CLUSTERED (ID_USUARIO, ID_UNIDADE),
+        CONSTRAINT FK_SEC_OBS_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_SEC_OBS_UNIDADE FOREIGN KEY (ID_UNIDADE) REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT FK_SEC_OBS_DIRETOR FOREIGN KEY (ID_DIRETOR) REFERENCES dbo.TB_USUARIOS (ID)
+    );
+    PRINT 'TB_SECRETARIO_OBSERVACOES criada.';
+END;
+GO
+
+IF EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.TB_SECRETARIO_OBSERVACOES')
+      AND name = N'PERMITIDO'
+      AND system_type_id = 104
+)
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID(N'dbo.TB_SECRETARIO_OBSERVACOES')
+                 AND name = N'IX_SEC_OBS_UNIDADE')
+        DROP INDEX IX_SEC_OBS_UNIDADE ON dbo.TB_SECRETARIO_OBSERVACOES;
+
+    IF OBJECT_ID(N'dbo.DF_SEC_OBS_PERMITIDO', N'D') IS NOT NULL
+        ALTER TABLE dbo.TB_SECRETARIO_OBSERVACOES DROP CONSTRAINT DF_SEC_OBS_PERMITIDO;
+
+    ALTER TABLE dbo.TB_SECRETARIO_OBSERVACOES ALTER COLUMN PERMITIDO tinyint NOT NULL;
+    ALTER TABLE dbo.TB_SECRETARIO_OBSERVACOES
+        ADD CONSTRAINT DF_SEC_OBS_PERMITIDO DEFAULT (0) FOR PERMITIDO;
+    UPDATE dbo.TB_SECRETARIO_OBSERVACOES SET PERMITIDO = 2 WHERE PERMITIDO = 1;
+    PRINT 'Permissões anteriores de observações convertidas para leitura e inserção.';
+END;
+GO
+
+IF EXISTS (
+    SELECT 1 FROM dbo.TB_SECRETARIO_OBSERVACOES
+    WHERE PERMITIDO NOT IN (0, 1, 2)
+)
+BEGIN
+    ;THROW 50004, 'A tabela TB_SECRETARIO_OBSERVACOES contém permissões inválidas.', 1;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints
+               WHERE name = N'CK_SEC_OBS_PERMITIDO'
+                 AND parent_object_id = OBJECT_ID(N'dbo.TB_SECRETARIO_OBSERVACOES'))
+    ALTER TABLE dbo.TB_SECRETARIO_OBSERVACOES
+        ADD CONSTRAINT CK_SEC_OBS_PERMITIDO CHECK (PERMITIDO IN (0, 1, 2));
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE object_id = OBJECT_ID('dbo.TB_SECRETARIO_OBSERVACOES')
+                 AND name = 'IX_SEC_OBS_UNIDADE')
+    CREATE INDEX IX_SEC_OBS_UNIDADE
+        ON dbo.TB_SECRETARIO_OBSERVACOES (ID_UNIDADE, PERMITIDO);
+GO
+
+PRINT 'Permissões de observações prontas: 0 = sem acesso, 1 = somente leitura, 2 = leitura e inserção.';
+GO

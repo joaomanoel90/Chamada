@@ -22,13 +22,15 @@ da rede municipal (creches e escolas).
   ficha do aluno ou salve em PDF
 - **CPF obrigatório e único do aluno**: o sistema valida os dígitos verificadores
   e impede a repetição do CPF, inclusive em cadastros simultâneos
+- **Diário escolar**: notas de 0 a 10 por disciplina e bimestre, com habilitação
+  por turma; a frequência continua integrada à chamada existente
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
   descritivo, encaminhamentos, versão para impressão e exportação CSV
 - **Cadastros** de alunos, turmas, períodos, unidades e usuários
-- **Perfis de acesso**: administração (rede toda), diretor (sua unidade) e
-  professor (só as turmas da sua equipe)
+- **Perfis de acesso**: administrador do sistema, Secretaria de Educação,
+  Diretor Escolar, Secretário Escolar e Professor, com escopos distintos
 - **Layout** com identidade de educação infantil
 
 ## Atualizando uma instalação existente
@@ -42,7 +44,9 @@ idempotente e faz o upgrade sem apagar dados:
 - preenche a confirmação dos registros antigos com quem os lançou;
 - adiciona `TB_ALUNOS.FOTO_DADOS` e `FOTO_MIME` para armazenar as fotos no banco;
 - adiciona `TB_ALUNOS.CPF` com unicidade; alunos antigos ficam sem CPF até que
-  o dado correto seja informado ao editar cada cadastro.
+  o dado correto seja informado ao editar cada cadastro;
+- adiciona o Diário de Classe, a etapa de ensino das turmas e o professor
+  responsável por disciplina.
 
 Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
 com um professor (o antigo responsável) e você acrescenta os demais.
@@ -50,6 +54,17 @@ Instalações que ainda não receberam as colunas `FOTO_DADOS` e `FOTO_MIME` tam
 podem executar `sql_inicial/ATUALIZAR_FOTO_ALUNO.sql`; o script é idempotente.
 Para o CPF, execute `sql_inicial/ATUALIZAR_CPF_ALUNO.sql` em instalações
 existentes. Não preencha CPFs antigos com números inventados.
+Para o Diário de Classe, execute `sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql` nas
+instalações existentes.
+Para habilitar os níveis de Secretaria de Educação e Secretário Escolar,
+execute `sql_inicial/ATUALIZAR_NIVEIS_ACESSO.sql` nas instalações existentes.
+Para autorizar Secretários Escolares a consultar relatórios, execute
+`sql_inicial/ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql`; o Diretor libera
+por unidade em **Permissões de relatórios**, e o acesso fica negado por padrão.
+Para autorizar a consulta de observações por um Secretário, execute
+`sql_inicial/ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql`; o Diretor libera
+por unidade em **Permissões de observações**, escolhendo entre **Somente ler**
+e **Ler e inserir**. Sem liberação, as observações não ficam visíveis.
 
 ## Instalação
 
@@ -61,7 +76,7 @@ Execute **um único script** no SQL Server 2019+ (SSMS ou Azure Data Studio):
 sql_inicial/INSTALACAO_COMPLETA.sql
 ```
 
-Ele cria o banco `db_chamada`, as 10 tabelas, chaves, índices, a view
+Ele cria o banco `db_chamada`, as tabelas, chaves, índices, a view
 `VIEW_ACESSOS_USUARIOS` e os dados iniciais:
 
 - os 3 períodos (Manhã, Tarde, Integral)
@@ -105,6 +120,9 @@ ALTER ROLE db_datawriter ADD MEMBER [user_chamada];
 5. **Alunos** — matrícula dos alunos nas turmas
 6. **Feriados** — feriados do ano letivo
 7. **Chamada do Dia** — lançamento diário
+8. **Diário de Classe** — classifique a turma, habilite notas somente nas
+   etapas escolares, cadastre as disciplinas com seus professores responsáveis
+   e lance as notas por bimestre
 
 ## Estrutura
 
@@ -120,6 +138,7 @@ inc/                    layout, conexão e funções compartilhadas
   tema.php header.php header2.php footer.php
 
 chamada/                lançamento e exportação da chamada
+diario/                 notas escolares por disciplina e bimestre
 alunos/                 cadastro e ficha do aluno
 turmas/  periodos/      cadastro de turmas e períodos
 feriados/               feriados integrais e parciais
@@ -138,11 +157,16 @@ sql_inicial/            INSTALACAO_COMPLETA.sql (script único do banco)
 
 | Nível | Quem | O que vê |
 |---|---|---|
-| **1** | Administração da rede | **todas** as unidades, turmas e cadastros; administra usuários e vínculos |
-| **2** | Diretor | **tudo da unidade** a que está vinculado em `TB_ACESSO`; não vê as outras unidades |
-| **3** | Professor | **somente as turmas** em que está na equipe (`TB_TURMA_PROFESSORES`) |
+| **1** | Administrador do sistema | Rede toda e administração de usuários, acessos e configuração |
+| **2** | Diretor Escolar | Gestão escolar nas unidades vinculadas em `TB_ACESSO` |
+| **3** | Professor | Somente turmas em que está na equipe; lança chamada e notas autorizadas |
+| **4** | Secretaria de Educação | Gestão escolar em toda a rede; vincula Diretores e Secretários Escolares às unidades em **Vínculos de unidades**. Não cria/edita contas nem configura o sistema |
+| **5** | Secretário Escolar | Cadastro e gestão de alunos; consulta transferências somente das unidades vinculadas e não as altera. Consulta observações apenas nas unidades autorizadas pelo Diretor, com opção de liberar também a inserção. Só vê relatórios autorizados e não edita pareceres |
 
-O vínculo do **diretor** é por unidade: **Usuários → Acesso Unidades**.
+Os vínculos do **Diretor Escolar** e do **Secretário Escolar** são por unidade:
+**Usuários → Acesso Unidades**. A Secretaria de Educação alcança toda a rede.
+Ela pode configurar os vínculos dos dois perfis pela opção **Vínculos de unidades**,
+sem acesso à criação ou edição das contas.
 O vínculo do **professor** é por turma: **Turmas → Editar → Equipe da turma**.
 Ao incluir o professor na equipe, ele já alcança a turma — não é obrigatório
 vínculo em `TB_ACESSO` para isso.
@@ -194,6 +218,35 @@ rode `sql_inicial/ATUALIZAR_CPF_ALUNO.sql`: alunos antigos ficam temporariamente
 sem CPF e precisarão ter o dado informado ao serem editados. A migração não
 inventa nem altera CPFs de alunos já cadastrados.
 
+## Saída da rede e retorno
+
+Se o aluno for para uma escola fora da rede, registre **Registrar saída** na
+ficha: informe o último dia frequentado e os dados da escola externa. O aluno
+fica inativo para chamadas, mas o cadastro e o histórico são preservados.
+Quando voltar, use **Alunos → Retorno à rede**, localize pelo CPF e indique a
+nova turma e data de início. O retorno atualiza o cadastro existente, mesmo que
+a nova escola seja diferente da anterior.
+
+## Diário de classe
+
+A chamada diária e o controle de frequência continuam no módulo **Chamada do
+Dia**. O **Diário de Classe** acrescenta lançamento de notas de 0 a 10 por
+disciplina e por um dos quatro bimestres. A gestão cadastra disciplinas;
+cada disciplina recebe um professor responsável da equipe, e somente ele lança
+as notas daquela matéria. O mesmo professor pode responder por várias
+disciplinas. A equipe da turma e a gestão consultam os registros.
+
+Em **Turmas → Adicionar/Editar**, classifique cada turma como Infantil — Creche,
+Infantil — Pré-Escola, Fundamental — 1º ao 5º Ano ou Fundamental — 6º ao 9º Ano.
+Essa configuração é por turma, permitindo que uma unidade com creche e escola
+tenha classificações diferentes. O diário de notas não pode ser habilitado para
+Creche. Para as demais etapas, habilite as notas individualmente na turma e, no
+diário, cadastre cada disciplina com seu professor responsável.
+
+Nas instalações existentes, execute `sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql`.
+Ela preserva turmas e disciplinas atuais: classifique as turmas ao editá-las e
+atribua o professor às disciplinas existentes no diário antes de lançar notas.
+
 ## Chamada: confirmar uma vez, depois retificar
 
 A presença de cada aluno é **confirmada uma única vez por dia**.
@@ -238,6 +291,7 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_PERIODOS` | Manhã, Tarde, Integral |
 | `TB_TURMAS` | turmas por unidade e ano letivo (`ID_PROFESSOR` é legado, espelha um dos responsáveis) |
 | `TB_ALUNOS` | alunos e responsáveis |
+| `TB_ALUNO_SAIDAS_EXTERNAS` | saídas da rede e retorno dos alunos pelo cadastro original |
 | `TB_FERIADOS` | feriados integrais e parciais |
 | `TB_CHAMADA` | presença por aluno/dia, com data e autor da confirmação |
 | `TB_TURMA_PROFESSORES` | equipe da turma: papel, turno e prazo do substituto |

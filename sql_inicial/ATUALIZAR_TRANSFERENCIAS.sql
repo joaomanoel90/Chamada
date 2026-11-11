@@ -12,7 +12,7 @@
    que já contém esta mesma seção.
 
    ----------------------------------------------------------------------------
-   COMO A TRANSFERÊNCIA FUNCIONA (duas etapas)
+   COMO FUNCIONAM TRANSFERÊNCIAS E SAÍDAS EXTERNAS
 
      1. O diretor da escola de ORIGEM indica a escola de destino e informa o
         motivo. A transferência fica PENDENTE. O aluno CONTINUA na turma atual,
@@ -30,7 +30,9 @@
 
    O histórico de chamada, observações e pareceres NÃO é movido nem apagado:
    tudo continua ligado ao aluno (as três tabelas referenciam ID_ALUNO, não a
-   turma). O relatório anual mostra o ano inteiro, nas duas escolas.
+   turma).    O relatório anual mostra o ano inteiro, nas duas escolas. Para saída da rede,
+   o aluno é inativado sem apagar o cadastro; o retorno reabre o mesmo cadastro
+   em uma turma permitida, preservando a linha do tempo.
    ============================================================================ */
 
 USE [db_chamada];
@@ -126,11 +128,69 @@ ELSE
     PRINT '  = UX_TRANSFER_PENDENTE já existe';
 GO
 
+/* Saída para uma escola fora da rede e retorno futuro com o mesmo aluno. */
+IF OBJECT_ID(N'dbo.TB_ALUNO_SAIDAS_EXTERNAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_ALUNO_SAIDAS_EXTERNAS (
+        ID                  int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO            int NOT NULL,
+        ID_TURMA_ORIGEM     int NOT NULL,
+        DATA_SAIDA          date NOT NULL,
+        ESCOLA_DESTINO      nvarchar(150) NOT NULL,
+        MUNICIPIO_DESTINO   nvarchar(100) NOT NULL,
+        UF_DESTINO          char(2) NOT NULL,
+        MOTIVO              nvarchar(500) NOT NULL,
+        ID_USUARIO_SAIDA    int NOT NULL,
+        REGISTRADA_EM       datetime NOT NULL CONSTRAINT DF_SAIDA_EXT_REGISTRADA DEFAULT (GETDATE()),
+        DATA_RETORNO        date NULL,
+        ID_TURMA_RETORNO    int NULL,
+        ID_USUARIO_RETORNO  int NULL,
+        RETORNADA_EM        datetime NULL,
+        CONSTRAINT PK_TB_ALUNO_SAIDAS_EXTERNAS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_SAIDA_EXT_ALUNO FOREIGN KEY (ID_ALUNO) REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_SAIDA_EXT_TURMA FOREIGN KEY (ID_TURMA_ORIGEM) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_SAIDA_EXT_USUARIO FOREIGN KEY (ID_USUARIO_SAIDA) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_RETORNO_EXT_TURMA FOREIGN KEY (ID_TURMA_RETORNO) REFERENCES dbo.TB_TURMAS (ID),
+        CONSTRAINT FK_RETORNO_EXT_USUARIO FOREIGN KEY (ID_USUARIO_RETORNO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_SAIDA_EXT_TEXTO CHECK (
+            LTRIM(RTRIM(ESCOLA_DESTINO)) <> '' AND LTRIM(RTRIM(MUNICIPIO_DESTINO)) <> ''
+            AND LTRIM(RTRIM(MOTIVO)) <> ''
+        ),
+        CONSTRAINT CK_RETORNO_EXT_COMPLETO CHECK (
+            (DATA_RETORNO IS NULL AND ID_TURMA_RETORNO IS NULL
+                AND ID_USUARIO_RETORNO IS NULL AND RETORNADA_EM IS NULL)
+            OR (DATA_RETORNO IS NOT NULL AND ID_TURMA_RETORNO IS NOT NULL
+                AND ID_USUARIO_RETORNO IS NOT NULL AND RETORNADA_EM IS NOT NULL
+                AND DATA_RETORNO > DATA_SAIDA)
+        )
+    );
+    CREATE INDEX IX_SAIDA_EXT_ALUNO ON dbo.TB_ALUNO_SAIDAS_EXTERNAS (ID_ALUNO, DATA_SAIDA);
+    PRINT '  + TB_ALUNO_SAIDAS_EXTERNAS criada';
+END
+ELSE
+    PRINT '  = TB_ALUNO_SAIDAS_EXTERNAS já existe';
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'UX_SAIDA_EXT_ABERTA'
+      AND object_id = OBJECT_ID(N'dbo.TB_ALUNO_SAIDAS_EXTERNAS')
+)
+BEGIN
+    CREATE UNIQUE INDEX UX_SAIDA_EXT_ABERTA
+        ON dbo.TB_ALUNO_SAIDAS_EXTERNAS (ID_ALUNO)
+        WHERE DATA_RETORNO IS NULL;
+    PRINT '  + UX_SAIDA_EXT_ABERTA criado';
+END
+ELSE
+    PRINT '  = UX_SAIDA_EXT_ABERTA já existe';
+GO
+
 /* ============================================================================
    2. VW_ALUNO_VINCULO — em que turma o aluno estava, e em que período
       ----------------------------------------------------------------------------
       A tabela TB_ALUNOS guarda só a turma ATUAL. Esta visão reconstrói a linha
-      do tempo a partir das transferências concluídas, sem duplicar informação:
+      do tempo a partir das transferências concluídas e das saídas/retornos:
 
         DATA_INICIO NULL = desde o início (primeiro período do aluno)
         DATA_FIM    NULL = até hoje (período em aberto)
@@ -143,50 +203,56 @@ GO
    ============================================================================ */
 CREATE OR ALTER VIEW dbo.VW_ALUNO_VINCULO
 AS
-WITH transf AS (
-    SELECT
-        ID_ALUNO,
-        ID_TURMA_ORIGEM,
-        ID_TURMA_DESTINO,
-        DATA_INICIO,
-        ROW_NUMBER() OVER (PARTITION BY ID_ALUNO ORDER BY DATA_INICIO, ID) AS ORDEM
+WITH transferencias AS (
+    SELECT ID, ID_ALUNO, ID_TURMA_ORIGEM, ID_TURMA_DESTINO, DATA_INICIO
     FROM dbo.TB_TRANSFERENCIAS
     WHERE SITUACAO = 'CONCLUIDA'
-)
-SELECT v.ID_ALUNO, v.ID_TURMA, v.DATA_INICIO, v.DATA_FIM
-FROM (
-    /* nunca transferido: um vínculo em aberto com a turma atual */
-    SELECT
-        a.ID           AS ID_ALUNO,
-        a.ID_TURMA     AS ID_TURMA,
-        CAST(NULL AS date) AS DATA_INICIO,
-        CAST(NULL AS date) AS DATA_FIM
+),
+eventos_origem AS (
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM, DATA_INICIO AS DATA_EVENTO, ID AS ORDEM_ID
+    FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM, DATA_SAIDA, ID
+    FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+),
+primeira_origem AS (
+    SELECT ID_ALUNO, ID_TURMA_ORIGEM,
+           ROW_NUMBER() OVER (PARTITION BY ID_ALUNO ORDER BY DATA_EVENTO, ORDEM_ID) AS ORDEM
+    FROM eventos_origem
+),
+limites AS (
+    SELECT ID_ALUNO, DATA_INICIO AS DATA_LIMITE FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, DATEADD(DAY, 1, DATA_SAIDA) FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    UNION ALL
+    SELECT ID_ALUNO, DATA_RETORNO FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    WHERE DATA_RETORNO IS NOT NULL
+),
+inicios AS (
+    SELECT ID_ALUNO, ID_TURMA_DESTINO AS ID_TURMA, DATA_INICIO
+    FROM transferencias
+    UNION ALL
+    SELECT ID_ALUNO, ID_TURMA_RETORNO, DATA_RETORNO
+    FROM dbo.TB_ALUNO_SAIDAS_EXTERNAS
+    WHERE DATA_RETORNO IS NOT NULL
+),
+periodos AS (
+    SELECT a.ID AS ID_ALUNO,
+           COALESCE(o.ID_TURMA_ORIGEM, a.ID_TURMA) AS ID_TURMA,
+           CAST(NULL AS date) AS DATA_INICIO
     FROM dbo.TB_ALUNOS a
-    WHERE NOT EXISTS (SELECT 1 FROM transf f WHERE f.ID_ALUNO = a.ID)
-
+    LEFT JOIN primeira_origem o ON o.ID_ALUNO = a.ID AND o.ORDEM = 1
     UNION ALL
-
-    /* período anterior à primeira transferência: turma de origem */
-    SELECT
-        f.ID_ALUNO,
-        f.ID_TURMA_ORIGEM,
-        CAST(NULL AS date),
-        DATEADD(DAY, -1, f.DATA_INICIO)
-    FROM transf f
-    WHERE f.ORDEM = 1
-
-    UNION ALL
-
-    /* cada transferência abre um período na turma de destino, que fecha na
-       véspera da transferência seguinte (ou fica em aberto, se for a última) */
-    SELECT
-        f.ID_ALUNO,
-        f.ID_TURMA_DESTINO,
-        f.DATA_INICIO,
-        DATEADD(DAY, -1, g.DATA_INICIO)
-    FROM transf f
-    LEFT JOIN transf g ON g.ID_ALUNO = f.ID_ALUNO AND g.ORDEM = f.ORDEM + 1
-) v;
+    SELECT ID_ALUNO, ID_TURMA, DATA_INICIO FROM inicios
+)
+SELECT p.ID_ALUNO, p.ID_TURMA, p.DATA_INICIO,
+       DATEADD(DAY, -1, (
+           SELECT MIN(l.DATA_LIMITE)
+           FROM limites l
+           WHERE l.ID_ALUNO = p.ID_ALUNO
+             AND (p.DATA_INICIO IS NULL OR l.DATA_LIMITE > p.DATA_INICIO)
+       )) AS DATA_FIM
+FROM periodos p;
 GO
 PRINT '  + VW_ALUNO_VINCULO criada/atualizada';
 GO

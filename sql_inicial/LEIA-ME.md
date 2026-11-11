@@ -6,17 +6,21 @@ se o seu banco tiver outro nome.
 
 | # | Arquivo | Quando usar |
 |---|---------|-------------|
-| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as 13 tabelas, índices, as duas views, os períodos, as 20 unidades da rede e o usuário administrador. Já inclui a transferência de alunos. |
+| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as tabelas, índices, as duas views, os períodos, as 20 unidades da rede e o usuário administrador. Já inclui a transferência de alunos e o diário escolar. |
 | 2 | `CRIAR_LOGIN_APLICACAO.sql` | **Obrigatório, uma vez.** Cria o login `user_chamada` usado pelo sistema e dá as permissões mínimas. |
 | 3 | `DIAGNOSTICO_LOGIN.sql` | Só se aparecer o erro **18456** ao entrar. Não altera nada, só investiga. |
 | 4 | `POPULAR_DEMONSTRACAO.sql` | **Opcional.** Enche o banco com dados fictícios para você testar o sistema. |
-| 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. |
-| 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria a tabela e a view que faltam. Não altera nenhum dado existente. |
+| 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. Em bancos antigos, execute primeiro `ATUALIZAR_DIARIO_CLASSE.sql`. |
+| 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria as tabelas e views de transferências, saída da rede e retorno pelo mesmo cadastro. Não altera os dados existentes. |
 | 7 | `ATUALIZAR_EQUIPE_SAUDE.sql` | **Só para quem já tinha o sistema instalado** antes do turno, do substituto e da ficha de saúde. Acrescenta colunas e troca a regra de responsável. Não apaga nenhum dado. |
 | 8 | `ATUALIZAR_FOTO_ALUNO.sql` | **Só para instalações existentes** que ainda não têm as colunas de imagem comprimida do aluno. |
 | 9 | `ATUALIZAR_CPF_ALUNO.sql` | **Só para instalações existentes.** Adiciona CPF e unicidade; alunos antigos ficam sem CPF até serem atualizados. |
+| 10 | `ATUALIZAR_DIARIO_CLASSE.sql` | **Só para instalações existentes.** Adiciona a classificação das turmas e a atribuição do professor por disciplina, além do diário e das notas por bimestre. Notas ficam desativadas por padrão. |
+| 11 | `ATUALIZAR_NIVEIS_ACESSO.sql` | **Só para instalações existentes.** Habilita os níveis 4 (Secretaria de Educação) e 5 (Secretário Escolar), sem alterar os perfis existentes. |
+| 12 | `ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql` | **Só para instalações existentes.** Cria a tabela de autorização por Diretor, Secretário Escolar e unidade; sem liberação explícita, relatórios não ficam visíveis ao Secretário. |
+| 13 | `ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql` | **Só para instalações existentes.** Cria autorização por unidade: sem acesso, somente leitura ou leitura e inserção. Sem autorização explícita, as observações não ficam visíveis ao Secretário. |
 
-Os scripts 1, 2, 4, 6, 7, 8 e 9 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 13 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -27,7 +31,32 @@ Os scripts 1, 2, 4, 6, 7, 8 e 9 podem ser executados mais de uma vez sem duplica
 > Quem está instalando do zero não precisa deles: o script 1 já traz essas
 > colunas. Rode também `ATUALIZAR_CPF_ALUNO.sql` para instalações existentes;
 > CPFs dos alunos antigos serão informados ao editar cada cadastro. O script 1
-> já exige CPF nos novos bancos.
+> já exige CPF nos novos bancos. Para o diário, execute também
+> `ATUALIZAR_DIARIO_CLASSE.sql`. Em **Turmas → Adicionar/Editar**, classifique
+> cada turma. Habilite notas somente nas etapas escolares; a configuração é por
+> turma, não por unidade. No diário, a gestão cadastra cada disciplina e atribui
+> um professor da equipe; só esse professor pode lançar as notas. O mesmo
+> professor pode ficar responsável por várias disciplinas.
+> Turmas antigas ficam sem classificação até serem editadas; disciplinas já
+> cadastradas ficam sem responsável até a gestão atribuí-lo no diário.
+> A limpeza dos dados de demonstração também remove notas e disciplinas criadas
+> dentro das turmas de demonstração; em bancos antigos, execute a migração do
+> diário antes de rodar `LIMPAR_DEMONSTRACAO.sql`.
+> Para usar os novos perfis em uma base existente, execute também
+> `ATUALIZAR_NIVEIS_ACESSO.sql`, `ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql`
+> e `ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql`.
+> A Secretaria de Educação alcança a rede toda e vincula Diretores e Secretários
+> Escolares às unidades em **Vínculos de unidades**, sem criar ou editar contas.
+> O Secretário Escolar opera alunos e só consulta transferências das unidades
+> liberadas. A leitura de relatórios exige autorização explícita do Diretor em
+> **Permissões de relatórios**. Observações exigem autorização por unidade em
+> **Permissões de observações**, que pode ser somente leitura ou leitura e
+> inserção de novos registros. Transferências são somente para consulta.
+> Para registrar a saída para escola fora da rede, use **Registrar saída** na
+> ficha do aluno. Quando ele voltar, use **Retorno à rede**, localize o cadastro
+> pelo CPF e selecione a nova unidade/turma. O sistema preserva o mesmo aluno e
+> a linha do tempo escolar. Instalações existentes precisam executar novamente
+> `ATUALIZAR_TRANSFERENCIAS.sql` para criar a tabela de saídas externas.
 
 > **Não sabe o que falta?** Entre como administrador e abra
 > `verifica_instalacao.php` (menu **Verificar instalação**). A página lista
@@ -116,6 +145,9 @@ o script mostra uma tabela com o nome e o CPF de cada usuário criado.
   sistema trata os dois casos.
 - **Observações** são mensais, com a mais recente no dia 1º do mês corrente. A
   tela abre filtrando o mês atual, então já abre com conteúdo.
+- O Diário de Classe permite lançar notas de 0 a 10 por disciplina e bimestre
+  nas turmas escolares habilitadas; chamada e frequência continuam no módulo
+  Chamada.
 - Metade dos alunos tem **relatório anual** preenchido, para você ver o documento
   pronto e testar a exportação.
 - A **idade** de cada aluno é sorteada dentro da faixa da turma usando o corte de

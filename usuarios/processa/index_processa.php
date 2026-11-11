@@ -12,12 +12,11 @@ $usuarios = ch_rows(
       ORDER BY NOME'
 );
 
-/* Quantas unidades o diretor tem liberadas e em quantas turmas o professor
-   está — ajuda a ver de imediato quem está cadastrado mas sem alcance. */
+/* Quantas unidades estão liberadas e em quantas turmas o professor está. */
 $alcance = [];
 foreach ($usuarios as $u) {
     $id = (int)$u['ID'];
-    if ((int)$u['NIVEL'] === 2) {
+    if (in_array((int)$u['NIVEL'], [2, 5], true)) {
         $alcance[$id] = (int)ch_val('SELECT COUNT(*) FROM TB_ACESSO WHERE id_usuario = ? AND ativo = 1', [$id]);
     } elseif ((int)$u['NIVEL'] === 3) {
         $alcance[$id] = (int)ch_val('SELECT COUNT(*) FROM TB_TURMA_PROFESSORES WHERE ID_USUARIO = ? AND ATIVO = 1', [$id]);

@@ -1,11 +1,11 @@
 # Módulo Chamada de Alunos — SupriADM
 
-Módulo de chamada, observações e relatório anual de desenvolvimento da
-Prefeitura Municipal de Angatuba.
+Módulo de chamada, diário escolar, observações e relatório anual de
+desenvolvimento da Prefeitura Municipal de Angatuba.
 
 O repositório era originalmente uma cópia do **SupriADM** (almoxarifado/pedidos).
 Os módulos de estoque foram removidos — veja [`LIMPEZA.md`](LIMPEZA.md) — e hoje
-o sistema é só de chamada.
+o sistema atende à chamada e ao diário escolar.
 
 Foi escrito seguindo os padrões que já existem no projeto: PHP procedural,
 SQL Server via `sqlsrv`, Bootstrap 5 + DataTables, e a estrutura
@@ -29,14 +29,27 @@ que já existe:
 
 **Perfis:**
 
-- **Nível 1 e 2 (gestão):** acesso a tudo, incluindo os cadastros de períodos,
-  turmas, alunos e feriados, em todas as unidades.
-- **Nível 3 (professor / unidade):** vê apenas as unidades vinculadas em
-  `TB_ACESSO`. Lança chamada, registra observações e emite relatórios. Os
-  cadastros de períodos, turmas e feriados ficam restritos à gestão.
+- **Nível 1 (administrador):** rede toda e administração de usuários e
+  configuração técnica.
+- **Nível 2 (Diretor Escolar):** gestão escolar nas unidades vinculadas em
+  `TB_ACESSO`.
+- **Nível 3 (professor):** vê apenas as turmas em que está na equipe.
+  Lança chamada e notas das disciplinas pelas quais responde nas
+  turmas da equipe, registra observações e emite relatórios. Os cadastros de
+  períodos, turmas, disciplinas e feriados ficam restritos à gestão; gestão e
+  equipe podem consultar notas.
+- **Nível 4 (Secretaria de Educação):** gestão escolar em toda a rede, sem
+  administração de usuários ou acesso à configuração técnica.
+- **Nível 5 (Secretário Escolar):** cadastro e transferência de alunos e
+  registro de observações somente nas unidades vinculadas; consulta turmas e
+  chamadas sem configurá-las ou lançar/retificar presenças. Só consulta os
+  relatórios anuais nas unidades liberadas pelo Diretor; não edita o parecer.
 
-> Para um professor aparecer nas telas, ele precisa ter registro em `TB_ACESSO`
-> com `ativo = 1` para a unidade dele. Isso é feito em **Usuários → Acesso por Unidade**.
+> O Diretor Escolar e o Secretário Escolar precisam de unidades vinculadas em
+> **Usuários → Acesso Unidades**. O professor precisa estar na equipe da turma;
+> o vínculo em `TB_ACESSO` não concede acesso às turmas.
+> Para liberar relatórios ao Secretário, o Diretor usa **Permissões de
+> relatórios**; sem autorização por unidade, o acesso fica bloqueado.
 
 ---
 
@@ -55,7 +68,7 @@ sql_inicial/CRIAR_LOGIN_APLICACAO.sql
 ```
 
 O script é **idempotente**: pode rodar mais de uma vez sem apagar dados. Cria o
-banco `db_chamada`, as 10 tabelas, índices, a view `VIEW_ACESSOS_USUARIOS` e os
+banco `db_chamada`, as tabelas, índices, a view `VIEW_ACESSOS_USUARIOS` e os
 dados iniciais (períodos, as 20 unidades da rede e o administrador).
 
 ### Passo 2 — arquivos
@@ -96,6 +109,9 @@ do dia, frequência do mês, próximos feriados, observações recentes).
 3. **Alunos** — matricule os alunos nas turmas.
 4. **Feriados** — cadastre os feriados do ano.
 5. **Chamada do Dia** — lance a presença.
+6. **Diário de Classe** — classifique a turma, habilite notas somente nas etapas
+   escolares, cadastre as disciplinas com seus professores responsáveis e lance
+   as notas por bimestre.
 
 ### Passo 5 — conferir a instalação
 
@@ -192,8 +208,9 @@ substituto: **"Pode ler as observações do professor"**.
 - A permissão é avaliada **na data de hoje**, não na data de cada observação:
   liberada a leitura, o substituto lê o histórico da turma enquanto estiver no
   prazo; bloqueada, volta a ver só as dele.
-- Quem é membro fixo da turma em outro papel não é afetado, e gestão
-  (níveis 1 e 2) sempre lê tudo.
+- Quem é membro fixo da turma em outro papel não é afetado. A gestão escolar
+  (níveis 1, 2 e 4) lê tudo dentro do seu escopo; o Secretário Escolar (nível
+  5) consulta os registros das unidades vinculadas.
 
 Helpers em `inc/equipe.php`: `eq_obs_turmas_bloqueadas()`, `eq_obs_tem_bloqueio()`,
 `eq_obs_filtro()`, `eq_obs_filtro_aluno()`, `eq_obs_aviso_bloqueio()`. O único
@@ -305,6 +322,7 @@ turmas/       index add edit formulario (equipe) + processa/{index,add,edit,salv
 alunos/       index add edit view formulario + processa/{index,add,edit,view,salvar,toggle}
 feriados/     index add edit formulario + processa/{index,add,edit,salvar,delete}
 chamada/      index salvar retificar historico exportar + processa/{index,salvar,retificar,historico}
+diario/       index + processa/index_processa
 observacoes/  index add edit formulario + processa/{index,add,edit,salvar}
 relatorios/   index ver salvar exportar + processa/{index,ver,salvar}
 

@@ -1,12 +1,15 @@
 <?php require_once('processa/view_processa.php'); ?>
-<?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
+<?php include(ch_gestao_alunos() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
 <?php
 $botoesAluno = '<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a> ';
-if (ch_gestor() && !$apenasHistorico) {
+if (ch_gestao_alunos() && !$apenasHistorico) {
     $botoesAluno .= '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a> ';
 }
 $botoesAluno .= '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Gerar crachá</a> ';
+if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$transferenciaPendente) {
+    $botoesAluno .= '<a class="btn btn-outline-warning" href="' . ch_url('alunos/saida.php?id=' . (int)$id) . '"><i class="fas fa-right-from-bracket"></i> Registrar saída</a> ';
+}
 if ($podeTransferir) {
     $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a>';
 }
@@ -32,6 +35,15 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
     <a class="btn btn-sm btn-outline-dark" href="<?= ch_url('transferencias/ver.php?id=' . (int)$transferenciaPendente['ID']) ?>">Ver transferência</a>
   </div>
 <?php endif; ?>
+<?php if ($saidaExternaAberta): ?>
+  <div class="alert alert-secondary">
+    <i class="fas fa-right-from-bracket"></i>
+    Cadastro com saída da rede em <?= ch_data_br($saidaExternaAberta['DATA_SAIDA_ISO']) ?> para
+    <b><?= ch_h($saidaExternaAberta['ESCOLA_DESTINO']) ?></b>,
+    <?= ch_h($saidaExternaAberta['MUNICIPIO_DESTINO']) ?>/<?= ch_h($saidaExternaAberta['UF_DESTINO']) ?>.
+    Para matricular novamente, use <b>Alunos → Retorno à rede</b> e localize pelo CPF.
+  </div>
+<?php endif; ?>
 
 <div class="row g-3">
   <div class="col-md-7">
@@ -46,7 +58,7 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
         </div>
         <dl class="row mb-0">
           <dt class="col-sm-4">Matrícula</dt><dd class="col-sm-8"><?= ch_h($aluno['MATRICULA']) ?></dd>
-          <?php if (ch_gestor()): ?>
+          <?php if (ch_gestao_alunos()): ?>
             <dt class="col-sm-4">CPF</dt><dd class="col-sm-8"><?= !empty($aluno['CPF']) ? ch_h(ch_cpf_mask($aluno['CPF'])) : '<span class="text-muted">Não informado</span>' ?></dd>
           <?php endif; ?>
           <dt class="col-sm-4">Nascimento</dt><dd class="col-sm-8"><?= ch_data_br($aluno['NASCIMENTO']) ?> <span class="text-muted">(<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'])) ?>)</span></dd>
@@ -78,7 +90,9 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
           </div>
         <?php endif; ?>
         <div class="mt-3 d-grid gap-2">
-          <a class="btn btn-primary" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$id) ?>"><i class="far fa-comment-dots"></i> Registrar observação</a>
+          <?php if (ch_pode_escrever_observacao_aluno($id)): ?>
+            <a class="btn btn-primary" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$id) ?>"><i class="far fa-comment-dots"></i> Registrar observação</a>
+          <?php endif; ?>
           <a class="btn btn-outline-primary" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO']) ?>"><i class="fas fa-file-lines"></i> Relatório anual</a>
         </div>
       </div>
@@ -139,7 +153,9 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
         <?php endif; ?>
         <?php if (!$observacoes): ?>
           <p class="text-muted">
-            <?= !empty($obsOcultas) ? 'Nenhuma observação sua registrada.' : 'Nenhuma observação registrada.' ?>
+            <?= ch_secretario_escolar() && !ch_pode_ler_observacao_aluno($id)
+              ? 'A Direção não autorizou a consulta de observações nesta unidade.'
+              : (!empty($obsOcultas) ? 'Nenhuma observação sua registrada.' : 'Nenhuma observação registrada.') ?>
           </p>
         <?php else: ?>
           <?php foreach ($observacoes as $o): ?>
@@ -163,6 +179,33 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
 <div class="card border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <?php $tituloQuadro = 'Escolas e turmas por período'; include(ABSPATH . 'transferencias/quadro_vinculos.php'); ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($saidasExternas): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <h5 class="mb-3"><i class="fas fa-right-left"></i> Saídas e retornos de fora da rede</h5>
+    <?php foreach ($saidasExternas as $saida): ?>
+      <div class="border rounded-3 p-3 mb-2">
+        <p class="mb-1">
+          Saiu em <b><?= ch_data_br($saida['DATA_SAIDA_ISO']) ?></b> de
+          <?= ch_h($saida['UNIDADE_ORIGEM']) ?> (<?= ch_h($saida['TURMA_ORIGEM']) ?>)
+          para <b><?= ch_h($saida['ESCOLA_DESTINO']) ?></b>,
+          <?= ch_h($saida['MUNICIPIO_DESTINO']) ?>/<?= ch_h($saida['UF_DESTINO']) ?>.
+        </p>
+        <p class="mb-1"><small><b>Motivo:</b> <?= ch_h($saida['MOTIVO']) ?></small></p>
+        <?php if ($saida['DATA_RETORNO']): ?>
+          <p class="mb-0 text-muted"><small>
+            Retornou em <?= ch_data_br($saida['DATA_RETORNO']) ?>
+            para <?= ch_h($saida['UNIDADE_RETORNO']) ?> (<?= ch_h($saida['TURMA_RETORNO']) ?>).
+          </small></p>
+        <?php else: ?>
+          <p class="mb-0 text-muted"><small>Ainda não retornou à rede.</small></p>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
   </div>
 </div>
 <?php endif; ?>

@@ -51,8 +51,10 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
         <select class="form-select" id="nivel" name="nivel" required>
           <option value="">Selecione...</option>
           <option value="1" <?= $d['nivel'] === 1 ? 'selected' : '' ?>>Administrador — toda a rede</option>
-          <option value="2" <?= $d['nivel'] === 2 ? 'selected' : '' ?>>Diretor — unidades liberadas</option>
+          <option value="2" <?= $d['nivel'] === 2 ? 'selected' : '' ?>>Diretor Escolar — unidades liberadas</option>
           <option value="3" <?= $d['nivel'] === 3 ? 'selected' : '' ?>>Professor — turmas da equipe</option>
+          <option value="4" <?= $d['nivel'] === 4 ? 'selected' : '' ?>>Secretaria de Educação — toda a rede</option>
+          <option value="5" <?= $d['nivel'] === 5 ? 'selected' : '' ?>>Secretário Escolar — unidades liberadas</option>
         </select>
       </div>
       <div class="form-group col-md-4" id="grupoTurno">
@@ -76,8 +78,8 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
 
     <div class="alert alert-info mt-3 mb-0">
       <i class="fas fa-circle-info"></i>
-      <strong>Diretor</strong> precisa das unidades liberadas em <em>Acesso Unidades</em>.
-      <strong>Professor</strong> precisa ser incluído na equipe de uma turma.
+      <strong>Diretor e Secretário Escolar</strong> precisam das unidades liberadas em <em>Acesso Unidades</em>.
+      <strong>Professor</strong> precisa ser incluído na equipe de uma turma. A Secretaria de Educação tem alcance da rede, sem administração de usuários.
     </div>
 
     <div class="col-auto my-4">

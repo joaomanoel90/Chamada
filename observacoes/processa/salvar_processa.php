@@ -17,7 +17,11 @@ function observacao_validar($post)
 
     /* Escrita exige a turma ATUAL: a escola de origem, depois da
        transferência, fica só com a consulta ao histórico. */
-    if (!ch_pode_aluno_atual($d['ID_ALUNO'])) { $e[] = 'Selecione um aluno da sua unidade.'; }
+    if (!ch_pode_escrever_observacao_aluno($d['ID_ALUNO'])) {
+        $e[] = ch_secretario_escolar()
+            ? 'O Diretor precisa autorizar o registro de observações nesta unidade.'
+            : 'Selecione um aluno da sua unidade.';
+    }
     if (!$d['DATA']) { $e[] = 'Informe uma data válida.'; }
     elseif ($d['DATA'] > ch_hoje()) { $e[] = 'A data da observação não pode ser futura.'; }
     if (!in_array($d['CATEGORIA'], ch_categorias(), true)) { $e[] = 'Selecione uma categoria válida.'; }
@@ -31,6 +35,15 @@ function observacao_validar($post)
 function observacao_alunos()
 {
     $f = ch_filtro_turma('t');
+    if (ch_secretario_escolar()) {
+        $ids = ch_unidades_observacoes_ids();
+        if (!$ids) {
+            $f['sql'] .= ' AND 1 = 0';
+        } else {
+            $f['sql'] .= ' AND t.ID_UNIDADE IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+            $f['params'] = array_merge($f['params'], $ids);
+        }
+    }
     return ch_rows(
         'SELECT a.ID, a.NOME, a.MATRICULA, t.NOME AS TURMA, u.unidade AS UNIDADE
          FROM TB_ALUNOS a

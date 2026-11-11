@@ -154,6 +154,15 @@ function turma_linha_equipe($m, $op)
           <label class="fw-bold">Ano letivo</label>
           <input type="number" class="form-control" name="ano_letivo" min="2000" max="2100" value="<?= (int)$d['ANO_LETIVO'] ?>" required>
         </div>
+        <div class="form-group col-md-8">
+          <label class="fw-bold" for="etapa-ensino">Etapa de ensino</label>
+          <select class="form-select" id="etapa-ensino" name="etapa_ensino" required>
+            <option value="">Selecione...</option>
+            <?php foreach (ch_etapas_ensino() as $codigo => $rotulo): ?>
+              <option value="<?= ch_h($codigo) ?>" <?= ($d['ETAPA_ENSINO'] ?? '') === $codigo ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
 
         <div class="form-group col-md-5">
           <label class="fw-bold">Nome da turma</label>
@@ -174,6 +183,14 @@ function turma_linha_equipe($m, $op)
         <div class="form-group col-md-3">
           <label class="fw-bold">Capacidade</label>
           <input type="number" class="form-control" name="capacidade" min="1" max="500" value="<?= (int)$d['CAPACIDADE'] ?>" required>
+        </div>
+        <div class="form-group col-12">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="notas-ativas"
+                   name="notas_ativas" value="1" <?= !empty($d['NOTAS_ATIVAS']) ? 'checked' : '' ?>>
+            <label class="form-check-label fw-bold" for="notas-ativas">Esta turma lança notas escolares</label>
+          </div>
+          <small class="text-muted">Ative somente para Pré-Escola e Ensino Fundamental. Turmas de Creche não terão lançamento de notas, mesmo quando funcionam na mesma unidade. Desativar a opção não apaga notas já lançadas.</small>
         </div>
       </div>
     </div>

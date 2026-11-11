@@ -81,11 +81,7 @@ if (isset($_POST['cpf']) && isset($_POST['senha'])) {
 		$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
 		$_SESSION['usuarioCPF'] = $row['CPF'];
 
-		if (
-			$_SESSION['usuarioNiveisAcessoId'] == "1" ||
-			$_SESSION['usuarioNiveisAcessoId'] == "2" ||
-			$_SESSION['usuarioNiveisAcessoId'] == "3"
-		) {
+		if (in_array((int)$_SESSION['usuarioNiveisAcessoId'], [1, 2, 3, 4, 5], true)) {
 			header("Location: " . BASEURL . "index.php");
 			exit;
 		}

@@ -80,6 +80,14 @@
     </div>
   </div>
 
+  <?php if (ch_secretario_escolar()): ?>
+    <div class="alert alert-info">
+      <i class="fas fa-eye"></i>
+      <strong>Somente consulta.</strong>
+      O Secretário Escolar não pode confirmar presenças nem retificar a chamada.
+    </div>
+  <?php endif; ?>
+
   <?php if ($bloqueio): ?>
     <div class="alert alert-warning">
       <i class="fas fa-triangle-exclamation"></i> <strong>Chamada bloqueada.</strong> <?= ch_h($bloqueio) ?>
@@ -102,7 +110,7 @@
   <?php else: ?>
 
   <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-    <?php if (!$bloqueio && $pendentes): ?>
+    <?php if ($podeConfirmar && !$bloqueio && $pendentes): ?>
       <button type="button" class="btn btn-sm btn-outline-success" data-marcar-todos="P">
         <i class="fas fa-check-double"></i> Marcar pendentes como presentes
       </button>
@@ -117,7 +125,7 @@
     <?php endif; ?>
   </div>
 
-  <?php if (!$bloqueio && $pendentes): ?>
+  <?php if ($podeConfirmar && !$bloqueio && $pendentes): ?>
   <form method="post" action="salvar.php" id="form-chamada">
     <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
     <input type="hidden" name="data" value="<?= ch_h($data) ?>">
@@ -142,10 +150,12 @@
               <strong><?= ch_h($a['NOME']) ?></strong>
               <small><?= ch_h($a['MATRICULA']) ?> · <?= ch_h(ch_idade_texto($a['NASCIMENTO'], $data)) ?></small>
             </div>
+            <?php if (ch_pode_escrever_observacao_turma($turmaId, $turma['ID_UNIDADE'])): ?>
             <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
                href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
               <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
             </a>
+            <?php endif; ?>
           </div>
           <?= eq_caixa_saude($a, true) ?>
           <div class="cartao-aluno-status">
@@ -195,10 +205,12 @@
             <strong><?= ch_h($a['NOME']) ?></strong>
             <small><?= ch_h($a['MATRICULA']) ?> · <?= ch_h(ch_idade_texto($a['NASCIMENTO'], $data)) ?></small>
           </div>
+          <?php if (ch_pode_escrever_observacao_turma($turmaId, $turma['ID_UNIDADE'])): ?>
           <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
              href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
             <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
           </a>
+          <?php endif; ?>
         </div>
 
         <?= eq_caixa_saude($a, true) ?>

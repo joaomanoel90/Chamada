@@ -9,7 +9,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_gestor();
+ch_require_gestao_alunos();
 
 $papel = $_GET['papel'] ?? 'recebidas';
 if (!in_array($papel, ['recebidas', 'enviadas', 'todas'], true)) { $papel = 'recebidas'; }
@@ -19,13 +19,13 @@ if (!in_array($situacao, ['PENDENTE', 'CONCLUIDA', 'CANCELADA', 'TODAS'], true))
 
 /* O administrador não tem "a minha escola": para ele as abas de papel não
    fazem sentido, e ele vê a rede inteira. */
-$mostrarPapel = !ch_admin();
+$mostrarPapel = !ch_rede();
 if (!$mostrarPapel) { $papel = 'todas'; }
 
 $where  = [];
 $params = [];
 
-if (!ch_admin()) {
+if (!ch_rede()) {
     $ids = ch_unidades_ids();
     if (!$ids) {
         $where[] = '1 = 0';
