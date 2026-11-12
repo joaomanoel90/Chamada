@@ -75,10 +75,29 @@ $faltasDetalhadas = ch_rows(
 );
 
 $parecer = ch_row(
-    'SELECT ID, ISNULL(PARECER, \'\') AS PARECER, ISNULL(ENCAMINHAMENTOS, \'\') AS ENCAMINHAMENTOS, ID_USUARIO
-     FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ?',
+    'SELECT r.ID, ISNULL(r.PARECER, \'\') AS PARECER,
+            ISNULL(r.ENCAMINHAMENTOS, \'\') AS ENCAMINHAMENTOS, r.ID_USUARIO,
+            u.NOME AS AUTOR, CONVERT(varchar(16), r.CREATED, 120) AS CRIADO_EM,
+            CONVERT(varchar(16), r.MODIFIED, 120) AS MODIFIED
+     FROM TB_RELATORIOS_ANUAIS r
+     INNER JOIN TB_USUARIOS u ON u.ID = r.ID_USUARIO
+     WHERE r.ID_ALUNO = ? AND r.ANO = ?',
     [$alunoId, $ano]
 );
+$historicoParecer = $parecer
+    ? ch_rows(
+        'SELECT h.ID_USUARIO_AUTOR, ua.NOME AS AUTOR,
+                h.ID_USUARIO_ALTERACAO, ue.NOME AS ALTERADO_POR,
+                ISNULL(h.PARECER, \'\') AS PARECER,
+                ISNULL(h.ENCAMINHAMENTOS, \'\') AS ENCAMINHAMENTOS,
+                CONVERT(varchar(16), h.ALTERADA_EM, 120) AS ALTERADA_EM
+         FROM TB_HISTORICO_RELATORIOS h
+         INNER JOIN TB_USUARIOS ua ON ua.ID = h.ID_USUARIO_AUTOR
+         INNER JOIN TB_USUARIOS ue ON ue.ID = h.ID_USUARIO_ALTERACAO
+         WHERE h.ID_RELATORIO = ? ORDER BY h.ID DESC',
+        [(int)$parecer['ID']]
+    )
+    : [];
 
 $dias       = (int)($totais['DIAS'] ?? 0);
 $presencas  = (int)($totais['P'] ?? 0) + (int)($totais['A'] ?? 0);

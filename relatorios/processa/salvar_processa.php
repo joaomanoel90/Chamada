@@ -45,23 +45,37 @@ if (mb_strlen($parecer) > 10000 || mb_strlen($encam) > 5000) {
     exit;
 }
 
-sqlsrv_begin_transaction(ch_db());
+$conn = ch_db();
+if (!sqlsrv_begin_transaction($conn)) {
+    ch_flash('Não foi possível iniciar a gravação do relatório.', 'danger');
+    header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
+    exit;
+}
 try {
     $existente = ch_val('SELECT ID FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ?', [$alunoId, $ano]);
 
     if ($existente) {
-        $ok = ch_exec('UPDATE TB_RELATORIOS_ANUAIS SET PARECER = ?, ENCAMINHAMENTOS = ?, ID_USUARIO = ?, MODIFIED = GETDATE() WHERE ID = ?',
-                      [$parecer, $encam, ch_uid(), (int)$existente]);
+        $ok = ch_exec(
+            'INSERT INTO TB_HISTORICO_RELATORIOS
+                (ID_RELATORIO, ID_USUARIO_AUTOR, ID_USUARIO_ALTERACAO, PARECER, ENCAMINHAMENTOS)
+             SELECT ID, ID_USUARIO, ?, PARECER, ENCAMINHAMENTOS
+             FROM TB_RELATORIOS_ANUAIS WHERE ID = ?',
+            [ch_uid(), (int)$existente]
+        );
+        if ($ok) {
+            $ok = ch_exec('UPDATE TB_RELATORIOS_ANUAIS SET PARECER = ?, ENCAMINHAMENTOS = ?, ID_USUARIO = ?, MODIFIED = GETDATE() WHERE ID = ?',
+                          [$parecer, $encam, ch_uid(), (int)$existente]);
+        }
     } else {
         $ok = ch_exec('INSERT INTO TB_RELATORIOS_ANUAIS (ID_ALUNO, ANO, PARECER, ENCAMINHAMENTOS, ID_USUARIO) VALUES (?, ?, ?, ?, ?)',
                       [$alunoId, $ano, $parecer, $encam, ch_uid()]);
     }
     if (!$ok) { throw new Exception('Falha ao gravar.'); }
 
-    sqlsrv_commit(ch_db());
+    if (!sqlsrv_commit($conn)) { throw new Exception('Falha ao confirmar a gravação.'); }
     ch_flash('Parecer do relatório anual salvo com sucesso.');
 } catch (Exception $e) {
-    sqlsrv_rollback(ch_db());
+    sqlsrv_rollback($conn);
     ch_flash('Não foi possível salvar o parecer.', 'danger');
 }
 

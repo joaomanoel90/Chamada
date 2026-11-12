@@ -32,6 +32,7 @@ $ch_links_cadastros = [
     ['alunos',   'Alunos',   'fas fa-child-reaching', 'alunos/index.php',   true],
     ['transferencias', 'Transferências', 'fas fa-right-left', 'transferencias/index.php', ch_gestao_alunos(), $ch_transf_aguardando],
     ['turmas',   'Turmas',   'fas fa-children',       'turmas/index.php',   ch_gestao_alunos()],
+    ['promocoes', 'Promoção de Alunos', 'fas fa-arrow-up', 'promocoes/index.php', ch_gestor()],
 ];
 
 /** Um item do menu. O title aparece como dica quando o menu está recolhido.

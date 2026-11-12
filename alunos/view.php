@@ -13,6 +13,10 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
 if ($podeTransferir) {
     $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a>';
 }
+if (ch_gestor() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1
+    && !$transferenciaPendente && !$saidaExternaAberta) {
+    $botoesAluno .= ' <a class="btn btn-outline-success" href="' . ch_url('promocoes/aluno.php?aluno_id=' . (int)$id) . '"><i class="fas fa-arrow-up"></i> Promover</a>';
+}
 ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
 ?>
 
@@ -214,6 +218,25 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
 <div class="card border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <?php $historico = $historicoTransferencias; include(ABSPATH . 'transferencias/quadro_historico.php'); ?>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($historicoPromocoes): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3">
+  <div class="card-body">
+    <h5 class="mb-3"><i class="fas fa-arrow-up"></i> Histórico de promoções</h5>
+    <?php foreach ($historicoPromocoes as $promocao): ?>
+      <div class="border-bottom pb-2 mb-2">
+        <strong><?= ch_h($promocao['TURMA_ORIGEM']) ?> (<?= (int)$promocao['ANO_ORIGEM'] ?>)</strong>
+        <i class="fas fa-arrow-right mx-1"></i>
+        <strong><?= ch_h($promocao['TURMA_DESTINO']) ?> (<?= (int)$promocao['ANO_DESTINO'] ?>)</strong>
+        <div class="small text-muted">
+          Vigência em <?= ch_data_br($promocao['DATA_INICIO']) ?> · <?= ch_h($promocao['UNIDADE']) ?>
+          · registrada por <?= ch_h($promocao['REGISTRADA_POR']) ?> em <?= ch_h($promocao['REGISTRADA_EM']) ?>
+        </div>
+      </div>
+    <?php endforeach; ?>
   </div>
 </div>
 <?php endif; ?>

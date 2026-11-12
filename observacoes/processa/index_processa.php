@@ -25,6 +25,8 @@ $turmas = ch_rows(
 );
 
 $sql = 'SELECT o.ID, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
+               CONVERT(varchar(16), o.MODIFIED, 120) AS MODIFIED,
+               (SELECT COUNT(*) FROM TB_HISTORICO_OBSERVACOES h WHERE h.ID_OBSERVACAO = o.ID) AS ALTERACOES,
                CONVERT(varchar(10), o.DATA, 23) AS DATA,
                a.ID AS ID_ALUNO, a.ID_TURMA, a.NOME AS ALUNO,
                t.ID_UNIDADE, t.NOME AS TURMA, u.unidade AS UNIDADE, us.NOME AS AUTOR

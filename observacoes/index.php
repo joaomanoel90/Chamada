@@ -87,9 +87,18 @@
           </div>
           <p class="mb-2"><?= nl2br(ch_h($o['TEXTO'])) ?></p>
           <div class="d-flex justify-content-between align-items-center">
-            <small class="text-muted"><?= ch_data_br($o['DATA']) ?> &middot; <?= ch_h($o['AUTOR']) ?></small>
+            <small class="text-muted">
+              <?= ch_data_br($o['DATA']) ?> &middot; <?= ch_h($o['AUTOR']) ?>
+              <?php if ($o['MODIFIED']): ?> · última alteração <?= ch_h($o['MODIFIED']) ?><?php endif; ?>
+            </small>
             <div>
               <a class="btn btn-sm btn-outline-secondary" href="<?= ch_url('alunos/view.php?id=' . (int)$o['ID_ALUNO']) ?>"><i class="far fa-eye"></i></a>
+              <?php if ((int)$o['ALTERACOES'] > 0): ?>
+                <a class="btn btn-sm btn-outline-info" title="Ver histórico de alterações"
+                   href="<?= ch_url('observacoes/historico.php?id=' . (int)$o['ID']) ?>">
+                  <i class="fas fa-clock-rotate-left"></i> <?= (int)$o['ALTERACOES'] ?>
+                </a>
+              <?php endif; ?>
               <?php if (!ch_secretario_escolar()
                     && ch_pode_escrever_observacao_turma($o['ID_TURMA'], $o['ID_UNIDADE'])
                     && (ch_gestor() || (int)$o['ID_USUARIO'] === ch_uid())): ?>

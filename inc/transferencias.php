@@ -255,6 +255,32 @@ function tr_historico_aluno($idAluno)
     return ch_rows($sql, $params) ?: [];
 }
 
+/** Histórico de promoções, incluindo a vigência e o usuário que as registrou. */
+function tr_promocoes_aluno($idAluno)
+{
+    $sql = 'SELECT p.ID, CONVERT(varchar(10), p.DATA_INICIO, 23) AS DATA_INICIO,
+                   CONVERT(varchar(16), p.REGISTRADA_EM, 120) AS REGISTRADA_EM,
+                   tor.NOME AS TURMA_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
+                   tde.NOME AS TURMA_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
+                   u.NOME AS UNIDADE, us.NOME AS REGISTRADA_POR
+            FROM TB_PROMOCOES p
+            INNER JOIN TB_TURMAS tor ON tor.ID = p.ID_TURMA_ORIGEM
+            INNER JOIN TB_TURMAS tde ON tde.ID = p.ID_TURMA_DESTINO
+            INNER JOIN TB_UNIDADES u ON u.id = tde.ID_UNIDADE
+            INNER JOIN TB_USUARIOS us ON us.ID = p.ID_USUARIO
+            WHERE p.ID_ALUNO = ?';
+    $params = [(int)$idAluno];
+    if (ch_secretario_escolar()) {
+        $ids = ch_unidades_ids();
+        if (!$ids) return [];
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $sql .= " AND (tor.ID_UNIDADE IN ({$ph}) OR tde.ID_UNIDADE IN ({$ph}))";
+        $params = array_merge($params, $ids, $ids);
+    }
+    $sql .= ' ORDER BY p.DATA_INICIO DESC, p.ID DESC';
+    return ch_rows($sql, $params) ?: [];
+}
+
 /* ------------------------------------------------------------ permissões */
 
 /** Indicar a escola de destino: gestão da escola ONDE O ALUNO ESTÁ. */

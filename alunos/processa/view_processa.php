@@ -44,6 +44,7 @@ $avisoObs   = ch_secretario_escolar() && !$obsLeituraPermitida
 /* Transferências: linha do tempo, histórico e o que ainda está aguardando. */
 $vinculos                = tr_vinculos($id);
 $historicoTransferencias = tr_historico_aluno($id);
+$historicoPromocoes      = tr_promocoes_aluno($id);
 $saidasExternas           = tr_saidas_externas($id);
 $saidaExternaAberta       = tr_saida_externa_aberta($id);
 $transferenciaPendente   = tr_pendente($id);

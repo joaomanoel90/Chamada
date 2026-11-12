@@ -45,16 +45,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     [$d, $erros] = observacao_validar($_POST);
     if (!$erros) {
-        sqlsrv_begin_transaction(ch_db());
-        $ok = ch_exec('UPDATE TB_OBSERVACOES SET ID_ALUNO = ?, DATA = ?, CATEGORIA = ?, TEXTO = ?, MODIFIED = GETDATE() WHERE ID = ?',
-                      [$d['ID_ALUNO'], $d['DATA'], $d['CATEGORIA'], $d['TEXTO'], $id]);
+        $conn = ch_db();
+        $transacao = sqlsrv_begin_transaction($conn);
+        $ok = $transacao;
         if ($ok) {
-            sqlsrv_commit(ch_db());
+            $ok = ch_exec(
+                'INSERT INTO TB_HISTORICO_OBSERVACOES
+                    (ID_OBSERVACAO, ID_USUARIO_AUTOR, ID_USUARIO_ALTERACAO, ID_ALUNO, DATA, CATEGORIA, TEXTO)
+                 SELECT ID, ID_USUARIO, ?, ID_ALUNO, DATA, CATEGORIA, TEXTO
+                 FROM TB_OBSERVACOES WHERE ID = ?',
+                [ch_uid(), $id]
+            );
+        }
+        if ($ok) {
+            $ok = ch_exec(
+                'UPDATE TB_OBSERVACOES
+                 SET ID_ALUNO = ?, DATA = ?, CATEGORIA = ?, TEXTO = ?, ID_USUARIO = ?, MODIFIED = GETDATE()
+                 WHERE ID = ?',
+                [$d['ID_ALUNO'], $d['DATA'], $d['CATEGORIA'], $d['TEXTO'], ch_uid(), $id]
+            );
+        }
+        if ($ok && sqlsrv_commit($conn)) {
             ch_flash('Observação atualizada.');
             header('Location: ' . ch_url('alunos/view.php?id=' . $d['ID_ALUNO']));
             exit;
         }
-        sqlsrv_rollback(ch_db());
+        if ($transacao) sqlsrv_rollback($conn);
         $erros[] = 'Não foi possível atualizar a observação.';
     }
 }

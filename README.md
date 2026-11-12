@@ -26,6 +26,10 @@ da rede municipal (creches e escolas).
   por turma; a frequência continua integrada à chamada existente
 - **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
+- **Histórico de alterações** das observações e dos pareceres, com versões anteriores,
+  usuário responsável e data/hora
+- **Promoção de alunos** individual ou por turma para a turma do ano letivo seguinte,
+  com data de vigência escolhida conforme o calendário escolar e histórico preservado
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
   descritivo, encaminhamentos, versão para impressão e exportação CSV
 - **Cadastros** de alunos, turmas, períodos, unidades e usuários
@@ -59,6 +63,10 @@ Para o Diário de Classe, execute `sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql` nas
 instalações existentes.
 Para habilitar os níveis de Secretaria de Educação e Secretário Escolar,
 execute `sql_inicial/ATUALIZAR_NIVEIS_ACESSO.sql` nas instalações existentes.
+Para habilitar o histórico de alterações e a promoção de alunos em instalações
+existentes, execute `sql_inicial/ATUALIZAR_HISTORICO_PROMOCOES.sql` depois da
+atualização de transferências. O script é idempotente e atualiza a linha do tempo
+escolar sem alterar dados anteriores.
 Para autorizar Secretários Escolares a consultar relatórios, execute
 `sql_inicial/ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql`; o Diretor libera
 por unidade em **Permissões de relatórios**, e o acesso fica negado por padrão.
@@ -303,7 +311,10 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_TURMA_PROFESSORES` | equipe da turma: papel, turno e prazo do substituto |
 | `TB_CHAMADA_RETIFICACOES` | histórico de retificações, com motivo e autor |
 | `TB_OBSERVACOES` | observações de desenvolvimento |
+| `TB_HISTORICO_OBSERVACOES` | versões anteriores das observações, com autores e data/hora |
 | `TB_RELATORIOS_ANUAIS` | parecer e encaminhamentos por aluno/ano |
+| `TB_HISTORICO_RELATORIOS` | versões anteriores dos pareceres, com autores e data/hora |
+| `TB_PROMOCOES` | mudanças de turma para o ano seguinte, com vigência e responsável |
 | `VIEW_ACESSOS_USUARIOS` | view de apoio às permissões |
 
 ## Documentação adicional

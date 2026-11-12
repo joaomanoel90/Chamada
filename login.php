@@ -14,224 +14,190 @@ include(TEMA_TEMPLATE);
 
 <style>
   body {
-    background: linear-gradient(135deg, #eef2f7 0%, #dfe7ef 100%);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    font-family: Arial, sans-serif;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+      radial-gradient(ellipse at 10% 10%, rgba(68, 123, 148, .08), transparent 34%),
+      radial-gradient(ellipse at 90% 90%, rgba(63, 120, 92, .06), transparent 32%),
+      #f5f7f9 !important;
+    color: #293847;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
   }
 
   .login-container {
-
-    background: #fff;
-
     width: 100%;
-    max-width: 460px;
-
-    padding: 40px;
-
-    border-radius: 22px;
-
-    box-shadow:
-      0 10px 35px rgba(0, 0, 0, 0.08),
-      0 2px 8px rgba(0, 0, 0, 0.04);
-
+    max-width: 440px;
+    padding: 38px 40px 26px;
+    border: 1px solid #e3e8ed;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 12px 32px rgba(41, 56, 71, .1);
     position: relative;
-
     overflow: hidden;
   }
 
   .login-container::before {
-
     content: "";
-
     position: absolute;
-
     top: 0;
     left: 0;
-
     width: 100%;
-    height: 6px;
-
-    background: linear-gradient(90deg, #2c3e50, #415b76);
+    height: 4px;
+    background: #447b94;
   }
 
   .logo-area {
-
     text-align: center;
-
-    margin-bottom: 30px;
+    margin-bottom: 28px;
   }
 
   .logo-area img {
-
-    width: 85px;
-
-    margin-bottom: 18px;
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    padding: 10px;
+    margin-bottom: 16px;
+    border-radius: 18px;
+    background: #f2f5f7;
   }
 
   .logo-area h1 {
-
-    color: #2c3e50;
-
-    font-size: 2rem;
-
-    margin-bottom: 5px;
-
-    font-weight: bold;
+    margin: 0 0 5px;
+    color: #293847;
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
   }
 
   .logo-area p {
-
-    color: #6c757d;
-
     margin: 0;
-
-    font-size: 0.95rem;
+    color: #667583;
+    font-size: .95rem;
   }
 
   .form-label {
-
-    font-weight: 600;
-
-    color: #2c3e50;
-
-    margin-bottom: 6px;
+    margin-bottom: 7px;
+    color: #293847;
+    font-size: .9rem;
+    font-weight: 700;
   }
 
   .input-group {
-
-    border-radius: 12px;
-
+    border: 1px solid #dfe5ea;
+    border-radius: 10px;
     overflow: hidden;
-
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: border-color .15s ease, box-shadow .15s ease;
   }
 
-  .input-group-text {
+  .input-group:focus-within {
+    border-color: #447b94;
+    box-shadow: 0 0 0 3px rgba(68, 123, 148, .14);
+  }
 
-    background: #2c3e50;
-
-    color: #fff;
-
-    border: none;
-
+  .login-container .input-group-text {
     width: 48px;
-
     justify-content: center;
+    border: 0;
+    background: #f2f5f7;
+    color: #315f75;
   }
 
-  .form-control {
-
-    border: 1px solid #dce3ea;
-
-    border-left: none;
-
+  .login-container .form-control {
     height: 48px;
-
-    font-size: 0.95rem;
-  }
-
-  .form-control:focus {
-
-    border-color: #2c3e50;
-
+    border: 0;
+    border-radius: 0 !important;
+    color: #293847;
+    font-size: .95rem;
     box-shadow: none;
   }
 
+  .login-container .form-control:focus {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .login-container .form-control::placeholder {
+    color: #87939e;
+    opacity: 1;
+  }
+
   .btn-login {
-
     width: 100%;
-
-    height: 50px;
-
+    min-height: 50px;
     border: none;
-
-    border-radius: 12px;
-
-    background-color: #2c3e50;
-
+    border-radius: 10px;
+    background: #447b94;
     color: #fff;
-
-    font-size: 1rem;
-
-    font-weight: 600;
-
-    transition: all 0.2s ease;
+    font-size: .98rem;
+    font-weight: 700;
+    transition: background-color .15s ease, box-shadow .15s ease;
   }
 
   .btn-login:hover {
+    background: #315f75;
+    box-shadow: 0 4px 12px rgba(49, 95, 117, .18);
+  }
 
-    background-color: #1a252f;
-
-    transform: translateY(-1px);
-
-    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.25);
+  .btn-login:focus-visible {
+    outline: 3px solid rgba(68, 123, 148, .35);
+    outline-offset: 3px;
   }
 
   .alert {
-
-    border: none;
-
-    border-radius: 16px;
-
-    padding: 14px 16px;
-
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 13px 15px;
     margin-bottom: 20px;
+    box-shadow: none;
   }
 
   .alert-danger {
-
-    background: #fff1f0;
-
-    color: #842029;
+    border-color: #f0d7d7;
+    background: #f9eeee;
+    color: #963f3f;
   }
 
   .alert-success {
-
-    background: #eefaf1;
-
-    color: #146c43;
+    border-color: #d7e8dc;
+    background: #eef5f0;
+    color: #35664f;
   }
 
   .alert .icone {
-
-    font-size: 1.6rem;
-
     margin-right: 12px;
+    font-size: 1.35rem;
   }
 
   .footer-login {
-
     text-align: center;
-
-    margin-top: 25px;
-
-    color: #7b8794;
-
-    font-size: 0.82rem;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid #edf0f2;
+    color: #667583;
+    font-size: .82rem;
   }
 
   @media (max-width: 576px) {
-
     .login-container {
-
-      padding: 28px 22px;
-
-      border-radius: 18px;
+      padding: 32px 22px 22px;
+      border-radius: 16px;
     }
 
     .logo-area h1 {
-
-      font-size: 1.7rem;
+      font-size: 1.5rem;
     }
 
     .logo-area img {
-
-      width: 70px;
+      width: 64px;
+      height: 64px;
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .input-group, .btn-login { transition: none; }
   }
 </style>
 
@@ -254,12 +220,12 @@ include(TEMA_TEMPLATE);
     <!-- ERRO LOGIN -->
     <?php if (isset($_SESSION['loginErro'])) { ?>
 
-      <div class="alert alert-danger shadow-sm">
+      <div class="alert alert-danger">
 
         <div class="d-flex align-items-start">
 
           <div class="icone">
-            <i class="fas fa-triangle-exclamation"></i>
+            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
           </div>
 
           <div>
@@ -283,12 +249,12 @@ include(TEMA_TEMPLATE);
     <!-- SUCESSO -->
     <?php if (isset($_SESSION['logindeslogado'])) { ?>
 
-      <div class="alert alert-success shadow-sm">
+      <div class="alert alert-success">
 
         <div class="d-flex align-items-start">
 
           <div class="icone">
-            <i class="fas fa-circle-check"></i>
+            <i class="fas fa-circle-check" aria-hidden="true"></i>
           </div>
 
           <div>
@@ -315,12 +281,12 @@ include(TEMA_TEMPLATE);
 
       <div class="mb-3">
 
-        <label class="form-label">CPF</label>
+        <label class="form-label" for="cpfcnpj">CPF</label>
 
         <div class="input-group">
 
-          <span class="input-group-text">
-            <i class="fas fa-id-card"></i>
+          <span class="input-group-text" aria-hidden="true">
+            <i class="fas fa-id-card" aria-hidden="true"></i>
           </span>
 
           <input
@@ -339,16 +305,17 @@ include(TEMA_TEMPLATE);
 
       <div class="mb-4">
 
-        <label class="form-label">Senha</label>
+        <label class="form-label" for="senha">Senha</label>
 
         <div class="input-group">
 
-          <span class="input-group-text">
-            <i class="fas fa-lock"></i>
+          <span class="input-group-text" aria-hidden="true">
+            <i class="fas fa-lock" aria-hidden="true"></i>
           </span>
 
           <input
             class="form-control"
+            id="senha"
             placeholder="Digite sua senha"
             name="senha"
             type="password"
@@ -360,7 +327,7 @@ include(TEMA_TEMPLATE);
       </div>
 
       <button class="btn-login" type="submit">
-        <i class="fas fa-right-to-bracket"></i>
+        <i class="fas fa-right-to-bracket" aria-hidden="true"></i>
         Entrar no Sistema
       </button>
 

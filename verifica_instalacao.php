@@ -352,7 +352,8 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 
 		$tabelas = array('TB_UNIDADES', 'TB_USUARIOS', 'TB_ACESSO', 'TB_PERIODOS', 'TB_TURMAS',
 			'TB_TURMA_PROFESSORES', 'TB_ALUNOS', 'TB_FERIADOS', 'TB_CHAMADA', 'TB_OBSERVACOES',
-			'TB_RELATORIOS_ANUAIS', 'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS',
+			'TB_HISTORICO_OBSERVACOES', 'TB_RELATORIOS_ANUAIS', 'TB_HISTORICO_RELATORIOS',
+			'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS', 'TB_PROMOCOES',
 			'TB_ALUNO_SAIDAS_EXTERNAS',
 			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
 			'TB_SECRETARIO_OBSERVACOES');
@@ -374,6 +375,14 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'cols'   => array('TB_ALUNOS.DATA_MATRICULA'),
 				'objs'   => array('TB_TRANSFERENCIAS', 'TB_ALUNO_SAIDAS_EXTERNAS',
 					'VW_ALUNO_VINCULO', 'UX_TRANSFER_PENDENTE', 'UX_SAIDA_EXT_ABERTA'),
+			),
+			array(
+				'nome'   => 'Histórico de alterações e promoção de alunos',
+				'script' => 'sql_inicial/ATUALIZAR_HISTORICO_PROMOCOES.sql',
+				'cols'   => array('TB_HISTORICO_OBSERVACOES.TEXTO', 'TB_HISTORICO_RELATORIOS.PARECER',
+					'TB_PROMOCOES.DATA_INICIO'),
+				'objs'   => array('IX_HIST_OBS_REGISTRO', 'IX_HIST_REL_REGISTRO',
+					'IX_PROMOCOES_ALUNO_DATA', 'UX_PROMOCAO_ALUNO_DATA', 'VW_ALUNO_VINCULO'),
 			),
 			array(
 				'nome'   => 'Equipe por turno e saúde do aluno',

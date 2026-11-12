@@ -6,12 +6,12 @@ se o seu banco tiver outro nome.
 
 | # | Arquivo | Quando usar |
 |---|---------|-------------|
-| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as tabelas, índices, as duas views, os períodos, as 20 unidades da rede e o usuário administrador. Já inclui a transferência de alunos e o diário escolar. |
+| 1 | `INSTALACAO_COMPLETA.sql` | **Obrigatório, uma vez.** Cria as tabelas, índices, as duas views, os períodos, as 20 unidades da rede e o usuário administrador. Já inclui transferências, promoção de alunos, histórico de alterações e diário escolar. |
 | 2 | `CRIAR_LOGIN_APLICACAO.sql` | **Obrigatório, uma vez.** Cria o login `user_chamada` usado pelo sistema e dá as permissões mínimas. |
 | 3 | `DIAGNOSTICO_LOGIN.sql` | Só se aparecer o erro **18456** ao entrar. Não altera nada, só investiga. |
 | 4 | `POPULAR_DEMONSTRACAO.sql` | **Opcional.** Enche o banco com dados fictícios para você testar o sistema. |
 | 5 | `LIMPAR_DEMONSTRACAO.sql` | **Opcional.** Remove os dados de demonstração quando você for começar de verdade. Em bancos antigos, execute primeiro `ATUALIZAR_DIARIO_CLASSE.sql`. |
-| 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria as tabelas e views de transferências, saída da rede e retorno pelo mesmo cadastro. Não altera os dados existentes. |
+| 6 | `ATUALIZAR_TRANSFERENCIAS.sql` | **Só para quem já tinha o sistema instalado** antes da transferência de alunos. Cria as tabelas e views de transferências, promoção, saída da rede e retorno pelo mesmo cadastro. Não altera os dados existentes. |
 | 7 | `ATUALIZAR_EQUIPE_SAUDE.sql` | **Só para quem já tinha o sistema instalado** antes do turno, do substituto e da ficha de saúde. Acrescenta colunas e troca a regra de responsável. Não apaga nenhum dado. |
 | 8 | `ATUALIZAR_FOTO_ALUNO.sql` | **Só para instalações existentes** que ainda não têm as colunas de imagem comprimida do aluno. |
 | 9 | `ATUALIZAR_CPF_ALUNO.sql` | **Só para instalações existentes.** Adiciona CPF e unicidade; alunos antigos ficam sem CPF até serem atualizados. |
@@ -20,8 +20,9 @@ se o seu banco tiver outro nome.
 | 12 | `ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql` | **Só para instalações existentes.** Cria a tabela de autorização por Diretor, Secretário Escolar e unidade; sem liberação explícita, relatórios não ficam visíveis ao Secretário. |
 | 13 | `ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql` | **Só para instalações existentes.** Cria autorização por unidade: sem acesso, somente leitura ou leitura e inserção. Sem autorização explícita, as observações não ficam visíveis ao Secretário. |
 | 14 | `ATUALIZAR_SEGURANCA_LOGIN.sql` | **Obrigatório antes de publicar o novo código de autenticação em instalações existentes.** Amplia a coluna de senha e cria a tabela persistente de limitação de tentativas. |
+| 15 | `ATUALIZAR_HISTORICO_PROMOCOES.sql` | **Instalações existentes.** Cria o histórico de versões de observações e relatórios e habilita a promoção de alunos com preservação da linha do tempo. Rode depois de `ATUALIZAR_TRANSFERENCIAS.sql`. |
 
-Os scripts 1, 2, 4 e 6 a 14 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 15 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -49,6 +50,11 @@ Os scripts 1, 2, 4 e 6 a 14 podem ser executados mais de uma vez sem duplicar na
 > Antes de atualizar o código de autenticação, execute também
 > `ATUALIZAR_SEGURANCA_LOGIN.sql`. Ele preserva as senhas existentes; hashes MD5
 > são substituídos após o primeiro login bem-sucedido.
+> Para registrar alterações nos relatórios e observações e habilitar a promoção
+> de alunos, execute `ATUALIZAR_HISTORICO_PROMOCOES.sql` depois de
+> `ATUALIZAR_TRANSFERENCIAS.sql`. Na promoção, escolha a turma de destino do ano
+> seguinte e informe a data de início definida para o calendário escolar. É
+> possível promover uma turma inteira ou cada aluno individualmente.
 > A Secretaria de Educação alcança a rede toda e vincula Diretores e Secretários
 > Escolares às unidades em **Vínculos de unidades**, sem criar ou editar contas.
 > O Secretário Escolar opera alunos e só consulta transferências das unidades

@@ -165,8 +165,18 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
           Nascimento <?= ch_data_br($aluno['NASCIMENTO']) ?> (<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'], $ano . '-12-31')) ?> ao fim do ano)
         </p>
         <dl class="row mb-0">
-          <dt class="col-sm-3">Unidade</dt><dd class="col-sm-9"><?= ch_h($aluno['UNIDADE']) ?></dd>
-          <dt class="col-sm-3">Turma</dt><dd class="col-sm-9"><?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?></dd>
+          <dt class="col-sm-3">Unidade</dt><dd class="col-sm-9">
+            <?= count($vinculosAno) === 1 ? ch_h($vinculosAno[0]['UNIDADE']) : ch_h($aluno['UNIDADE']) ?>
+          </dd>
+          <dt class="col-sm-3">Turma</dt><dd class="col-sm-9">
+            <?php if (count($vinculosAno) === 1): ?>
+              <?= ch_h($vinculosAno[0]['TURMA']) ?> — <?= ch_h($vinculosAno[0]['PERIODO']) ?>
+            <?php elseif ($vinculosAno): ?>
+              <?= count($vinculosAno) ?> vínculos no ano (quadro abaixo)
+            <?php else: ?>
+              <?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?>
+            <?php endif; ?>
+          </dd>
           <dt class="col-sm-3">Equipe da turma</dt><dd class="col-sm-9"><?= $professor ? ch_h($professor) : 'sem equipe definida' ?></dd>
           <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9"><?= ch_h($aluno['RESPONSAVEL']) ?> &middot; <?= ch_h($aluno['TELEFONE']) ?></dd>
         </dl>
@@ -248,7 +258,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
   </div>
 </div>
 
-<?php if ($houveTransferencia): ?>
+<?php if ($vinculosAno): ?>
 <div class="card border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <?php $vinculos = $vinculosAno; $tituloQuadro = 'Escolas e turmas em ' . (int)$ano;
@@ -313,7 +323,10 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
             <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
           </div>
           <div><?= nl2br(ch_h($o['TEXTO'])) ?></div>
-          <small class="text-muted">Prof. <?= ch_h($o['AUTOR']) ?></small>
+          <small class="text-muted">
+            Prof. <?= ch_h($o['AUTOR']) ?>
+            <a class="no-print ms-2" href="<?= ch_url('observacoes/historico.php?id=' . (int)$o['ID']) ?>">Histórico de alterações</a>
+          </small>
         </div>
       <?php endforeach; ?>
     <?php endif; ?>
@@ -323,6 +336,13 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 <div class="card<?= $classeParecer ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
     <h5 class="mb-3"><i class="fas fa-pen-to-square"></i> Parecer final e encaminhamentos</h5>
+    <?php if ($parecer): ?>
+      <p class="small text-muted no-print">
+        Última versão salva por <?= ch_h($parecer['AUTOR']) ?>
+        <?php if ($parecer['MODIFIED']): ?> em <?= ch_h($parecer['MODIFIED']) ?>
+        <?php else: ?> em <?= ch_h($parecer['CRIADO_EM']) ?><?php endif; ?>.
+      </p>
+    <?php endif; ?>
     <?php if ($podeEditarParecer): ?>
     <form method="post" action="salvar.php">
       <?= ch_csrf_campo() ?>
@@ -380,6 +400,28 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
     </div>
   </div>
 </div>
+
+<?php if ($historicoParecer): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-3 no-print">
+  <div class="card-body">
+    <h5 class="mb-3"><i class="fas fa-clock-rotate-left"></i> Histórico de alterações do parecer</h5>
+    <?php foreach ($historicoParecer as $versao): ?>
+      <details class="border-bottom py-2">
+        <summary>
+          Alterado em <?= ch_h($versao['ALTERADA_EM']) ?> por <?= ch_h($versao['ALTERADO_POR']) ?>
+          · versão registrada por <?= ch_h($versao['AUTOR']) ?>
+        </summary>
+        <div class="mt-3">
+          <strong>Parecer</strong>
+          <p class="parecer-texto"><?= trim($versao['PARECER']) !== '' ? nl2br(ch_h($versao['PARECER'])) : '<span class="text-muted">Vazio</span>' ?></p>
+          <strong>Encaminhamentos</strong>
+          <p class="parecer-texto"><?= trim($versao['ENCAMINHAMENTOS']) !== '' ? nl2br(ch_h($versao['ENCAMINHAMENTOS'])) : '<span class="text-muted">Vazio</span>' ?></p>
+        </div>
+      </details>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="relatorio-print assinaturas">
   <div class="row">
