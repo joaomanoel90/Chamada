@@ -43,8 +43,8 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
       </div>
       <div class="form-group col-md-4">
         <label class="fw-bold">Senha</label>
-        <input type="password" class="form-control" name="senha" minlength="6" required>
-        <small class="text-muted">Mínimo de 6 caracteres.</small>
+        <input type="password" class="form-control" name="senha" minlength="12" required>
+        <small class="text-muted">Mínimo de 12 caracteres.</small>
       </div>
       <div class="form-group col-md-4">
         <label class="fw-bold">Nível de acesso</label>
@@ -111,7 +111,7 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
       var avisos = [];
       if (form.nome.value.trim().length < 3) avisos.push('Informe o nome completo.');
       if (!/^\d{11}$/.test(cpf)) avisos.push('O CPF deve ter 11 dígitos.');
-      if (senha.length < 6) avisos.push('A senha deve ter pelo menos 6 caracteres.');
+      if (senha.length < 12) avisos.push('A senha deve ter pelo menos 12 caracteres.');
       if (!form.nivel.value) avisos.push('Escolha o nível de acesso.');
       if (avisos.length) {
         e.preventDefault();

@@ -7,9 +7,19 @@ ch_require_gestor();
 
 $conn = ch_db();
 
-if (!empty($_POST)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: index.php');
+        exit;
+    }
+
     // Remover tags e espaços extras
     $unidade = strip_tags(trim($_POST['unidade'] ?? ''));
+    if ($unidade === '') {
+        ch_flash('Informe o nome da unidade.', 'danger');
+        header('Location: add.php');
+        exit;
+    }
 
     // Iniciar transação
     sqlsrv_begin_transaction($conn);

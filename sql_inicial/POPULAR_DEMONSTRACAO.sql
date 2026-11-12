@@ -72,9 +72,8 @@ DECLARE @MesesHistorico   int = 3;    -- meses de chamada para trás (0 a 12)
 DECLARE @GerarRelatorios  bit = 1;    -- 1 = relatório anual para metade dos alunos
 
 /* Senha dos usuários de demonstração: Demo@2026
-   Para trocar, substitua o MD5 abaixo. No PHP: md5('SuaSenha').
-   Atenção: o sistema compara o MD5 em minúsculas. */
-DECLARE @SenhaDemo nvarchar(255) = N'793239beed23cff0a99388438be89eae';
+   Para trocar, gere um hash no PHP com password_hash('SuaSenha', PASSWORD_DEFAULT). */
+DECLARE @SenhaDemo nvarchar(255) = N'$2y$12$rSXmiuAySvAk0jeK.VdI4eQ6WGBwp92VANeDeHBxsm4pe.OviYD/O';
 
 /* ============================================================================
    TRAVAS

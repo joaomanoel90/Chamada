@@ -90,7 +90,12 @@ function ch_menu_item($item)
 
       <hr class="border-light">
       <a class="nav-link text-white" id="conta" href="<?php echo BASEURL; ?>conta/index.php" title="Alterar Senha"><i class="fas fa-key"></i> <span>Alterar Senha</span></a>
-      <a class="nav-link text-white" href="<?php echo BASEURL; ?>sair.php" title="Sair"><i class="fas fa-sign-out-alt"></i> <span>Sair</span></a>
+      <form method="post" action="<?php echo BASEURL; ?>sair.php" class="m-0">
+        <?= ch_csrf_campo() ?>
+        <button class="nav-link text-white w-100 border-0 bg-transparent text-start" type="submit" title="Sair">
+          <i class="fas fa-sign-out-alt"></i> <span>Sair</span>
+        </button>
+      </form>
       <hr class="border-light">
     </div>
 

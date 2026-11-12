@@ -7,6 +7,7 @@ require_once('processa/add_processa.php');
 <h2><i class="fas fa-plus"></i> Nova Unidade</h2>
 
 <form action="add.php" method="post">
+  <?= ch_csrf_campo() ?>
   <!-- area de campos do form -->
   <hr />
   <div class="row">

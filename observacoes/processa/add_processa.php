@@ -22,6 +22,10 @@ $d = ['ID_ALUNO' => (int)($_GET['aluno_id'] ?? 0),
 $voltar = trim($_GET['voltar'] ?? $_POST['voltar'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: ' . ch_url('observacoes/index.php'));
+        exit;
+    }
     [$d, $erros] = observacao_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());

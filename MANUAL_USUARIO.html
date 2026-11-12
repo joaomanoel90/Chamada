@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual do Usuário — Chamada de Alunos</title>
+  <style>
+    :root {
+      --blue: #2c7da0;
+      --sky: #4ea8de;
+      --green: #52b788;
+      --yellow: #ffb703;
+      --ink: #2b3a55;
+      --muted: #6b7a99;
+      --paper: #fff9ec;
+      --line: #e6ecf5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 15px/1.5 "Segoe UI", Arial, sans-serif;
+    }
+    main { max-width: 900px; margin: 0 auto; padding: 34px 46px; }
+    h1, h2, h3 { line-height: 1.2; color: var(--ink); }
+    h1 { font-size: 32px; margin: 0 0 12px; }
+    h2 { font-size: 23px; margin: 0 0 12px; }
+    h3 { font-size: 17px; margin: 18px 0 6px; }
+    p { margin: 7px 0 12px; }
+    ul, ol { padding-left: 23px; margin: 7px 0 13px; }
+    li { margin: 4px 0; }
+    .cover { min-height: 245mm; display: flex; flex-direction: column; justify-content: center; }
+    .eyebrow { color: var(--blue); font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+    .subtitle { color: var(--muted); font-size: 18px; max-width: 600px; }
+    .note {
+      border-left: 4px solid var(--yellow); background: #fff3cc;
+      padding: 10px 14px; margin: 13px 0; border-radius: 0 10px 10px 0;
+    }
+    .note.info { border-color: var(--sky); background: #edf7fc; }
+    .note.good { border-color: var(--green); background: #edf8f2; }
+    .screen { margin: 14px 0 18px; padding: 9px; background: white; border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 4px 15px #2b3a5514; }
+    .screen svg { display: block; width: 100%; height: auto; }
+    figcaption { color: var(--muted); font-size: 12px; padding: 5px 5px 0; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; background: #edf7fc; color: var(--blue); font-size: 11px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+    th, td { padding: 8px 9px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #edf7fc; }
+    .steps { counter-reset: item; list-style: none; padding: 0; }
+    .steps li { counter-increment: item; position: relative; padding-left: 38px; margin: 10px 0; }
+    .steps li:before {
+      content: counter(item); position: absolute; left: 0; top: 0;
+      width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+      color: white; background: var(--blue); font-weight: 800;
+    }
+    .page-break { break-before: page; }
+    .small { color: var(--muted); font-size: 12px; }
+    .screen .ui { font: 12px "Segoe UI", Arial, sans-serif; fill: var(--ink); }
+    .screen .muted { fill: var(--muted); }
+    .screen .white { fill: white; }
+    .screen .bold { font-weight: 700; }
+    .screen .tiny { font-size: 9px; }
+    .screen .smalltxt { font-size: 10px; }
+    .screen .title { font-size: 15px; font-weight: 700; }
+    .screen .btn { fill: var(--sky); }
+    .screen .card { fill: white; stroke: var(--line); }
+    .screen .row { fill: #f7f9fc; }
+    .screen .green { fill: var(--green); }
+    .screen .yellow { fill: var(--yellow); }
+    .screen .red { fill: #ff6b6b; }
+    .screen .purple { fill: #9d4edd; }
+    @media print {
+      body { background: white; font-size: 12px; }
+      main { max-width: none; padding: 0; }
+      .cover { min-height: 255mm; }
+      .page-break { break-before: page; }
+      .screen, .note, table { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+      @page { size: A4; margin: 16mm 15mm 17mm; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="cover">
+    <div class="eyebrow">Prefeitura Municipal de Angatuba</div>
+    <h1>Manual do Usuário<br>Chamada de Alunos</h1>
+    <p class="subtitle">Orientações para acessar o sistema, registrar frequência e acompanhar as informações escolares.</p>
+    <div class="note info">
+      <strong>Sobre as imagens:</strong> as telas deste manual são ilustrações da interface. Os nomes e valores mostrados são exemplos fictícios; a aparência pode variar conforme o perfil e as permissões da conta.
+    </div>
+    <p class="small">Edição: novembro de 2026</p>
+  </section>
+
+  <section class="page-break">
+    <h2>1. Acesso ao sistema</h2>
+    <ol class="steps">
+      <li>Abra o endereço do sistema informado pela escola ou pela Secretaria de Educação.</li>
+      <li>Digite o CPF e a senha da sua conta e selecione <strong>Entrar no Sistema</strong>.</li>
+      <li>Se não conseguir entrar, confira se o CPF e a senha estão corretos. Peça à gestão para redefinir a senha; não compartilhe sua senha.</li>
+    </ol>
+    <figure class="screen">
+      <svg viewBox="0 0 760 340" role="img" aria-label="Ilustração da tela de login">
+        <rect width="760" height="340" rx="12" fill="#eef2f7"/>
+        <rect x="225" y="24" width="310" height="292" rx="19" fill="#fff" stroke="#e6ecf5"/>
+        <rect x="225" y="24" width="310" height="6" rx="3" fill="#2c7da0"/>
+        <circle cx="380" cy="79" r="28" fill="#edf7fc"/>
+        <text x="380" y="84" text-anchor="middle" class="ui bold" fill="#2c7da0">PM</text>
+        <text x="380" y="127" text-anchor="middle" class="ui title">Chamada de Alunos</text>
+        <text x="380" y="147" text-anchor="middle" class="ui smalltxt muted">Prefeitura Municipal de Angatuba</text>
+        <text x="260" y="181" class="ui smalltxt bold">CPF</text>
+        <rect x="260" y="188" width="240" height="33" rx="8" fill="#fff" stroke="#dce3ea"/>
+        <text x="273" y="209" class="ui smalltxt muted">Digite seu CPF</text>
+        <text x="260" y="244" class="ui smalltxt bold">Senha</text>
+        <rect x="260" y="251" width="240" height="33" rx="8" fill="#fff" stroke="#dce3ea"/>
+        <text x="273" y="272" class="ui smalltxt muted">Digite sua senha</text>
+        <rect x="260" y="292" width="240" height="17" rx="8" fill="#2c3e50"/>
+        <text x="380" y="304" text-anchor="middle" class="ui tiny white bold">Entrar no Sistema</text>
+      </svg>
+      <figcaption>Tela 1 — Acesso por CPF e senha. Ilustração com conteúdo fictício.</figcaption>
+    </figure>
+
+    <h3>Perfis de acesso</h3>
+    <p>As opções disponíveis dependem do perfil e dos vínculos configurados pela gestão.</p>
+    <table>
+      <thead><tr><th>Perfil</th><th>Uso habitual</th></tr></thead>
+      <tbody>
+        <tr><td>Administrador</td><td>Administração geral e configuração do sistema.</td></tr>
+        <tr><td>Diretor Escolar</td><td>Gestão das unidades vinculadas à conta.</td></tr>
+        <tr><td>Professor</td><td>Turmas em cuja equipe está incluído; chamada, observações e atividades autorizadas.</td></tr>
+        <tr><td>Secretaria de Educação</td><td>Gestão escolar da rede, sem administração técnica de usuários.</td></tr>
+        <tr><td>Secretário Escolar</td><td>Alunos e consultas permitidas para as unidades vinculadas.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page-break">
+    <h2>2. Painel e navegação</h2>
+    <p>Após entrar, o painel resume as atividades disponíveis para a sua conta. Selecione um cartão ou use o menu lateral para abrir uma área.</p>
+    <figure class="screen">
+      <svg viewBox="0 0 900 390" role="img" aria-label="Ilustração do painel principal">
+        <rect width="900" height="390" rx="10" fill="#fff9ec"/>
+        <rect width="142" height="390" rx="10" fill="#2c7da0"/>
+        <circle cx="35" cy="30" r="18" fill="#ffb703"/><text x="35" y="34" text-anchor="middle" class="ui bold">≡</text>
+        <text x="17" y="70" class="ui smalltxt white bold">Prefeitura</text>
+        <text x="17" y="87" class="ui smalltxt white">de Angatuba</text>
+        <g class="ui smalltxt white">
+          <text x="17" y="126">Dashboard</text><text x="17" y="157">Chamada do Dia</text>
+          <text x="17" y="188">Diário de Classe</text><text x="17" y="219">Observações</text>
+          <text x="17" y="250">Relatório Anual</text><text x="17" y="281">Alunos</text>
+          <text x="17" y="312">Turmas</text>
+        </g>
+        <text x="170" y="40" class="ui title">Chamada de Alunos</text>
+        <text x="170" y="60" class="ui smalltxt muted">Painel inicial · cartões e pendências conforme seu perfil</text>
+        <g>
+          <rect x="170" y="79" width="220" height="72" rx="14" class="card"/><rect x="170" y="79" width="220" height="5" rx="3" class="red"/>
+          <text x="185" y="105" class="ui smalltxt muted">Chamadas pendentes hoje</text><text x="185" y="135" class="ui title">—</text>
+          <rect x="402" y="79" width="220" height="72" rx="14" class="card"/><rect x="402" y="79" width="220" height="5" rx="3" class="green"/>
+          <text x="417" y="105" class="ui smalltxt muted">Turmas ativas</text><text x="417" y="135" class="ui title">—</text>
+          <rect x="634" y="79" width="235" height="72" rx="14" class="card"/><rect x="634" y="79" width="235" height="5" rx="3" class="yellow"/>
+          <text x="649" y="105" class="ui smalltxt muted">Alunos ativos</text><text x="649" y="135" class="ui title">—</text>
+        </g>
+        <rect x="170" y="169" width="430" height="185" rx="14" class="card"/>
+        <text x="188" y="194" class="ui bold">Chamadas pendentes de hoje</text>
+        <rect x="188" y="208" width="394" height="30" rx="5" fill="#edf7fc"/>
+        <text x="200" y="228" class="ui smalltxt bold">Unidade</text><text x="305" y="228" class="ui smalltxt bold">Turma</text><text x="488" y="228" class="ui smalltxt bold">Ação</text>
+        <rect x="188" y="244" width="394" height="35" rx="4" class="row"/>
+        <text x="200" y="266" class="ui smalltxt">Unidade de exemplo</text><text x="305" y="266" class="ui smalltxt">Turma de exemplo</text>
+        <rect x="490" y="251" width="75" height="23" rx="8" class="btn"/><text x="527" y="266" text-anchor="middle" class="ui tiny white bold">Lançar</text>
+        <rect x="616" y="169" width="253" height="185" rx="14" class="card"/>
+        <text x="635" y="194" class="ui bold">Resumo mensal</text>
+        <path d="M640 314 L683 292 L725 302 L767 257 L812 270 L849 225" fill="none" stroke="#4ea8de" stroke-width="4"/>
+        <path d="M640 325 L849 325" stroke="#e6ecf5"/>
+      </svg>
+      <figcaption>Tela 2 — Exemplo ilustrativo do painel. Valores e nomes reais não são exibidos.</figcaption>
+    </figure>
+    <div class="note info"><strong>Não aparece uma turma?</strong> Professores devem solicitar à gestão inclusão na equipe da turma. Diretores e Secretários Escolares precisam ter vínculo com a unidade correspondente.</div>
+  </section>
+
+  <section class="page-break">
+    <h2>3. Registrar a chamada</h2>
+    <ol class="steps">
+      <li>No menu, abra <strong>Chamada do Dia</strong>.</li>
+      <li>Escolha a turma e a data. Datas futuras não são aceitas. Selecione <strong>Abrir chamada</strong>.</li>
+      <li>Para cada aluno, marque <strong>Presente</strong>, <strong>Falta</strong>, <strong>Falta justificada</strong> ou <strong>Atraso</strong>. A falta justificada exige justificativa.</li>
+      <li>Confira os avisos de saúde exibidos na tela e nos cartões dos alunos.</li>
+      <li>Selecione <strong>Confirmar presença</strong> e confirme a mensagem apresentada. É possível confirmar apenas os alunos já marcados; os demais continuam pendentes.</li>
+    </ol>
+    <figure class="screen">
+      <svg viewBox="0 0 900 405" role="img" aria-label="Ilustração da tela de chamada">
+        <rect width="900" height="405" rx="10" fill="#fff9ec"/>
+        <rect width="125" height="405" rx="10" fill="#2c7da0"/>
+        <text x="16" y="40" class="ui smalltxt white bold">MENU</text>
+        <text x="16" y="82" class="ui smalltxt white">Chamada do Dia</text>
+        <text x="152" y="38" class="ui title">Chamada de Alunos</text>
+        <rect x="152" y="53" width="415" height="37" rx="8" class="card"/>
+        <text x="166" y="68" class="ui tiny muted">Turma</text><text x="166" y="82" class="ui smalltxt">Selecione uma turma</text>
+        <rect x="581" y="53" width="145" height="37" rx="8" class="card"/>
+        <text x="595" y="68" class="ui tiny muted">Data</text><text x="595" y="82" class="ui smalltxt">Data de hoje</text>
+        <rect x="738" y="53" width="137" height="37" rx="8" class="btn"/>
+        <text x="806" y="76" text-anchor="middle" class="ui smalltxt white bold">Abrir chamada</text>
+        <rect x="152" y="104" width="723" height="63" rx="12" fill="#edf7fc"/>
+        <text x="171" y="130" class="ui title">Turma de exemplo</text>
+        <text x="171" y="150" class="ui smalltxt muted">Unidade de exemplo · Período · Data selecionada</text>
+        <g>
+          <rect x="152" y="181" width="351" height="130" rx="12" class="card"/>
+          <circle cx="182" cy="213" r="17" fill="#d9edf7"/><text x="182" y="217" text-anchor="middle" class="ui tiny bold">A1</text>
+          <text x="209" y="211" class="ui bold">Aluno de exemplo 1</text><text x="209" y="227" class="ui tiny muted">Matrícula demonstrativa</text>
+          <rect x="170" y="245" width="72" height="27" rx="8" fill="#edf8f2" stroke="#52b788"/><text x="206" y="262" text-anchor="middle" class="ui tiny">Presente</text>
+          <rect x="249" y="245" width="58" height="27" rx="8" fill="#fff"/><text x="278" y="262" text-anchor="middle" class="ui tiny">Falta</text>
+          <rect x="314" y="245" width="94" height="27" rx="8" fill="#fff"/><text x="361" y="262" text-anchor="middle" class="ui tiny">Justificada</text>
+          <rect x="415" y="245" width="67" height="27" rx="8" fill="#fff"/><text x="448" y="262" text-anchor="middle" class="ui tiny">Atraso</text>
+          <text x="170" y="294" class="ui tiny muted">Justificativa, quando necessária</text>
+          <rect x="519" y="181" width="356" height="130" rx="12" class="card"/>
+          <circle cx="549" cy="213" r="17" fill="#f3e8fb"/><text x="549" y="217" text-anchor="middle" class="ui tiny bold">A2</text>
+          <text x="576" y="211" class="ui bold">Aluno de exemplo 2</text><text x="576" y="227" class="ui tiny muted">Matrícula demonstrativa</text>
+          <rect x="537" y="245" width="72" height="27" rx="8" fill="#fff"/><text x="573" y="262" text-anchor="middle" class="ui tiny">Presente</text>
+          <rect x="616" y="245" width="58" height="27" rx="8" fill="#fff1f0"/><text x="645" y="262" text-anchor="middle" class="ui tiny">Falta</text>
+          <rect x="681" y="245" width="94" height="27" rx="8" fill="#fff"/><text x="728" y="262" text-anchor="middle" class="ui tiny">Justificada</text>
+          <rect x="782" y="245" width="67" height="27" rx="8" fill="#fff"/><text x="815" y="262" text-anchor="middle" class="ui tiny">Atraso</text>
+          <text x="537" y="294" class="ui tiny muted">Atenção à saúde, se cadastrada</text>
+        </g>
+        <rect x="152" y="331" width="204" height="42" rx="9" class="green"/>
+        <text x="254" y="357" text-anchor="middle" class="ui smalltxt white bold">Confirmar presença</text>
+        <text x="375" y="356" class="ui smalltxt muted">Confirme somente após revisar as marcações.</text>
+      </svg>
+      <figcaption>Tela 3 — Exemplo ilustrativo da chamada e das opções de situação.</figcaption>
+    </figure>
+    <div class="note"><strong>Importante:</strong> cada presença é confirmada uma única vez por dia. Após a confirmação, use <strong>Retificar</strong> para corrigir; informe obrigatoriamente o motivo. A alteração fica registrada no histórico.</div>
+  </section>
+
+  <section class="page-break">
+    <h2>4. Consultar e atualizar alunos</h2>
+    <p>Em <strong>Alunos</strong>, use os filtros de busca, turma e situação. No menu de opções do aluno, abra a ficha, edite o cadastro (quando permitido), registre uma observação ou consulte o relatório anual.</p>
+    <figure class="screen">
+      <svg viewBox="0 0 900 335" role="img" aria-label="Ilustração da lista de alunos">
+        <rect width="900" height="335" rx="10" fill="#fff9ec"/>
+        <rect width="125" height="335" rx="10" fill="#2c7da0"/>
+        <text x="16" y="42" class="ui smalltxt white bold">MENU</text><text x="16" y="83" class="ui smalltxt white">Alunos</text>
+        <text x="152" y="40" class="ui title">Alunos</text>
+        <rect x="152" y="56" width="240" height="38" rx="8" class="card"/><text x="166" y="79" class="ui smalltxt muted">Buscar aluno...</text>
+        <rect x="402" y="56" width="198" height="38" rx="8" class="card"/><text x="416" y="79" class="ui smalltxt muted">Todas as turmas</text>
+        <rect x="610" y="56" width="118" height="38" rx="8" class="card"/><text x="624" y="79" class="ui smalltxt muted">Ativos</text>
+        <rect x="740" y="56" width="135" height="38" rx="8" class="btn"/><text x="807" y="79" text-anchor="middle" class="ui smalltxt white bold">Filtrar</text>
+        <rect x="152" y="109" width="723" height="35" rx="5" fill="#edf7fc"/>
+        <text x="164" y="131" class="ui smalltxt bold">Matrícula</text><text x="264" y="131" class="ui smalltxt bold">Aluno</text>
+        <text x="444" y="131" class="ui smalltxt bold">Turma / Unidade</text><text x="695" y="131" class="ui smalltxt bold">Situação</text>
+        <g class="ui smalltxt">
+          <rect x="152" y="150" width="723" height="47" rx="4" class="row"/>
+          <text x="164" y="178">Exemplo 001</text><text x="264" y="178">Aluno de exemplo 1</text><text x="444" y="178">Turma de exemplo</text>
+          <rect x="695" y="162" width="56" height="22" rx="10" fill="#edf8f2"/><text x="723" y="177" text-anchor="middle">Ativo</text>
+          <rect x="152" y="202" width="723" height="47" rx="4" fill="#fff"/>
+          <text x="164" y="230">Exemplo 002</text><text x="264" y="230">Aluno de exemplo 2</text><text x="444" y="230">Turma de exemplo</text>
+          <rect x="695" y="214" width="56" height="22" rx="10" fill="#edf8f2"/><text x="723" y="229" text-anchor="middle">Ativo</text>
+          <rect x="152" y="254" width="723" height="47" rx="4" class="row"/>
+          <text x="164" y="282">Exemplo 003</text><text x="264" y="282">Aluno de exemplo 3</text><text x="444" y="282">Turma de exemplo</text>
+          <rect x="695" y="266" width="56" height="22" rx="10" fill="#edf8f2"/><text x="723" y="281" text-anchor="middle">Ativo</text>
+        </g>
+        <text x="785" y="177" class="ui tiny" fill="#2c7da0">Opções ⋮</text><text x="785" y="229" class="ui tiny" fill="#2c7da0">Opções ⋮</text><text x="785" y="281" class="ui tiny" fill="#2c7da0">Opções ⋮</text>
+      </svg>
+      <figcaption>Tela 4 — Lista de alunos com registros e nomes inteiramente fictícios.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>Ficha do aluno:</strong> consulta os dados disponíveis conforme seu perfil.</li>
+      <li><strong>Editar:</strong> disponível para os perfis autorizados. Confira os dados antes de salvar; CPF é obrigatório e deve ser informado corretamente.</li>
+      <li><strong>Saída da rede:</strong> registre na ficha quando o aluno for para uma escola externa. Para retorno, use <strong>Retorno à rede</strong>.</li>
+      <li><strong>Transferência entre escolas da rede:</strong> a unidade de destino escolhe a turma e a data em que o aluno começa.</li>
+    </ul>
+    <h3>Imprimir os crachás da turma</h3>
+    <ol>
+      <li>Abra <strong>Turmas</strong> e, no menu de opções da turma, selecione <strong>Imprimir crachás da turma</strong>. A equipe também pode abrir essa ação na tela da chamada da turma.</li>
+      <li>Confira a lista e selecione <strong>Imprimir / salvar PDF</strong>. A impressão inclui os alunos ativos da turma, até nove crachás por folha A4.</li>
+    </ol>
+  </section>
+
+  <section class="page-break">
+    <h2>5. Observações e Diário de Classe</h2>
+    <h3>Observações</h3>
+    <p>Abra <strong>Observações</strong>, selecione o aluno e registre a data, a categoria e o texto. Use uma descrição objetiva, relacionada ao desenvolvimento ou à rotina escolar. Apenas o autor ou a gestão podem editar um registro, conforme as permissões.</p>
+    <h3>Diário de Classe</h3>
+    <ol>
+      <li>Escolha a turma e o bimestre.</li>
+      <li>Selecione a disciplina.</li>
+      <li>Preencha notas de 0 a 10 para os alunos avaliados; deixe em branco quem ainda não foi avaliado.</li>
+      <li>Selecione <strong>Salvar notas</strong>. O professor responsável pela disciplina é quem pode lançar notas; a gestão configura as disciplinas e seus responsáveis.</li>
+    </ol>
+    <div class="note info">O Diário de Classe é habilitado pela gestão nas turmas escolares. A chamada e a frequência continuam em <strong>Chamada do Dia</strong>.</div>
+    <figure class="screen">
+      <svg viewBox="0 0 900 330" role="img" aria-label="Ilustração do diário de classe">
+        <rect width="900" height="330" rx="10" fill="#fff9ec"/>
+        <rect width="125" height="330" rx="10" fill="#2c7da0"/>
+        <text x="16" y="42" class="ui smalltxt white bold">MENU</text><text x="16" y="83" class="ui smalltxt white">Diário de Classe</text>
+        <text x="152" y="40" class="ui title">Diário de Classe</text>
+        <rect x="152" y="56" width="400" height="39" rx="8" class="card"/><text x="167" y="80" class="ui smalltxt">Turma escolar de exemplo</text>
+        <rect x="565" y="56" width="166" height="39" rx="8" class="card"/><text x="580" y="80" class="ui smalltxt">1º bimestre</text>
+        <rect x="744" y="56" width="131" height="39" rx="8" class="btn"/><text x="810" y="80" text-anchor="middle" class="ui smalltxt white bold">Abrir diário</text>
+        <rect x="152" y="110" width="723" height="51" rx="10" fill="#edf7fc"/>
+        <text x="169" y="132" class="ui bold">Disciplina</text><text x="169" y="150" class="ui smalltxt muted">Selecione uma disciplina cadastrada</text>
+        <rect x="152" y="176" width="723" height="35" rx="5" fill="#edf7fc"/>
+        <text x="168" y="198" class="ui smalltxt bold">Aluno</text><text x="570" y="198" class="ui smalltxt bold">Matrícula</text><text x="738" y="198" class="ui smalltxt bold">Nota (0 a 10)</text>
+        <rect x="152" y="217" width="723" height="35" rx="4" class="row"/>
+        <text x="168" y="239" class="ui smalltxt">Aluno de exemplo 1</text><text x="570" y="239" class="ui smalltxt">Exemplo 001</text>
+        <rect x="737" y="222" width="105" height="25" rx="7" class="card"/><text x="750" y="239" class="ui smalltxt muted">—</text>
+        <rect x="152" y="257" width="723" height="35" rx="4" fill="#fff"/>
+        <text x="168" y="279" class="ui smalltxt">Aluno de exemplo 2</text><text x="570" y="279" class="ui smalltxt">Exemplo 002</text>
+        <rect x="737" y="262" width="105" height="25" rx="7" class="card"/><text x="750" y="279" class="ui smalltxt muted">—</text>
+        <rect x="152" y="301" width="128" height="24" rx="8" class="green"/><text x="216" y="317" text-anchor="middle" class="ui tiny white bold">Salvar notas</text>
+      </svg>
+      <figcaption>Tela 5 — Exemplo ilustrativo do lançamento de notas.</figcaption>
+    </figure>
+  </section>
+
+  <section class="page-break">
+    <h2>6. Relatório anual e impressão</h2>
+    <ol class="steps">
+      <li>Abra <strong>Relatório Anual</strong> e escolha a turma (se desejar) e o ano.</li>
+      <li>Na lista, localize o aluno e selecione <strong>Abrir</strong>.</li>
+      <li>Confira a frequência mensal e as observações. Os dias sem chamada não entram no cálculo da frequência.</li>
+      <li>Os perfis autorizados podem preencher o parecer descritivo e os encaminhamentos.</li>
+      <li>Use <strong>Imprimir</strong> para imprimir ou salvar em PDF pelo navegador. Quando disponível, use <strong>Exportar CSV</strong> para obter os dados tabulares.</li>
+    </ol>
+    <figure class="screen">
+      <svg viewBox="0 0 900 345" role="img" aria-label="Ilustração da lista de relatórios anuais">
+        <rect width="900" height="345" rx="10" fill="#fff9ec"/>
+        <rect width="125" height="345" rx="10" fill="#2c7da0"/>
+        <text x="16" y="42" class="ui smalltxt white bold">MENU</text><text x="16" y="83" class="ui smalltxt white">Relatório Anual</text>
+        <text x="152" y="40" class="ui title">Relatório Anual de Desenvolvimento</text>
+        <rect x="152" y="56" width="395" height="37" rx="8" class="card"/><text x="166" y="80" class="ui smalltxt">Todas as turmas</text>
+        <rect x="560" y="56" width="145" height="37" rx="8" class="card"/><text x="574" y="80" class="ui smalltxt">Ano letivo</text>
+        <rect x="714" y="56" width="161" height="37" rx="8" class="btn"/><text x="794" y="80" text-anchor="middle" class="ui smalltxt white bold">Filtrar</text>
+        <rect x="152" y="108" width="723" height="38" rx="5" fill="#edf7fc"/>
+        <text x="166" y="132" class="ui smalltxt bold">Aluno</text><text x="372" y="132" class="ui smalltxt bold">Turma / Unidade</text>
+        <text x="594" y="132" class="ui tiny bold">Dias lançados</text><text x="686" y="132" class="ui tiny bold">Parecer</text><text x="774" y="132" class="ui tiny bold">Relatório</text>
+        <rect x="152" y="152" width="723" height="52" rx="4" class="row"/>
+        <text x="166" y="174" class="ui smalltxt">Aluno de exemplo 1</text><text x="166" y="190" class="ui tiny muted">Matrícula demonstrativa</text>
+        <text x="372" y="182" class="ui smalltxt">Turma de exemplo</text><text x="594" y="182" class="ui smalltxt">—</text>
+        <rect x="681" y="166" width="65" height="22" rx="10" fill="#fff3cc"/><text x="713" y="181" text-anchor="middle" class="ui tiny">Pendente</text>
+        <rect x="774" y="164" width="78" height="26" rx="8" class="btn"/><text x="813" y="181" text-anchor="middle" class="ui tiny white bold">Abrir</text>
+        <rect x="152" y="209" width="723" height="52" rx="4" fill="#fff"/>
+        <text x="166" y="231" class="ui smalltxt">Aluno de exemplo 2</text><text x="166" y="247" class="ui tiny muted">Matrícula demonstrativa</text>
+        <text x="372" y="239" class="ui smalltxt">Turma de exemplo</text><text x="594" y="239" class="ui smalltxt">—</text>
+        <rect x="681" y="223" width="65" height="22" rx="10" fill="#edf8f2"/><text x="713" y="238" text-anchor="middle" class="ui tiny">Registrado</text>
+        <rect x="774" y="221" width="78" height="26" rx="8" class="btn"/><text x="813" y="238" text-anchor="middle" class="ui tiny white bold">Abrir</text>
+        <rect x="152" y="276" width="723" height="48" rx="8" fill="#edf7fc"/>
+        <text x="169" y="297" class="ui smalltxt bold">O relatório reúne frequência e observações do ano.</text>
+        <text x="169" y="313" class="ui tiny muted">Acesso e edição do parecer dependem do perfil e das permissões.</text>
+      </svg>
+      <figcaption>Tela 6 — Exemplo ilustrativo da lista e dos estados do parecer.</figcaption>
+    </figure>
+    <div class="note">O Secretário Escolar pode consultar relatórios apenas quando o Diretor liberar o acesso à unidade. Esse perfil não edita o parecer.</div>
+  </section>
+
+  <section class="page-break">
+    <h2>7. Cuidados e dúvidas frequentes</h2>
+    <table>
+      <thead><tr><th>Situação</th><th>O que fazer</th></tr></thead>
+      <tbody>
+        <tr><td>Não consigo acessar uma turma</td><td>Peça à gestão para conferir equipe da turma, prazo de substituição ou vínculo com a unidade.</td></tr>
+        <tr><td>A presença já foi confirmada</td><td>Use <strong>Retificar</strong>, selecione a nova situação e informe o motivo obrigatório.</td></tr>
+        <tr><td>Não aparece uma opção de menu</td><td>Seu perfil pode não ter permissão para essa função. Confirme com a gestão.</td></tr>
+        <tr><td>Não consigo lançar notas</td><td>Confirme se a turma escolar está habilitada, se a disciplina foi cadastrada e se você é o professor responsável.</td></tr>
+        <tr><td>Há alerta de saúde</td><td>Leia as informações exibidas antes de iniciar a rotina da turma e siga os procedimentos da unidade.</td></tr>
+      </tbody>
+    </table>
+    <h3>Proteção de dados</h3>
+    <ul>
+      <li>Use somente sua própria conta e encerre a sessão em <strong>Sair</strong> ao terminar.</li>
+      <li>Não compartilhe senha, capturas de tela ou relatórios com pessoas não autorizadas.</li>
+      <li>As informações de alunos são confidenciais. Siga as orientações da unidade para impressão, armazenamento e descarte.</li>
+    </ul>
+    <div class="note good"><strong>Antes de confirmar:</strong> confira a turma, a data e as marcações. Uma revisão rápida evita correções posteriores.</div>
+    <p class="small">Este manual descreve os fluxos de uso encontrados no sistema. As permissões e os nomes de menu podem variar conforme o perfil configurado.</p>
+  </section>
+</main>
+</body>
+</html>

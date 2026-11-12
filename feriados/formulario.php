@@ -8,6 +8,7 @@ if (!defined('ABSPATH')) {
 }
 ?>
 <form action="<?= $acao ?>" method="post">
+  <?= ch_csrf_campo() ?>
   <?php if (!empty($id)): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
 
   <?php if ($erros): ?>

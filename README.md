@@ -47,6 +47,7 @@ idempotente e faz o upgrade sem apagar dados:
   o dado correto seja informado ao editar cada cadastro;
 - adiciona o Diário de Classe, a etapa de ensino das turmas e o professor
   responsável por disciplina.
+- amplia a coluna de senha e instala a tabela de limitação de tentativas.
 
 Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
 com um professor (o antigo responsável) e você acrescenta os demais.
@@ -65,6 +66,8 @@ Para autorizar a consulta de observações por um Secretário, execute
 `sql_inicial/ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql`; o Diretor libera
 por unidade em **Permissões de observações**, escolhendo entre **Somente ler**
 e **Ler e inserir**. Sem liberação, as observações não ficam visíveis.
+Antes de publicar as melhorias de autenticação em uma instalação existente,
+execute `sql_inicial/ATUALIZAR_SEGURANCA_LOGIN.sql`.
 
 ## Instalação
 
@@ -207,6 +210,9 @@ O sistema reduz a imagem para no máximo 640 × 800 pixels, comprime em JPEG e
 armazena os dados binários em `TB_ALUNOS.FOTO_DADOS` (até 512 KB), sem criar
 arquivo permanente no servidor. A extensão GD do PHP precisa estar ativada.
 Na ficha, **Gerar crachá** abre a versão para impressão ou para salvar como PDF.
+A lista de **Turmas** também permite gerar os crachás de todos os alunos ativos
+da turma, organizados em folhas A4 (até 9 por página). Professores também
+encontram a ação na tela da chamada da turma.
 A foto só é exibida para usuários com acesso à ficha.
 
 ## CPF do aluno
@@ -305,11 +311,36 @@ geometria do menu. Inclui ajustes para celular, impressão e
 - [`README_CHAMADA.md`](README_CHAMADA.md) — regras de negócio detalhadas
 - [`LIMPEZA.md`](LIMPEZA.md) — histórico do que foi removido do repositório
 
-## Pendências de segurança conhecidas
+## Segurança e operação
 
-1. Senhas em **MD5 sem salt** (`valida.php`) — migrar para `password_hash()`
-2. Formulários sem **token CSRF**
-3. Credenciais do banco em texto plano no `config.php` versionado
+As senhas novas são armazenadas com `password_hash()` e verificadas com
+`password_verify()`. Contas antigas em MD5 são atualizadas para o algoritmo
+atual no primeiro login bem-sucedido. Senhas novas ou alteradas precisam ter ao
+menos 12 caracteres. O limitador registra 10 falhas em 15 minutos por IP e
+identificador, bloqueando novas tentativas dessa combinação por 15 minutos; não
+desativa a conta. Tentativas antigas são removidas em lotes.
+Com o bcrypt padrão do PHP, senhas novas também têm limite de 72 bytes para
+evitar a truncagem silenciosa do algoritmo.
+O identificador de limitação é armazenado como HMAC (sem CPF/IP em texto
+plano), usando `CHAMADA_AUTH_PEPPER` quando definido ou `DB_PASSWORD` como chave;
+mantenha a mesma chave entre servidores e saiba que trocá-la reinicia os limites.
+
+O ID da sessão é renovado no login e a sessão expira após 30 minutos sem
+atividade. As respostas recebem cabeçalhos contra MIME sniffing e clickjacking,
+política de referência e restrições a objetos e enquadramento. HSTS só é enviado
+em HTTPS.
+
+Formulários de alteração, login e logout usam token CSRF de sessão; as
+operações de escrita são enviadas por POST.
+
+**Configuração operacional ainda necessária:** `config.php` foi preservado e
+continua contendo as credenciais atuais. Em produção, mova-as para fora do
+controle de versão, rotacione-as e use privilégio mínimo no SQL Server. Configure
+backups protegidos. Como o `config.php` não foi alterado, defina as opções de
+cookie da sessão antes de `session_start()` no PHP/servidor: `session.use_strict_mode=1`,
+`session.use_only_cookies=1`, `session.cookie_httponly=1` e
+`session.cookie_samesite=Lax`; habilite `session.cookie_secure=1` somente com
+HTTPS. Se houver proxy reverso, configure-o para informar HTTPS corretamente.
 
 ## Solução de problemas
 

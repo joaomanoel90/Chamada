@@ -43,6 +43,7 @@
               <li><a class="dropdown-item" href="edit.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-edit"></i> Editar</a></li>
               <li>
                 <form method="post" action="processa/toggle_processa.php" class="px-3 py-1">
+                  <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
                           onclick="return confirm('Confirmar a alteração de situação deste período?');">

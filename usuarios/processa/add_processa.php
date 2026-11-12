@@ -24,12 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $erros = usuario_validar($_POST, $d, 0);
 
     if (!$erros) {
-        $ok = ch_exec(
-            'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, TURNO, CREATED, USUARIO)
-             VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)',
-            [$d['nome'], md5(trim($_POST['senha'])), $d['nivel'], $d['cpf'],
-             $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], ch_uid()]
-        );
+        $hash = ch_auth_password_hash(trim((string)$_POST['senha']));
+        if ($hash === false) {
+            error_log('Falha ao gerar hash para novo usuário.');
+            $ok = false;
+        } else {
+            $ok = ch_exec(
+                'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, TURNO, CREATED, USUARIO)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)',
+                [$d['nome'], $hash, $d['nivel'], $d['cpf'],
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], ch_uid()]
+            );
+        }
         if ($ok) {
             ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');
             if ($d['nivel'] === 2) {

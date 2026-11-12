@@ -118,6 +118,10 @@
     <a class="btn btn-sm btn-outline-secondary" href="exportar.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
       <i class="fas fa-file-csv"></i> Exportar CSV
     </a>
+    <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"
+       href="<?= ch_url('alunos/crachas_turma.php?turma_id=' . (int)$turmaId) ?>">
+      <i class="fas fa-id-card"></i> Imprimir crachás da turma
+    </a>
     <?php if ($confirmados): ?>
       <a class="btn btn-sm btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
         <i class="fas fa-clock-rotate-left"></i> Histórico de retificações
@@ -127,6 +131,7 @@
 
   <?php if ($podeConfirmar && !$bloqueio && $pendentes): ?>
   <form method="post" action="salvar.php" id="form-chamada">
+    <?= ch_csrf_campo() ?>
     <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
     <input type="hidden" name="data" value="<?= ch_h($data) ?>">
 
@@ -262,6 +267,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content conteudo-modal">
         <form method="post" action="retificar.php" id="form-retificar">
+          <?= ch_csrf_campo() ?>
           <div class="modal-header cabecalho-modal">
             <h5 class="modal-title"><i class="fas fa-pen-to-square"></i> Retificar presença</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>

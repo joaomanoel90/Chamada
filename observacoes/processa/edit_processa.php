@@ -39,6 +39,10 @@ $d = $atual;
 $voltar = trim($_POST['voltar'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: ' . ch_url('observacoes/index.php'));
+        exit;
+    }
     [$d, $erros] = observacao_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());

@@ -58,6 +58,7 @@
               <li><a class="dropdown-item" href="edit.php?id=<?= (int)$row['ID'] ?>"><i class="far fa-edit"></i> Editar</a></li>
               <li>
                 <form method="post" action="processa/delete_processa.php" class="px-3 py-1">
+                  <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-danger w-100"
                           onclick="return confirm('Excluir este feriado? As chamadas já lançadas serão mantidas.');">

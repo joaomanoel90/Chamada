@@ -71,13 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$erros) {
         $senha = trim($_POST['senha'] ?? '');
         if ($senha !== '') {
-            $ok = ch_exec(
-                'UPDATE TB_USUARIOS
-                    SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
-                  WHERE ID = ?',
-                [$d['nome'], md5($senha), $d['nivel'], $d['cpf'],
-                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
-            );
+            $hash = ch_auth_password_hash($senha);
+            if ($hash === false) {
+                error_log('Falha ao gerar hash ao atualizar senha do usuário #' . $id . '.');
+                $ok = false;
+            } else {
+                $ok = ch_exec(
+                    'UPDATE TB_USUARIOS
+                        SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
+                      WHERE ID = ?',
+                    [$d['nome'], $hash, $d['nivel'], $d['cpf'],
+                     $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
+                );
+            }
         } else {
             $ok = ch_exec(
                 'UPDATE TB_USUARIOS

@@ -10,6 +10,10 @@ $unidades = ch_unidades_opcoes();
 $d = ['DATA' => '', 'DESCRICAO' => '', 'TIPO' => 'INTEGRAL', 'HORA_INICIO' => '12:00', 'HORA_FIM' => '18:00', 'ID_UNIDADE' => 0];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: index.php');
+        exit;
+    }
     [$d, $erros] = feriado_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());

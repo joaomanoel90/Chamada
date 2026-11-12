@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+require_once(ABSPATH . 'inc/chamada.php');
 
 if (isset($_SESSION['usuarioId'])) {
     header("Location: " . BASEURL . "index.php");
@@ -248,6 +249,8 @@ include(TEMA_TEMPLATE);
 
     </div>
 
+    <?= ch_flash_html() ?>
+
     <!-- ERRO LOGIN -->
     <?php if (isset($_SESSION['loginErro'])) { ?>
 
@@ -264,7 +267,7 @@ include(TEMA_TEMPLATE);
             <strong>Acesso não permitido</strong><br>
 
             <small>
-              <?php echo $_SESSION['loginErro']; ?>
+              <?php echo htmlspecialchars((string)$_SESSION['loginErro'], ENT_QUOTES, 'UTF-8'); ?>
             </small>
 
           </div>
@@ -308,6 +311,7 @@ include(TEMA_TEMPLATE);
 
     <!-- FORM -->
     <form method="post" action="valida.php">
+      <?= ch_csrf_campo() ?>
 
       <div class="mb-3">
 

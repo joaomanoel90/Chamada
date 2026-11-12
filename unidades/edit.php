@@ -12,6 +12,7 @@ if (!isset($unidade['id'])) {
 <h2><i class="far fa-edit"></i> Editar Unidade: <?= htmlspecialchars($unidade['unidade']) ?></h2>
 
 <form action="edit.php?id=<?= $id ?>" method="post">
+  <?= ch_csrf_campo() ?>
   <input type="hidden" class="form-control" name="id" id="id" value="<?= $id ?>" required>
 
   <hr />

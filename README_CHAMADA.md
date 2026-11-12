@@ -332,17 +332,21 @@ sql_inicial/INSTALACAO_COMPLETA.sql
 ---
 
 
-## 5. Segurança — pontos herdados do sistema
+## 5. Segurança
 
-O módulo **não alterou** o mecanismo de login para não quebrar o sistema atual.
-Ficam registrados, para decisão futura:
+Formulários de alteração, login e logout validam um token CSRF de sessão.
+Senhas novas usam `password_hash()`; senhas antigas em MD5 são migradas no
+primeiro login válido. O login limita a 10 falhas em 15 minutos por IP e
+identificador, com espera de 15 minutos, sem desativar a conta. O ID de sessão
+é renovado no login e sessões inativas expiram após 30 minutos.
+O limitador grava somente um HMAC da combinação IP/identificador; mantenha a
+chave de aplicação igual entre servidores.
 
-1. **Senhas em MD5 sem salt** (`valida.php`). Recomenda-se migrar para
-   `password_hash()` / `password_verify()`, com rehash no primeiro login.
-2. **Ausência de token CSRF** nos formulários, inclusive nos novos. Recomenda-se
-   adicionar um token por sessão em todos os `POST`.
-3. **Credenciais em texto plano** no `config.php` versionado. Recomenda-se mover
-   para variáveis de ambiente e fora do controle de versão.
+Em instalações existentes, execute
+`sql_inicial/ATUALIZAR_SEGURANCA_LOGIN.sql` antes de publicar o novo código PHP.
+O `config.php` foi preservado: rotação de credenciais, configuração dos cookies
+de sessão no servidor, permissões finais do SQL Server e proteção dos backups
+continuam sendo tarefas operacionais.
 
 O módulo já aplica, por conta própria: consultas 100% parametrizadas, escape de
 saída com `htmlspecialchars`, validação de escopo por unidade em toda tela e

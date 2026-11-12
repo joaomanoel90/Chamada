@@ -26,12 +26,10 @@ if ($nivel != 1 && $nivel != 2) {
 
 <hr>
 
+<?= ch_flash_html() ?>
 
 <form action="index.php" method="post">
-  <!-- area de campos do form -->
-
-
-  <input type="hidden" class="form-control" name="id" value="<?php echo ($_SESSION['usuarioId']); ?>">
+  <?= ch_csrf_campo() ?>
 
 
 
@@ -61,7 +59,7 @@ $currentEmail = $userRow['EMAIL'] ?? '';
 
     <div class="form-group col-md-3">
       <label for="campo1">Nova Senha</label>
-      <input type="password" class="form-control" name="senha">
+      <input type="password" class="form-control" name="senha" minlength="12">
       <small class="text-muted">Deixe em branco se não quiser alterar a senha</small>
     </div>
   </div>

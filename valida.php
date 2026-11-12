@@ -5,101 +5,63 @@ require_once(DBAPI);
 if (session_status() === PHP_SESSION_NONE) {
 	session_start();
 }
+require_once(ABSPATH . 'inc/chamada.php');
 
-// O campo usuário e senha preenchido entra no if para validar
-if (isset($_POST['cpf']) && isset($_POST['senha'])) {
-
-	// FILTER_SANITIZE_STRING foi depreciado no PHP 8.1
-	$usuario = trim($_POST['cpf']);
-	$senha = md5($_POST['senha']);
-
-	// Buscar conexão
-	$conn = open_database();
-	if ($conn === false) {
-		echo "<h3>Erro na conexão com SQL Server</h3>";
-		echo "<pre>";
-		print_r(sqlsrv_errors());
-		echo "</pre>";
-		exit;
-	}
-	// Verificar se a conexão foi realizada
-	if ($conn === false) {
-
-		echo "<h3>Erro ao conectar ao banco de dados.</h3>";
-		echo "<pre>";
-
-		if (function_exists('sqlsrv_errors')) {
-			print_r(sqlsrv_errors());
-		}
-
-		echo "</pre>";
-		exit;
-	}
-
-	// Consulta parametrizada
-	$sql = "SELECT *
-            FROM TB_USUARIOS
-            WHERE CPF = ?
-              AND SENHA = ?";
-
-	$params = [$usuario, $senha];
-
-	$stmt = sqlsrv_query($conn, $sql, $params);
-
-	// Verificar erro na consulta
-	if ($stmt === false) {
-
-		echo "<h3>Erro ao executar consulta SQL.</h3>";
-		echo "<pre>";
-
-		if (function_exists('sqlsrv_errors')) {
-			print_r(sqlsrv_errors());
-		}
-
-		echo "</pre>";
-		exit;
-	}
-
-	$resultado = sqlsrv_has_rows($stmt);
-
-	if ($resultado === true) {
-
-		$row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-
-		/* Usuário desativado não entra. ISNULL porque registros antigos podem
-		   ter ATIVO nulo — nesses casos considera ativo, para não trancar
-		   ninguém para fora depois da atualização do banco. */
-		if ((int)($row['ATIVO'] ?? 1) !== 1) {
-			sqlsrv_free_stmt($stmt);
-			$_SESSION['loginErro'] = "Usuário inativo. Procure a administração da rede.";
-			header("Location: login.php");
-			exit;
-		}
-
-		$_SESSION['usuarioId'] = $row['ID'];
-		$_SESSION['usuarioNome'] = $row['NOME'];
-		$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
-		$_SESSION['usuarioCPF'] = $row['CPF'];
-
-		if (in_array((int)$_SESSION['usuarioNiveisAcessoId'], [1, 2, 3, 4, 5], true)) {
-			header("Location: " . BASEURL . "index.php");
-			exit;
-		}
-
-		sqlsrv_free_stmt($stmt);
-	} else {
-
-		sqlsrv_free_stmt($stmt);
-
-		$_SESSION['loginErro'] = "Usuário ou senha inválido";
-
-		header("Location: login.php");
-		exit;
-	}
-} else {
-
-	$_SESSION['loginErro'] = "Usuário ou senha não preenchidos";
-
-	header("Location: login.php");
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+	header("Location: " . BASEURL . "login.php");
 	exit;
 }
+if (!ch_csrf_ok()) {
+	header("Location: " . BASEURL . "login.php");
+	exit;
+}
+
+$cpfEnviado = $_POST['cpf'] ?? '';
+$senhaEnviada = $_POST['senha'] ?? '';
+$usuario = is_string($cpfEnviado) ? trim($cpfEnviado) : '';
+$senha = is_string($senhaEnviada) ? $senhaEnviada : '';
+$conn = open_database();
+
+if ($conn === false) {
+	ch_auth_log_sql_error('Login: falha ao conectar ao banco');
+	$_SESSION['loginErro'] = 'Não foi possível concluir o acesso. Tente novamente mais tarde.';
+	header('Location: ' . BASEURL . 'login.php');
+	exit;
+}
+
+$resultado = ch_auth_login($conn, $usuario, $senha, ch_auth_login_key($usuario));
+if ($resultado['status'] !== 'error') {
+	ch_auth_login_cleanup($conn);
+}
+
+if ($resultado['status'] === 'success') {
+	if (!session_regenerate_id(true)) {
+		error_log('Login: não foi possível renovar o ID da sessão.');
+		$_SESSION = [];
+		$_SESSION['loginErro'] = 'Não foi possível concluir o acesso. Tente novamente.';
+		header('Location: ' . BASEURL . 'login.php');
+		exit;
+	}
+
+	$row = $resultado['usuario'];
+	$_SESSION['usuarioId'] = $row['ID'];
+	$_SESSION['usuarioNome'] = $row['NOME'];
+	$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
+	$_SESSION['usuarioCPF'] = $row['CPF'];
+	$_SESSION['ch_ultima_atividade'] = time();
+	header('Location: ' . BASEURL . 'index.php');
+	exit;
+}
+
+if ($resultado['status'] === 'blocked') {
+	$_SESSION['loginErro'] = 'Muitas tentativas de acesso. Aguarde 15 minutos e tente novamente.';
+} elseif ($resultado['status'] === 'password_reset') {
+	$_SESSION['loginErro'] = 'A senha precisa ser redefinida pela administração antes do primeiro acesso seguro.';
+} elseif ($resultado['status'] === 'error') {
+	$_SESSION['loginErro'] = 'Não foi possível concluir o acesso. Tente novamente mais tarde.';
+} else {
+	$_SESSION['loginErro'] = 'Não foi possível acessar. Verifique o CPF e a senha e tente novamente.';
+}
+
+header('Location: ' . BASEURL . 'login.php');
+exit;

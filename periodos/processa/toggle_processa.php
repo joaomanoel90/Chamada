@@ -9,6 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../index.php');
     exit;
 }
+if (!ch_csrf_ok()) {
+    header('Location: ../index.php');
+    exit;
+}
 
 $id = (int)($_POST['id'] ?? 0);
 $p = ch_row('SELECT ID, NOME, ATIVO FROM TB_PERIODOS WHERE ID = ?', [$id]);

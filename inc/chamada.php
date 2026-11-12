@@ -16,6 +16,10 @@ if (!function_exists('open_database')) {
 
 date_default_timezone_set('America/Sao_Paulo');
 
+require_once(__DIR__ . '/auth_security.php');
+ch_auth_security_headers();
+ch_auth_session_guard();
+
 /* ------------------------------------------------------------ banco de dados */
 
 /** Conexão única do módulo (reaproveita a $conn já aberta, se houver). */

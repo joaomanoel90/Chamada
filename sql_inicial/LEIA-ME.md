@@ -19,8 +19,9 @@ se o seu banco tiver outro nome.
 | 11 | `ATUALIZAR_NIVEIS_ACESSO.sql` | **Só para instalações existentes.** Habilita os níveis 4 (Secretaria de Educação) e 5 (Secretário Escolar), sem alterar os perfis existentes. |
 | 12 | `ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql` | **Só para instalações existentes.** Cria a tabela de autorização por Diretor, Secretário Escolar e unidade; sem liberação explícita, relatórios não ficam visíveis ao Secretário. |
 | 13 | `ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql` | **Só para instalações existentes.** Cria autorização por unidade: sem acesso, somente leitura ou leitura e inserção. Sem autorização explícita, as observações não ficam visíveis ao Secretário. |
+| 14 | `ATUALIZAR_SEGURANCA_LOGIN.sql` | **Obrigatório antes de publicar o novo código de autenticação em instalações existentes.** Amplia a coluna de senha e cria a tabela persistente de limitação de tentativas. |
 
-Os scripts 1, 2, 4 e 6 a 13 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 14 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -45,6 +46,9 @@ Os scripts 1, 2, 4 e 6 a 13 podem ser executados mais de uma vez sem duplicar na
 > Para usar os novos perfis em uma base existente, execute também
 > `ATUALIZAR_NIVEIS_ACESSO.sql`, `ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql`
 > e `ATUALIZAR_PERMISSAO_OBSERVACOES_SECRETARIO.sql`.
+> Antes de atualizar o código de autenticação, execute também
+> `ATUALIZAR_SEGURANCA_LOGIN.sql`. Ele preserva as senhas existentes; hashes MD5
+> são substituídos após o primeiro login bem-sucedido.
 > A Secretaria de Educação alcança a rede toda e vincula Diretores e Secretários
 > Escolares às unidades em **Vínculos de unidades**, sem criar ou editar contas.
 > O Secretário Escolar opera alunos e só consulta transferências das unidades

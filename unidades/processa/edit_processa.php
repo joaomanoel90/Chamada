@@ -8,6 +8,10 @@ ch_require_gestor();
 $conn = ch_db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!ch_csrf_ok()) {
+        header('Location: index.php');
+        exit;
+    }
     $id = strip_tags(trim($_POST['id'] ?? ''));
     $unidade = strip_tags(trim($_POST['unidade'] ?? ''));
 

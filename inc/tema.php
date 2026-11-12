@@ -1,3 +1,8 @@
+<?php
+require_once(__DIR__ . '/auth_security.php');
+ch_auth_security_headers();
+ch_auth_session_guard();
+?>
 <!DOCTYPE html>
 <html>
 

@@ -42,7 +42,7 @@
       </div>
       <div class="form-group col-md-4">
         <label class="fw-bold">Nova senha</label>
-        <input type="password" class="form-control" name="senha">
+        <input type="password" class="form-control" name="senha" minlength="12">
         <small class="text-muted">Deixe em branco para manter a senha atual.</small>
       </div>
       <div class="form-group col-md-4">
@@ -111,7 +111,7 @@
       var avisos = [];
       if (form.nome.value.trim().length < 3) avisos.push('Informe o nome completo.');
       if (!/^\d{11}$/.test(cpf)) avisos.push('O CPF deve ter 11 dígitos.');
-      if (senha !== '' && senha.length < 6) avisos.push('A nova senha deve ter pelo menos 6 caracteres.');
+      if (senha !== '' && senha.length < 12) avisos.push('A nova senha deve ter pelo menos 12 caracteres.');
       if (avisos.length) {
         e.preventDefault();
         alert('Verifique:\n\n' + avisos.join('\n'));

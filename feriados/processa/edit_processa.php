@@ -6,6 +6,10 @@ ch_db();
 require_once(__DIR__ . '/salvar_processa.php');
 
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !ch_csrf_ok()) {
+    header('Location: index.php');
+    exit;
+}
 $atual = ch_row('SELECT ID, CONVERT(varchar(10), DATA, 23) AS DATA, DESCRICAO, TIPO, HORA_INICIO, HORA_FIM, ID_UNIDADE
                  FROM TB_FERIADOS WHERE ID = ?', [$id]);
 if (!$atual) {

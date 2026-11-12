@@ -104,8 +104,10 @@
               <?php if (!empty($row['NOTAS_ATIVAS']) && $row['ETAPA_ENSINO'] !== 'INFANTIL_CRECHE'): ?>
                 <li><a class="dropdown-item" href="<?= ch_url('diario/index.php?turma_id=' . (int)$row['ID']) ?>"><i class="fas fa-book-open"></i> Diário de classe</a></li>
               <?php endif; ?>
+              <li><a class="dropdown-item" target="_blank" rel="noopener" href="<?= ch_url('alunos/crachas_turma.php?turma_id=' . (int)$row['ID']) ?>"><i class="fas fa-id-card"></i> Imprimir crachás da turma</a></li>
               <?php if ($podeGerirTurmas): ?><li>
                 <form method="post" action="processa/toggle_processa.php" class="px-3 py-1">
+                  <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
                           onclick="return confirm('Alterar a situação desta turma?');">

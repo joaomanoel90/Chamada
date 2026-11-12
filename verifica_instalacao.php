@@ -51,6 +51,9 @@ if (!file_exists($raiz . '/config.php')) {
 }
 
 require_once $raiz . '/config.php';   /* abre a sessao certa e exige login */
+require_once $raiz . '/inc/auth_security.php';
+ch_auth_security_headers();
+ch_auth_session_guard();
 
 $nivel = isset($_SESSION['usuarioNiveisAcessoId']) ? (int) $_SESSION['usuarioNiveisAcessoId'] : 0;
 

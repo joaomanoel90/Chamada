@@ -41,14 +41,15 @@
    ----------------------------------------------------------------------------
    SEGURANÇA — LEIA
    ----------------------------------------------------------------------------
-   O sistema atual guarda senhas em MD5 sem salt (valida.php). Este script
-   mantém MD5 por compatibilidade. O usuário administrador inicial é criado
-   com a senha temporária:
+   As senhas novas usam password_hash() / password_verify(). Contas antigas em
+   MD5 são atualizadas automaticamente após um login válido. O usuário
+   administrador inicial é criado com uma senha temporária:
 
         Trocar@2026
 
    TROQUE ESSA SENHA NO PRIMEIRO ACESSO, em "Alterar Senha".
-   Recomenda-se migrar o sistema para password_hash() / password_verify().
+   Para instalações existentes, execute ATUALIZAR_SEGURANCA_LOGIN.sql antes
+   de publicar o novo código PHP.
    ============================================================================ */
 
 SET NOCOUNT ON;
@@ -140,6 +141,59 @@ BEGIN
         PRINT '    + coluna CPF ampliada para 14 caracteres';
     END
 END
+GO
+
+IF OBJECT_ID(N'dbo.TB_USUARIOS', N'U') IS NULL
+    THROW 51010, 'A tabela dbo.TB_USUARIOS não existe.', 1;
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+     WHERE object_id = OBJECT_ID(N'dbo.TB_USUARIOS') AND name = N'SENHA'
+)
+    THROW 51011, 'A coluna dbo.TB_USUARIOS.SENHA não existe.', 1;
+GO
+
+IF EXISTS (SELECT 1 FROM dbo.TB_USUARIOS WHERE SENHA IS NULL)
+    THROW 51012, 'Há senhas nulas em TB_USUARIOS; corrija esses registros antes de atualizar.', 1;
+GO
+
+IF EXISTS (
+    SELECT 1 FROM sys.columns
+     WHERE object_id = OBJECT_ID(N'dbo.TB_USUARIOS')
+       AND name = N'SENHA'
+       AND (user_type_id <> TYPE_ID(N'nvarchar') OR max_length <> 510)
+)
+BEGIN
+    ALTER TABLE dbo.TB_USUARIOS ALTER COLUMN SENHA nvarchar(255) NOT NULL;
+    PRINT '    + coluna SENHA ampliada para nvarchar(255)';
+END
+GO
+
+IF OBJECT_ID(N'dbo.TB_LOGIN_TENTATIVAS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_LOGIN_TENTATIVAS (
+        CHAVE_HASH     char(64)     NOT NULL,
+        FALHAS         tinyint      NOT NULL,
+        INICIO_JANELA  datetime2(3) NOT NULL,
+        BLOQUEADO_ATE  datetime2(3) NULL,
+        ATUALIZADO_EM  datetime2(3) NOT NULL,
+        CONSTRAINT PK_TB_LOGIN_TENTATIVAS
+            PRIMARY KEY CLUSTERED (CHAVE_HASH),
+        CONSTRAINT CK_TB_LOGIN_TENTATIVAS_FALHAS
+            CHECK (FALHAS BETWEEN 1 AND 10)
+    );
+    PRINT '  + TB_LOGIN_TENTATIVAS criada';
+END
+ELSE
+    PRINT '  = TB_LOGIN_TENTATIVAS já existe';
+GO
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+     WHERE object_id = OBJECT_ID(N'dbo.TB_LOGIN_TENTATIVAS')
+       AND name = N'IX_TB_LOGIN_TENTATIVAS_ATUALIZADO'
+)
+    CREATE INDEX IX_TB_LOGIN_TENTATIVAS_ATUALIZADO
+        ON dbo.TB_LOGIN_TENTATIVAS (ATUALIZADO_EM);
 GO
 
 /* Atualiza bases preexistentes quando a instalação completa for reaplicada. */
@@ -783,7 +837,7 @@ BEGIN
     INSERT INTO dbo.TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, CREATED)
     VALUES (
         N'JOÃO MANOEL MEIRA DA SILVA',
-        N'38dfbc214041ed26a5f8271c8b3785cb',   -- MD5 de 'Trocar@2026'
+        N'$2y$12$M48e1UNv8.j4oQWNGFjHs.vrGez0YR7syq/N50ShwLTRc1xdnw3ka',
         1,
         N'398.114.718-94',
         NULL,
@@ -1400,7 +1454,7 @@ WHERE t.name IN ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMA
                  'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
                  'TB_ALUNO_SAIDAS_EXTERNAS',
                  'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
-                 'TB_SECRETARIO_OBSERVACOES')
+                 'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS')
 ORDER BY t.name;
 
 SELECT
@@ -1430,8 +1484,8 @@ IF (SELECT COUNT(*) FROM sys.tables WHERE name IN
        'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
        'TB_ALUNO_SAIDAS_EXTERNAS',
        'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
-       'TB_SECRETARIO_OBSERVACOES')) = 18
-    PRINT 'As 18 tabelas estão presentes. Instalação concluída.';
+       'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS')) = 19
+    PRINT 'As 19 tabelas estão presentes. Instalação concluída.';
 ELSE
     PRINT 'ATENÇÃO: alguma tabela está faltando. Revise as mensagens acima.';
 GO

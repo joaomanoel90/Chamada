@@ -14,6 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php');
     exit;
 }
+if (!ch_csrf_ok()) {
+    header('Location: index.php');
+    exit;
+}
 
 $turmaId = (int)($_POST['turma_id'] ?? 0);
 $data    = ch_data_iso($_POST['data'] ?? '');

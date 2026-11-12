@@ -26,7 +26,8 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $d['cpf']   = ch_cpf_mask($post['cpf'] ?? '');
     $d['nivel'] = (int)($post['nivel'] ?? 0);
     $d['ativo'] = !empty($post['ativo']) ? 1 : 0;
-    $senha      = trim($post['senha'] ?? '');
+    $senhaEnviada = $post['senha'] ?? '';
+    $senha = is_string($senhaEnviada) ? trim($senhaEnviada) : '';
 
     /* Turno de trabalho. Só faz sentido para professor; os demais perfis não
        usam esse valor ao montar a equipe da turma. */
@@ -64,8 +65,14 @@ function usuario_validar($post, &$d, $idAtual = 0)
     if ($idAtual === 0 && $senha === '') {
         $erros[] = 'Defina uma senha.';
     }
-    if ($senha !== '' && mb_strlen($senha) < 6) {
-        $erros[] = 'A senha deve ter pelo menos 6 caracteres.';
+    if (!is_string($senhaEnviada)) {
+        $erros[] = 'A senha informada é inválida.';
+    }
+    if ($senha !== '' && mb_strlen($senha, 'UTF-8') < 12) {
+        $erros[] = 'A senha deve ter pelo menos 12 caracteres.';
+    }
+    if ($senha !== '' && PASSWORD_DEFAULT === PASSWORD_BCRYPT && strlen($senha) > 72) {
+        $erros[] = 'A senha não pode exceder 72 bytes.';
     }
 
     // CPF duplicado — compara só os dígitos, para que "12345678901" e
