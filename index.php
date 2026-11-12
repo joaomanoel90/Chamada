@@ -22,12 +22,12 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 	.card-dashboard h2 { font-size: 2rem; margin: 0; }
 	.card-dashboard h6 { margin-bottom: 10px; color: #666; }
 	.dashboard-card {
-		transition: transform .25s ease, box-shadow .25s ease;
+		transition: transform .15s ease, box-shadow .15s ease;
 		border-radius: 18px;
 	}
 	.dashboard-card-link { color: inherit; text-decoration: none; }
-	.dashboard-card-link:focus-visible { border-radius: 18px; outline: 3px solid #2c3e50; outline-offset: 3px; }
-	.dashboard-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 14px 30px rgba(0,0,0,.25) !important; z-index: 10; }
+	.dashboard-card-link:focus-visible { border-radius: 18px; outline: 2px solid #315F75; outline-offset: 3px; }
+	.dashboard-card:hover { transform: translateY(-1px); box-shadow: var(--sombra-alta) !important; z-index: 10; }
 </style>
 
 <h1><i class="fas fa-clipboard-user"></i> Chamada de Alunos</h1>

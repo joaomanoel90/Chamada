@@ -91,14 +91,14 @@ ch_auth_session_guard();
 
 
 	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
 
 	<style>
 		body {
 			margin: 0;
 			font-family: 'Nunito', sans-serif;
-			background: linear-gradient(120deg, #f0f4f8, #dbe4ec);
+			background: #f5f7f9;
 
 			/* padding-top: 80px;  */
 			padding-bottom: 50px;
@@ -135,9 +135,6 @@ ch_auth_session_guard();
 			transition: background 0.3s;
 		}
 
-		.btn:hover {
-			background-color: #1a252f;
-		}
 	</style>
 
 

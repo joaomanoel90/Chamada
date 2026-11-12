@@ -4,47 +4,43 @@
    ----------------------------------------------------------------------------
    Carregado DEPOIS de style.css e do <style> do tema, para prevalecer.
    Mantém a geometria do layout original (sidebar 60px / conteúdo 70px) e muda
-   apenas a aparência: paleta alegre de educação infantil, cantos arredondados,
-   avatares e cartões por aluno.
+   apenas a aparência: paleta suave, cantos arredondados, avatares e cartões
+   por aluno.
    ============================================================================ */
 
 :root {
-  --ceu:      #4EA8DE;
-  --ceu-esc:  #2C7DA0;
-  --sol:      #FFB703;
-  --sol-esc:  #E09A00;
-  --grama:    #52B788;
-  --grama-esc:#2D6A4F;
-  --coral:    #FF6B6B;
-  --coral-esc:#D64545;
-  --uva:      #9D4EDD;
-  --creme:    #FFF9EC;
+  --ceu:      #447B94;
+  --ceu-esc:  #315F75;
+  --sol:      #E8BD63;
+  --sol-esc:  #8C641C;
+  --grama:    #3F785C;
+  --grama-esc:#35664F;
+  --coral:    #B45151;
+  --coral-esc:#963F3F;
+  --uva:      #786497;
+  --creme:    #F5F7F9;
   --papel:    #FFFFFF;
-  --tinta:    #2B3A55;
-  --tinta-sua:#6B7A99;
-  --borda:    #E6ECF5;
-  --sombra:   0 6px 18px rgba(43, 58, 85, .10);
-  --sombra-alta: 0 12px 28px rgba(43, 58, 85, .16);
-  --raio:     18px;
-  --raio-grande: 24px;
+  --tinta:    #293847;
+  --tinta-sua:#667583;
+  --borda:    #E3E8ED;
+  --sombra:   0 2px 8px rgba(41, 56, 71, .06);
+  --sombra-alta: 0 5px 16px rgba(41, 56, 71, .09);
+  --raio:     14px;
+  --raio-grande: 18px;
 }
 
 /* ------------------------------------------------------------------ base */
 
 body {
   font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif !important;
-  background:
-    radial-gradient(circle at 12% 8%, rgba(255, 183, 3, .16) 0, transparent 42%),
-    radial-gradient(circle at 88% 12%, rgba(78, 168, 222, .16) 0, transparent 40%),
-    radial-gradient(circle at 70% 92%, rgba(82, 183, 136, .14) 0, transparent 45%),
-    var(--creme) !important;
+  background: var(--creme) !important;
   background-attachment: fixed;
   color: var(--tinta);
 }
 
-h1, h2, h3, h4, h5 { font-weight: 800; color: var(--tinta); letter-spacing: -.2px; }
-h1 { font-size: 1.9rem; }
-h2 { font-size: 1.5rem; }
+h1, h2, h3, h4, h5 { font-weight: 700; color: var(--tinta); letter-spacing: -.2px; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.4rem; }
 
 h1 i, h2 i { color: var(--ceu-esc); }
 
@@ -58,75 +54,76 @@ a:hover { color: var(--uva); }
 /* --------------------------------------------------------------- sidebar */
 
 .sidebar {
-  background: linear-gradient(180deg, #2C7DA0 0%, #3A8FB7 45%, #52B788 100%) !important;
-  box-shadow: 4px 0 18px rgba(43, 58, 85, .18);
+  background: var(--papel) !important;
+  box-shadow: 1px 0 10px rgba(41, 56, 71, .06);
+  border-right: 1px solid var(--borda);
   /* Só o topo é arredondado. Com raio embaixo aparecia uma cunha do fundo
      entre a curva do menu e o canto reto do rodapé (que começa em left:60px). */
   border-top-right-radius: var(--raio-grande);
   border-bottom-right-radius: 0;
 }
 
-.sidebar::-webkit-scrollbar-track { background: rgba(0, 0, 0, .12); }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .45); }
+.sidebar::-webkit-scrollbar-track { background: #F1F4F6; }
+.sidebar::-webkit-scrollbar-thumb { background: #CAD3DA; }
 
 .sidebar .sidebar-header img {
   background: #fff;
   border-radius: 50%;
   padding: 5px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, .2);
+  box-shadow: none;
 }
 
 .sidebar .sidebar-header h2 {
-  color: #fff !important;
-  font-weight: 800;
+  color: var(--tinta) !important;
+  font-weight: 700;
   font-size: 15px;
   margin-top: 8px;
 }
 
 .sidebar .nav-link {
-  border-radius: 14px;
+  color: var(--tinta) !important;
+  border-radius: 10px;
   margin: 3px 8px;
   padding: 10px 12px !important;
   font-weight: 700;
-  transition: background .18s ease, transform .18s ease;
+  transition: background .15s ease, color .15s ease;
   white-space: nowrap;
 }
 
 .sidebar .nav-link i { width: 22px; text-align: center; font-size: 1.05rem; }
 
 .sidebar .nav-link:hover {
-  background: rgba(255, 255, 255, .22) !important;
-  transform: translateX(3px);
+  background: #F1F5F7 !important;
+  color: var(--ceu-esc) !important;
 }
 
 .sidebar .nav-link.active {
-  background: var(--sol) !important;
-  color: var(--tinta) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .18);
+  background: #EAF0F3 !important;
+  color: var(--ceu-esc) !important;
+  box-shadow: inset 3px 0 0 var(--ceu) !important;
 }
 
-.sidebar hr { border-color: rgba(255, 255, 255, .3); margin: 10px 12px; }
-.sidebar p.small { letter-spacing: 1px; font-weight: 800; opacity: .85; }
+.sidebar hr { border-color: var(--borda) !important; margin: 10px 12px; }
+.sidebar p.small { color: var(--tinta-sua) !important; letter-spacing: .7px; font-weight: 700; }
 
 .toggle-btn {
-  background: var(--sol) !important;
+  background: #fff !important;
   color: var(--tinta) !important;
-  border: none;
-  border-radius: 14px !important;
-  font-weight: 800;
+  border: 1px solid var(--borda);
+  border-radius: 10px !important;
+  font-weight: 700;
   box-shadow: var(--sombra);
 }
-.toggle-btn:hover { background: var(--sol-esc) !important; }
+.toggle-btn:hover { background: #F1F5F7 !important; }
 
 /* --------------------------------------------------------------- botões */
 
 .btn {
-  border-radius: 14px !important;
+  border-radius: 9px !important;
   font-weight: 700;
-  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  transition: box-shadow .15s ease, background .15s ease;
 }
-.btn:hover { transform: translateY(-1px); box-shadow: var(--sombra); }
-.btn:active { transform: translateY(0); }
+.btn:hover { box-shadow: var(--sombra); }
 
 .btn-primary { background: var(--ceu) !important; border-color: var(--ceu) !important; }
 .btn-primary:hover { background: var(--ceu-esc) !important; border-color: var(--ceu-esc) !important; }
@@ -155,21 +152,21 @@ a:hover { color: var(--uva); }
 /* ------------------------------------------------------------ formulário */
 
 .form-control, .form-select {
-  border-radius: 14px !important;
-  border: 2px solid var(--borda);
+  border-radius: 9px !important;
+  border: 1px solid var(--borda);
   padding: .55rem .85rem;
 }
 .form-control:focus, .form-select:focus {
   border-color: var(--ceu);
-  box-shadow: 0 0 0 .2rem rgba(78, 168, 222, .18);
+  box-shadow: 0 0 0 .18rem rgba(68, 123, 148, .14);
 }
 label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 
-.alert { border-radius: var(--raio); border: none; box-shadow: var(--sombra); }
-.alert-info    { background: #E3F2FD; color: #1B4F72; }
-.alert-success { background: #E4F5EA; color: var(--grama-esc); }
-.alert-warning { background: #FFF4D6; color: #8A6100; }
-.alert-danger  { background: #FFE9E9; color: var(--coral-esc); }
+.alert { border-radius: var(--raio); border: 1px solid var(--borda); box-shadow: none; }
+.alert-info    { background: #EFF4F7; color: #315F75; }
+.alert-success { background: #EEF5F0; color: var(--grama-esc); }
+.alert-warning { background: #FBF6E9; color: #755A25; }
+.alert-danger  { background: #F9EEEE; color: var(--coral-esc); }
 
 .badge { border-radius: 10px; font-weight: 800; padding: .4em .65em; }
 .bg-success { background: var(--grama) !important; }
@@ -184,23 +181,29 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   border-radius: var(--raio-grande);
   box-shadow: var(--sombra);
   overflow: hidden;
-  border: 2px solid #fff;
+  border: 1px solid var(--borda);
 }
 
 .card-escola-titulo {
   display: flex;
   align-items: center;
   gap: .6rem;
-  background: linear-gradient(90deg, var(--ceu) 0%, #6FC3DF 100%);
-  color: #fff;
-  font-weight: 800;
+  background: #F2F5F7;
+  color: var(--tinta);
+  font-weight: 700;
   padding: .85rem 1.2rem;
   font-size: 1.05rem;
+  border-bottom: 1px solid var(--borda);
 }
-.card-escola-titulo i { font-size: 1.15rem; }
+.card-escola-titulo i { font-size: 1.15rem; color: var(--ceu-esc); }
 .card-escola-corpo { padding: 1.2rem; }
 
-.card { border-radius: var(--raio) !important; border: 2px solid #fff !important; box-shadow: var(--sombra); }
+.card {
+  border-radius: var(--raio) !important;
+  border: 1px solid var(--borda) !important;
+  box-shadow: var(--sombra);
+}
+.card:hover { transform: translateY(-1px); box-shadow: var(--sombra-alta); }
 
 /* --------------------------------------------------------------- tabelas */
 
@@ -220,34 +223,31 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 .table > tbody > tr:last-child > td:first-child  { border-bottom-left-radius: var(--raio); }
 .table > tbody > tr:last-child > td:last-child   { border-bottom-right-radius: var(--raio); }
 
-/* O degradê vai na LINHA, não no thead: as classes .table-light do Bootstrap
-   pintam o fundo de cada th com --bs-table-bg (#f8f9fa) por cima do thead, e o
-   texto branco ficava invisível. Aqui o th fica transparente. */
+/* Mantém o cabeçalho claro e consistente com a paleta neutra do tema. */
 .table > thead > tr {
-  background: linear-gradient(90deg, var(--ceu-esc) 0%, var(--ceu) 100%);
+  background: #F1F4F6;
 }
 .table > thead > tr > th,
 .table-light > thead > tr > th {
   background-color: transparent !important;
   --bs-table-bg: transparent;
-  --bs-table-color: #fff;
-  color: #fff !important;
-  font-weight: 800;
-  border: none !important;
-  padding: .8rem .6rem;
+  --bs-table-color: var(--tinta);
+  color: var(--tinta) !important;
+  font-weight: 700;
+  border-bottom: 1px solid var(--borda) !important;
+  padding: .7rem .6rem;
   white-space: nowrap;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, .18);
 }
-/* Setas de ordenação do DataTables visíveis no fundo azul. */
+/* Setas de ordenação do DataTables visíveis no cabeçalho claro. */
 .table > thead > tr > th.sorting::before,
 .table > thead > tr > th.sorting::after,
 .table > thead > tr > th.sorting_asc::before,
 .table > thead > tr > th.sorting_asc::after,
 .table > thead > tr > th.sorting_desc::before,
-.table > thead > tr > th.sorting_desc::after { color: #fff; opacity: .85; }
+.table > thead > tr > th.sorting_desc::after { color: var(--tinta-sua); opacity: .8; }
 .table > tbody > tr { vertical-align: middle; }
-.table > tbody > tr:hover { background: #F3F9FF !important; }
-.table-striped > tbody > tr:nth-of-type(odd) > * { background-color: #FAFCFF; }
+.table > tbody > tr:hover { background: #F7F9FA !important; }
+.table-striped > tbody > tr:nth-of-type(odd) > * { background-color: #FBFCFD; }
 
 /* -------------------------------------------------------------- avatares */
 
@@ -258,25 +258,26 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ceu) 0%, var(--uva) 100%);
-  color: #fff;
+  background: #EAF0F3;
+  color: var(--ceu-esc);
   font-weight: 800;
   font-size: .85rem;
   flex: 0 0 auto;
-  box-shadow: 0 3px 8px rgba(43, 58, 85, .18);
+  box-shadow: none;
 }
 
 .avatar-aluno {
   width: 46px;
   height: 46px;
   font-size: .95rem;
-  background: linear-gradient(135deg, var(--sol) 0%, var(--coral) 100%);
+  background: #F7F0E4;
+  color: #755A25;
 }
 
 .avatar-mini { width: 30px; height: 30px; font-size: .7rem; }
 .avatar-prof.regente {
-  background: linear-gradient(135deg, var(--sol) 0%, var(--sol-esc) 100%);
-  color: var(--tinta);
+  background: #F4EBD5;
+  color: #755A25;
   outline: 2px solid #fff;
 }
 
@@ -294,7 +295,8 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   border-radius: var(--raio-grande);
   box-shadow: var(--sombra);
   padding: 1.2rem 1.4rem;
-  border-left: 8px solid var(--sol);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--sol);
 }
 
 .painel-turma-info { display: flex; gap: 1rem; align-items: flex-start; }
@@ -303,8 +305,8 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   width: 58px; height: 58px;
   border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--ceu) 0%, var(--grama) 100%);
-  color: #fff; font-size: 1.6rem;
+  background: #EAF0F3;
+  color: var(--ceu-esc); font-size: 1.6rem;
   flex: 0 0 auto;
   box-shadow: var(--sombra);
 }
@@ -321,16 +323,18 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   border-radius: var(--raio);
   padding: .6rem .5rem;
   text-align: center;
-  color: #fff;
-  box-shadow: var(--sombra);
+  color: var(--tinta);
+  background: #F2F5F7;
+  border: 1px solid var(--borda);
+  box-shadow: none;
 }
 .placar-num { display: block; font-size: 1.7rem; font-weight: 800; line-height: 1; }
 .placar-rot { display: block; font-size: .72rem; font-weight: 700; margin-top: .25rem; }
 
-.placar-P { background: linear-gradient(135deg, #52B788, #2D6A4F); }
-.placar-F { background: linear-gradient(135deg, #FF6B6B, #D64545); }
-.placar-J { background: linear-gradient(135deg, #FFB703, #E09A00); color: var(--tinta); }
-.placar-A { background: linear-gradient(135deg, #4EA8DE, #2C7DA0); }
+.placar-P { color: var(--grama-esc); }
+.placar-F { color: var(--coral-esc); }
+.placar-J { color: #755A25; }
+.placar-A { color: var(--ceu-esc); }
 
 /* -------------------------------------------------------- seções chamada */
 
@@ -344,10 +348,10 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 .secao-icone {
   width: 36px; height: 36px; border-radius: 12px;
   display: inline-flex; align-items: center; justify-content: center;
-  color: #fff; font-size: .95rem;
+  color: var(--ceu-esc); font-size: .95rem;
 }
-.secao-icone.pendente   { background: var(--sol); color: var(--tinta); }
-.secao-icone.confirmado { background: var(--grama); }
+.secao-icone.pendente   { background: #F4EBD5; color: #755A25; }
+.secao-icone.confirmado { background: #EEF5F0; color: var(--grama-esc); }
 
 /* ------------------------------------------------------- cartões de aluno */
 
@@ -362,12 +366,12 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   border-radius: var(--raio-grande);
   box-shadow: var(--sombra);
   padding: 1rem;
-  border: 2px solid #fff;
-  border-top: 6px solid var(--sol);
+  border: 1px solid var(--borda);
+  border-top: 3px solid var(--sol);
   transition: transform .18s ease, box-shadow .18s ease;
   display: flex; flex-direction: column; gap: .75rem;
 }
-.cartao-aluno:hover { transform: translateY(-3px); box-shadow: var(--sombra-alta); }
+.cartao-aluno:hover { transform: translateY(-1px); box-shadow: var(--sombra-alta); }
 
 .cartao-aluno.travado { border-top-color: var(--grama); background: #FBFEFC; }
 
@@ -385,7 +389,7 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   display: flex; flex-direction: column; align-items: center; gap: .15rem;
   padding: .5rem .3rem;
   border-radius: 14px;
-  border: 2px solid var(--borda);
+  border: 1px solid var(--borda);
   background: #fff;
   cursor: pointer;
   font-size: .74rem;
@@ -495,7 +499,7 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   background: var(--sol); color: var(--tinta);
   display: flex; align-items: center; justify-content: center;
   flex: 0 0 auto;
-  box-shadow: var(--sombra);
+  box-shadow: none;
   z-index: 1;
 }
 
@@ -505,7 +509,8 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   border-radius: var(--raio);
   box-shadow: var(--sombra);
   padding: 1rem;
-  border-left: 5px solid var(--sol);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--sol);
 }
 
 .evento-topo { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; }
@@ -513,7 +518,7 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 .seta-mudanca { color: var(--tinta-sua); }
 
 .evento-motivo {
-  background: #F3F9FF;
+  background: #F5F7F9;
   border-radius: 12px;
   padding: .6rem .8rem;
   font-size: .87rem;
@@ -525,36 +530,37 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
 
 .conteudo-modal { border-radius: var(--raio-grande) !important; overflow: hidden; border: none; }
 .cabecalho-modal {
-  background: linear-gradient(90deg, var(--sol) 0%, #FFD166 100%);
+  background: #F2F5F7;
   color: var(--tinta);
-  border: none;
+  border-bottom: 1px solid var(--borda);
 }
-.cabecalho-modal .modal-title { font-weight: 800; }
+.cabecalho-modal .modal-title { font-weight: 700; }
 
 /* --------------------------------------------------------------- dashboard */
 
 .dashboard-card {
   border-radius: var(--raio-grande) !important;
-  border: 2px solid #fff !important;
+  border: 1px solid var(--borda) !important;
   background: var(--papel);
 }
 .dashboard-card .card-body { padding: 1.1rem .7rem; }
-.card-dashboard h6 { color: var(--tinta-sua) !important; font-weight: 700; font-size: .78rem; }
-.card-dashboard h2 { font-weight: 800; font-size: 2.1rem; }
+.card-dashboard h6 { color: var(--tinta-sua) !important; font-weight: 600; font-size: .78rem; }
+.card-dashboard h2 { font-weight: 700; font-size: 2.1rem; }
 
-.row-cols-lg-6 > .col:nth-child(6n+1) .dashboard-card { border-top: 6px solid var(--coral) !important; }
-.row-cols-lg-6 > .col:nth-child(6n+2) .dashboard-card { border-top: 6px solid var(--grama) !important; }
-.row-cols-lg-6 > .col:nth-child(6n+3) .dashboard-card { border-top: 6px solid var(--ceu) !important; }
-.row-cols-lg-6 > .col:nth-child(6n+4) .dashboard-card { border-top: 6px solid var(--sol) !important; }
-.row-cols-lg-6 > .col:nth-child(6n+5) .dashboard-card { border-top: 6px solid var(--uva) !important; }
-.row-cols-lg-6 > .col:nth-child(6n+6) .dashboard-card { border-top: 6px solid var(--ceu-esc) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+1) .dashboard-card { border-top: 3px solid var(--coral) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+2) .dashboard-card { border-top: 3px solid var(--grama) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+3) .dashboard-card { border-top: 3px solid var(--ceu) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+4) .dashboard-card { border-top: 3px solid var(--sol) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+5) .dashboard-card { border-top: 3px solid var(--uva) !important; }
+.row-cols-lg-6 > .col:nth-child(6n+6) .dashboard-card { border-top: 3px solid var(--ceu-esc) !important; }
 
 /* ------------------------------------------------------------------ rodapé */
 
 .footer-custom, .bg-custom {
-  background: linear-gradient(90deg, var(--ceu-esc) 0%, var(--grama-esc) 100%) !important;
-  color: #fff !important;
-  border-top: none !important;
+  background: var(--papel) !important;
+  color: var(--tinta-sua) !important;
+  border-top: 1px solid var(--borda) !important;
+  box-shadow: none !important;
 }
 
 /* -------------------------------------------------------------- responsivo */
@@ -589,10 +595,9 @@ label.fw-bold { color: var(--tinta); margin-bottom: .3rem; }
   .cartao-aluno:hover, .btn:hover, .sidebar .nav-link:hover { transform: none !important; }
 }
 
-/* Títulos com a fonte arredondada (Fredoka). Se a fonte não carregar — por
-   exemplo sem internet —, cai no Nunito e depois na fonte do sistema. */
+/* Usa a mesma fonte do restante da interface para manter a leitura uniforme. */
 h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num {
-  font-family: 'Fredoka', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
 }
 
 /* ============================================================================
@@ -670,8 +675,8 @@ h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num 
   /* O posicionamento é feito em js/tabela.js (position:fixed). Aqui só a
      aparência; o overflow-y vem por estilo inline quando o menu abre. */
   background: var(--papel) !important;
-  border: 2px solid var(--borda) !important;
-  border-radius: 14px !important;
+  border: 1px solid var(--borda) !important;
+  border-radius: 10px !important;
   box-shadow: var(--sombra-alta) !important;
   padding: .35rem !important;
   min-width: 190px;
@@ -713,8 +718,8 @@ h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num 
 }
 .dataTables_wrapper .dataTables_length select,
 .dataTables_wrapper .dataTables_filter input {
-  border: 2px solid var(--borda) !important;
-  border-radius: 12px !important;
+  border: 1px solid var(--borda) !important;
+  border-radius: 9px !important;
   padding: .35rem .6rem !important;
   margin: 0 .4rem !important;
   background: #fff;
@@ -725,7 +730,7 @@ h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num 
 .dataTables_wrapper .dataTables_length select:focus,
 .dataTables_wrapper .dataTables_filter input:focus {
   border-color: var(--ceu) !important;
-  box-shadow: 0 0 0 .2rem rgba(78, 168, 222, .18) !important;
+  box-shadow: 0 0 0 .18rem rgba(68, 123, 148, .14) !important;
   outline: none;
 }
 .dataTables_wrapper .dataTables_info {
@@ -746,8 +751,8 @@ h1, h2, h3, .painel-turma-nome, .card-escola-titulo, .secao-titulo, .placar-num 
 .dataTables_wrapper .dataTables_paginate .pagination .page-link {
   background: #fff !important;
   color: var(--ceu-esc) !important;
-  border: 2px solid var(--borda) !important;
-  border-radius: 12px !important;
+  border: 1px solid var(--borda) !important;
+  border-radius: 9px !important;
   font-weight: 800;
   padding: .4rem .8rem !important;
   margin: 0 !important;
@@ -792,8 +797,19 @@ body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
   .dataTables_wrapper .dataTables_paginate .pagination .page-link {
     padding: .35rem .6rem !important; font-size: .8rem;
   }
+
   table.dataTable.fixedHeader-floating,
   table.dataTable.fixedHeader-locked { left: 0 !important; width: 100% !important; }
+}
+
+body.high-contrast .table > thead > tr {
+  background: #000 !important;
+}
+body.high-contrast .table > thead > tr > th,
+body.high-contrast .table-light > thead > tr > th {
+  background-color: #000 !important;
+  color: #fff !important;
+  border-color: #fff !important;
 }
 
 /* ============================================================================
@@ -802,7 +818,7 @@ body:has(.sidebar:hover) table.dataTable.fixedHeader-floating {
    Dois problemas medidos no navegador com o menu recolhido (60px):
 
    1. O ícone do item selecionado ficava 2px à direita do centro da faixa
-      amarela. A faixa tem 44px (60 - 8 - 8 de margem) e padding de 12px de
+      ativa. A faixa tem 44px (60 - 8 - 8 de margem) e padding de 12px de
       cada lado, sobrando 20px de miolo; mas o style.css dá min-width:24px ao
       <i>. O ícone não cabia no miolo e avançava 4px para a direita, deixando
       o centro em 32px contra 30px da faixa.
