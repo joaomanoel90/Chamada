@@ -18,7 +18,7 @@ return array(
 	'README_CHAMADA.md' => array('09e8e5430e498ef64139eefd27871107f814e3fad6139ee047a3a10f48e85940', 18445, 0),
 	'alunos/add.php' => array('f8822ca5db78747837064b7b8e079efecc1ffb914a612d655c3d04a0726a391d', 261, 1),
 	'alunos/cracha.php' => array('5c38076e5dd002f4ee8bcb08a23735981e54c63428895dba6bea1571b378c59b', 3720, 1),
-	'alunos/crachas_turma.php' => array('95944bd48cb510b940b998c188b35cfe7cf4c1ee3b9b37d54b74e747a441da1a', 6645, 1),
+	'alunos/crachas_turma.php' => array('2a822a30323c50709e6180225170630fba921635846a57d237ca05ce46b13b10', 6968, 1),
 	'alunos/edit.php' => array('ddc63be0b87f57cd405f2542b1f8cc7c9ed0d7ffa1fc6459e9cacb47a6ddffcd', 308, 1),
 	'alunos/formulario.php' => array('71cd89d089774ab72a833d4778530cb328b8556fb0b735b97dfb77fa21b5842e', 7096, 1),
 	'alunos/foto.php' => array('751eb40e33cadd8f320f72ebc1b4a7d85258efce92118e0644f4fda9a72baab9', 1103, 1),

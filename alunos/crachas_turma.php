@@ -84,6 +84,10 @@ $folhas = array_chunk($alunos, 9);
       border-radius: 4mm;
       background: linear-gradient(160deg, #fff 0%, #f5fbff 60%, #e8f6ef 100%);
       text-align: center;
+      /* Coluna flex: o nome ocupa o espaço que sobra e as informações de
+         baixo (turma, período, ano) nunca saem do crachá. */
+      display: flex;
+      flex-direction: column;
     }
     .marca { color: #26734d; font-size: 9pt; font-weight: 800; letter-spacing: .5px; }
     .subtitulo {
@@ -96,9 +100,10 @@ $folhas = array_chunk($alunos, 9);
       word-break: break-word;
     }
     .foto {
-      width: 31mm;
-      height: 34mm;
-      margin: 4mm auto 2.5mm;
+      width: 28mm;
+      height: 30mm;
+      margin: 3mm auto 2mm;
+      flex: 0 0 auto;
       overflow: hidden;
       border: 2px solid #fff;
       border-radius: 3mm;
@@ -120,8 +125,10 @@ $folhas = array_chunk($alunos, 9);
       font-weight: 800;
       overflow-wrap: break-word;
       word-break: break-word;
+      flex: 1 1 auto;
     }
-    .matricula { color: #26734d; font-size: 8pt; font-weight: 700; }
+    /* margin-top:auto cola o bloco de baixo no rodapé do crachá. */
+    .matricula { color: #26734d; font-size: 8pt; font-weight: 700; margin-top: auto; }
     .linha {
       margin-top: 2mm;
       color: #405168;
