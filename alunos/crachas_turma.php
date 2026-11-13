@@ -112,7 +112,7 @@ $folhas = array_chunk($alunos, 9);
       font-weight: 800;
     }
     .matricula { color: #26734d; font-size: 8pt; font-weight: 700; }
-    .linha { margin-top: 2mm; color: #405168; font-size: 7.5pt; line-height: 1.2; }
+    .linha { margin-top: 2mm; color: #405168; font-size: 7pt; line-height: 1.2; }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
     @page { size: A4 portrait; margin: 8mm; }
     @media print {
@@ -143,7 +143,8 @@ $folhas = array_chunk($alunos, 9);
     <?php endif; ?>
   </nav>
   <header class="resumo">
-    <h1>Crachás da turma <?= ch_h($turma['NOME']) ?></h1>
+    <h1>Crachás — Turma <?= ch_h(ch_series_ensino()[$turma['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+      · Sala <?= ch_h($turma['NOME']) ?></h1>
     <p><?= ch_h($turma['UNIDADE']) ?> · <?= ch_h($turma['PERIODO']) ?> · Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></p>
     <p><?= count($alunos) ?> aluno(s) ativo(s); até 9 crachás por folha A4.</p>
   </header>
@@ -167,7 +168,8 @@ $folhas = array_chunk($alunos, 9);
             </div>
             <h2 class="nome"><?= ch_h($aluno['NOME']) ?></h2>
             <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
-            <div class="linha"><?= ch_h($turma['NOME']) ?></div>
+            <div class="linha">Turma <?= ch_h(ch_series_ensino()[$turma['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+              · Sala <?= ch_h($turma['NOME']) ?></div>
             <div class="linha"><?= ch_h($turma['PERIODO']) ?></div>
             <div class="ano">Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></div>
           </article>

@@ -72,7 +72,7 @@ $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
     .foto img { width: 100%; height: 100%; object-fit: cover; }
     .nome { margin: 0 auto 1.5mm; max-height: 14mm; overflow: hidden; font-size: 11pt; line-height: 1.15; font-weight: 800; }
     .matricula { color: #26734d; font-size: 8pt; font-weight: 700; }
-    .linha { margin-top: 2mm; color: #405168; font-size: 7.5pt; line-height: 1.2; }
+    .linha { margin-top: 2mm; color: #405168; font-size: 7pt; line-height: 1.2; }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
     @page { size: 54mm 86mm; margin: 0; }
     @media print {
@@ -99,7 +99,8 @@ $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
     </div>
     <h1 class="nome"><?= ch_h($aluno['NOME']) ?></h1>
     <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
-    <div class="linha"><?= ch_h($aluno['TURMA']) ?></div>
+    <div class="linha">Turma <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+      · Sala <?= ch_h($aluno['TURMA']) ?></div>
     <div class="linha"><?= ch_h($aluno['PERIODO']) ?></div>
     <div class="ano">Ano letivo <?= (int)$aluno['ANO_LETIVO'] ?></div>
   </main>

@@ -497,7 +497,7 @@ function ch_unidades_opcoes()
 function ch_turma($idTurma)
 {
     return ch_row(
-        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.ETAPA_ENSINO, t.ID_PERIODO, t.ID_PROFESSOR,
+        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ANO_LETIVO, t.ETAPA_ENSINO, t.ID_PERIODO, t.ID_PROFESSOR,
                 t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
                 u.unidade AS UNIDADE,
                 p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM

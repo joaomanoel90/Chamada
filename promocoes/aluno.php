@@ -12,10 +12,15 @@
   segue o calendário escolar definido pela Secretaria de Educação.
 </div>
 
-<?php if (!$destinos): ?>
-  <div class="alert alert-warning">Cadastre e classifique uma turma ativa do próximo ano em uma unidade autorizada antes de movimentar este aluno.</div>
-<?php elseif (empty($aluno['SERIE'])): ?>
-  <div class="alert alert-warning">Classifique a série da turma atual em Turmas → Editar antes de promover ou reter este aluno.</div>
+<?php if (empty($aluno['SERIE'])): ?>
+  <div class="alert alert-warning">
+    A turma de origem <strong><?= ch_h($aluno['TURMA']) ?></strong> não tem série classificada.
+    O seletor de destino só aparece depois dessa classificação, necessária para determinar a série
+    correta da promoção ou retenção.
+    <a class="alert-link" href="<?= ch_url('turmas/edit.php?id=' . (int)$aluno['ID_TURMA']) ?>">Classificar turma de origem</a>.
+  </div>
+<?php elseif (!$destinos): ?>
+  <div class="alert alert-warning">Cadastre e classifique uma turma ativa do próximo ano em uma unidade autorizada ao seu usuário antes de movimentar este aluno.</div>
 <?php else: ?>
   <form method="post" action="<?= ch_url('promocoes/processa/salvar_processa.php') ?>" class="card border-0 shadow-sm rounded-4">
     <div class="card-body">
