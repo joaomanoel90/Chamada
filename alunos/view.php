@@ -11,7 +11,8 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
     $botoesAluno .= '<a class="btn btn-outline-warning" href="' . ch_url('alunos/saida.php?id=' . (int)$id) . '"><i class="fas fa-right-from-bracket"></i> Registrar saída</a> ';
 }
 if ($podeTransferir) {
-    $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a>';
+    $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a> ';
+    $botoesAluno .= '<a class="btn btn-outline-success" href="' . ch_url('transferencias/trocar_turma.php?aluno_id=' . (int)$id) . '"><i class="fas fa-people-arrows"></i> Trocar de turma</a>';
 }
 if (ch_gestor() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1
     && !$transferenciaPendente && !$saidaExternaAberta) {

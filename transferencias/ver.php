@@ -12,7 +12,7 @@ if ($podeReceber) {
 if ($podeCancelar) {
     $botoes .= '<a class="btn btn-outline-danger" href="cancelar.php?id=' . (int)$id . '"><i class="fas fa-ban"></i> Cancelar</a>';
 }
-ch_cabecalho('Transferência #' . (int)$id, 'fa-right-left', $botoes);
+ch_cabecalho((tr_e_troca_turma($t) ? 'Troca de turma #' : 'Transferência #') . (int)$id, 'fa-right-left', $botoes);
 ?>
 
 <div class="mb-3"><?= tr_situacao_badge($t['SITUACAO']) ?></div>
@@ -26,8 +26,13 @@ ch_cabecalho('Transferência #' . (int)$id, 'fa-right-left', $botoes);
 <?php elseif ($t['SITUACAO'] === 'CONCLUIDA'): ?>
   <div class="alert alert-success">
     <i class="fas fa-check"></i>
-    Concluída. O aluno está em <b><?= ch_h($t['TURMA_DESTINO']) ?></b>, na escola
-    <?= ch_h($t['UNIDADE_DESTINO']) ?>, desde <b><?= ch_data_br($t['DATA_INICIO']) ?></b>.
+    <?php if (tr_e_troca_turma($t)): ?>
+      Troca de turma concluída. O aluno está em <b><?= ch_h($t['TURMA_DESTINO']) ?></b>,
+      na mesma escola, desde <b><?= ch_data_br($t['DATA_INICIO']) ?></b>.
+    <?php else: ?>
+      Concluída. O aluno está em <b><?= ch_h($t['TURMA_DESTINO']) ?></b>, na escola
+      <?= ch_h($t['UNIDADE_DESTINO']) ?>, desde <b><?= ch_data_br($t['DATA_INICIO']) ?></b>.
+    <?php endif; ?>
     A chamada anterior a essa data permanece na turma de origem.
   </div>
 <?php else: ?>
@@ -66,11 +71,15 @@ ch_cabecalho('Transferência #' . (int)$id, 'fa-right-left', $botoes);
             <small class="text-muted"><?= $t['TURMA_DESTINO']
                 ? ch_h(ch_series_ensino()[$t['SERIE_DESTINO']]['rotulo'] ?? '') . ' · ' . ch_h($t['TURMA_DESTINO']) . ' — ' . ch_h($t['PERIODO_DESTINO']) . ' (' . (int)$t['ANO_DESTINO'] . ')'
                 : 'turma ainda não escolhida' ?></small></dd>
-          <dt class="col-sm-4">Resultado</dt>
-          <dd class="col-sm-8"><?= ch_h(ch_resultado_escolar_rotulo($t['RESULTADO'])) ?></dd>
-          <?php if ($t['MOTIVO_RESULTADO']): ?>
-            <dt class="col-sm-4">Motivo da retenção</dt>
-            <dd class="col-sm-8"><?= ch_h(ch_motivo_retencao_rotulo($t['MOTIVO_RESULTADO'])) ?></dd>
+          <dt class="col-sm-4">Tipo</dt>
+          <dd class="col-sm-8"><?= tr_e_troca_turma($t) ? 'Troca de turma na mesma escola' : 'Transferência entre escolas' ?></dd>
+          <?php if (!tr_e_troca_turma($t)): ?>
+            <dt class="col-sm-4">Resultado</dt>
+            <dd class="col-sm-8"><?= ch_h(ch_resultado_escolar_rotulo($t['RESULTADO'])) ?></dd>
+            <?php if ($t['MOTIVO_RESULTADO']): ?>
+              <dt class="col-sm-4">Motivo da retenção</dt>
+              <dd class="col-sm-8"><?= ch_h(ch_motivo_retencao_rotulo($t['MOTIVO_RESULTADO'])) ?></dd>
+            <?php endif; ?>
           <?php endif; ?>
           <dt class="col-sm-4">Início</dt>
           <dd class="col-sm-8"><?= $t['DATA_INICIO'] ? '<b>' . ch_data_br($t['DATA_INICIO']) . '</b>' : '<span class="text-muted">a definir</span>' ?></dd>
@@ -81,7 +90,7 @@ ch_cabecalho('Transferência #' . (int)$id, 'fa-right-left', $botoes);
           <dt class="col-sm-4">Indicada por</dt>
           <dd class="col-sm-8"><?= ch_h($t['SOLICITADA_POR']) ?><br><small class="text-muted"><?= ch_h(ch_confirma_texto($t['SOLICITADA_EM'])) ?></small></dd>
           <?php if ($t['EFETIVADA_POR']): ?>
-            <dt class="col-sm-4">Recebida por</dt>
+            <dt class="col-sm-4"><?= tr_e_troca_turma($t) ? 'Efetivada por' : 'Recebida por' ?></dt>
             <dd class="col-sm-8"><?= ch_h($t['EFETIVADA_POR']) ?><br><small class="text-muted"><?= ch_h(ch_confirma_texto($t['EFETIVADA_EM'])) ?></small></dd>
           <?php endif; ?>
           <?php if ($t['OBSERVACAO_DESTINO']): ?>

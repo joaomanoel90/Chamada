@@ -12,6 +12,8 @@
   A transferência tem <b>duas etapas</b>: a escola de origem indica a escola de destino
   (em <i>Alunos → o aluno → Transferir</i>) e a <b>escola de destino</b> escolhe a turma e a
   <b>data de início</b>. O aluno continua na turma atual, com chamada normal, até o destino aceitar.
+  Para mudar de <b>turma na mesma escola</b>, use <i>Alunos → o aluno → Trocar de turma</i>:
+  a troca é registrada na hora, com data de início e motivo.
   <?php endif; ?>
 </div>
 
@@ -81,8 +83,13 @@
                   <small class="text-muted"><?= ch_h($x['TURMA_ORIGEM']) ?></small>
                 </td>
                 <td>
-                  <?= ch_h($x['UNIDADE_DESTINO']) ?><br>
-                  <small class="text-muted"><?= $x['TURMA_DESTINO'] ? ch_h($x['TURMA_DESTINO']) : 'turma ainda não escolhida' ?></small>
+                  <?php if (tr_e_troca_turma($x)): ?>
+                    <span class="badge bg-success">Troca de turma</span><br>
+                    <small class="text-muted"><?= $x['TURMA_DESTINO'] ? ch_h($x['TURMA_DESTINO']) : 'turma ainda não escolhida' ?></small>
+                  <?php else: ?>
+                    <?= ch_h($x['UNIDADE_DESTINO']) ?><br>
+                    <small class="text-muted"><?= $x['TURMA_DESTINO'] ? ch_h($x['TURMA_DESTINO']) : 'turma ainda não escolhida' ?></small>
+                  <?php endif; ?>
                 </td>
                 <td><?= $x['DATA_INICIO'] ? ch_data_br($x['DATA_INICIO']) : '<span class="text-muted">a definir</span>' ?></td>
                 <td><?= tr_situacao_badge($x['SITUACAO']) ?></td>

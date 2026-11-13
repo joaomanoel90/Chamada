@@ -21,6 +21,9 @@ if (!isset($historico)) { $historico = []; }
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-1">
         <div>
           <?= tr_situacao_badge($h['SITUACAO']) ?>
+          <?php if (tr_e_troca_turma($h)): ?>
+            <span class="badge bg-success">Troca de turma</span>
+          <?php endif; ?>
           <?php if ($h['DATA_INICIO']): ?>
             <span class="badge bg-light text-dark border">início em <?= ch_data_br($h['DATA_INICIO']) ?></span>
           <?php endif; ?>

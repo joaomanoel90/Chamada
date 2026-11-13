@@ -229,6 +229,7 @@ function tr_transferencia($id)
 function tr_historico_aluno($idAluno)
 {
     $sql =     'SELECT tr.ID, tr.SITUACAO, tr.RESULTADO, tr.MOTIVO_RESULTADO, tr.MOTIVO, tr.DOCUMENTO, tr.MOTIVO_CANCELAMENTO,
+                tr.ID_UNIDADE_DESTINO, tor.ID_UNIDADE AS ID_UNIDADE_ORIGEM,
                 CONVERT(varchar(10), tr.DATA_INICIO, 23)    AS DATA_INICIO,
                 CONVERT(varchar(16), tr.SOLICITADA_EM, 120) AS SOLICITADA_EM,
                 CONVERT(varchar(16), tr.EFETIVADA_EM, 120)  AS EFETIVADA_EM,
@@ -396,4 +397,41 @@ function tr_data_minima($aluno)
         if ($seguinte > $min) $min = $seguinte;
     }
     return $min;
+}
+
+/* ============================================================================
+   TROCA DE TURMA NA MESMA ESCOLA
+   ----------------------------------------------------------------------------
+   É uma movimentação registrada na mesma tabela de transferências, com a
+   escola de destino igual à de origem e já concluída na hora: como é a
+   própria escola que decide, não há segunda etapa. O histórico (chamada,
+   observações, relatório anual) funciona igual ao da transferência entre
+   escolas, porque a VW_ALUNO_VINCULO só olha a data de início.
+   ============================================================================ */
+
+/** Verdadeiro quando a movimentação é uma troca de turma dentro da mesma
+    escola (origem e destino são a mesma unidade). */
+function tr_e_troca_turma($t)
+{
+    return $t
+        && isset($t['ID_UNIDADE_ORIGEM'], $t['ID_UNIDADE_DESTINO'])
+        && (int)$t['ID_UNIDADE_ORIGEM'] === (int)$t['ID_UNIDADE_DESTINO'];
+}
+
+/** Turmas ativas da própria escola, no mesmo ano letivo do aluno, exceto a
+    turma atual. A série aparece no rótulo para a gestão conferir antes de
+    confirmar (a troca mais comum é entre turmas da mesma série). */
+function tr_turmas_mesma_escola($idUnidade, $anoLetivo, $idTurmaAtual)
+{
+    return ch_rows(
+        'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.CAPACIDADE,
+                p.NOME AS PERIODO, u.unidade AS UNIDADE,
+                (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS
+         FROM TB_TURMAS t
+         INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+         WHERE t.ATIVO = 1 AND t.ID_UNIDADE = ? AND t.ANO_LETIVO = ? AND t.ID <> ?
+         ORDER BY t.SERIE, t.NOME, p.NOME',
+        [(int)$idUnidade, (int)$anoLetivo, (int)$idTurmaAtual]
+    ) ?: [];
 }
