@@ -86,7 +86,15 @@ $folhas = array_chunk($alunos, 9);
       text-align: center;
     }
     .marca { color: #26734d; font-size: 9pt; font-weight: 800; letter-spacing: .5px; }
-    .subtitulo { margin-top: 1mm; color: #657487; font-size: 7pt; }
+    .subtitulo {
+      margin-top: 1mm;
+      color: #405168;
+      font-size: 7pt;
+      font-weight: 700;
+      line-height: 1.2;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
     .foto {
       width: 31mm;
       height: 34mm;
@@ -103,16 +111,25 @@ $folhas = array_chunk($alunos, 9);
       font-weight: 800;
     }
     .foto img { width: 100%; height: 100%; object-fit: cover; }
+    /* Nome: nunca corta. A fonte é ajustada no PHP pelo tamanho do nome
+       (ver $nomeFonte abaixo) e a quebra de palavra cobre sobrenomes
+       compridos sem espaço. */
     .nome {
-      max-height: 14mm;
-      overflow: hidden;
       margin: 0 auto 1.5mm;
-      font-size: 11pt;
       line-height: 1.15;
       font-weight: 800;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
     .matricula { color: #26734d; font-size: 8pt; font-weight: 700; }
-    .linha { margin-top: 2mm; color: #405168; font-size: 7pt; line-height: 1.2; }
+    .linha {
+      margin-top: 2mm;
+      color: #405168;
+      font-size: 7pt;
+      line-height: 1.2;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
     @page { size: A4 portrait; margin: 8mm; }
     @media print {
@@ -155,7 +172,15 @@ $folhas = array_chunk($alunos, 9);
     <?php foreach ($folhas as $folha): ?>
       <main class="folha">
         <?php foreach ($folha as $aluno): ?>
-          <?php $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'], $aluno['ID']); ?>
+          <?php
+            $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'], $aluno['ID']);
+            /* Fonte do nome pelo tamanho: garante que nomes grandes caibam
+               no crachá sem cortar nenhuma letra. */
+            $tamNome = mb_strlen($aluno['NOME']);
+            $nomeFonte = $tamNome <= 28 ? '11pt'
+                       : ($tamNome <= 42 ? '10pt'
+                       : ($tamNome <= 56 ? '9pt' : '8pt'));
+          ?>
           <article class="cracha">
             <div class="marca">PREFEITURA DE ANGATUBA</div>
             <div class="subtitulo"><?= ch_h($turma['UNIDADE']) ?></div>
@@ -166,7 +191,7 @@ $folhas = array_chunk($alunos, 9);
                 <?= ch_h(ch_iniciais($aluno['NOME'])) ?>
               <?php endif; ?>
             </div>
-            <h2 class="nome"><?= ch_h($aluno['NOME']) ?></h2>
+            <h2 class="nome" style="font-size: <?= $nomeFonte ?>"><?= ch_h($aluno['NOME']) ?></h2>
             <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
             <div class="linha">Turma <?= ch_h(ch_series_ensino()[$turma['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
               · Sala <?= ch_h($turma['NOME']) ?></div>
