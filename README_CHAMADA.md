@@ -181,6 +181,33 @@ Remover alguém da equipe desativa o vínculo (`ATIVO = 0`), sem apagar o histó
 `TB_TURMAS.ID_PROFESSOR` permanece como coluna legada, igual ao responsável que
 cobre o turno da turma, para não quebrar consultas antigas.
 
+### Contexto de trabalho do professor (escola + turma)
+
+O professor pode lecionar em **mais de uma escola** e em **mais de uma turma**.
+Ao entrar no sistema, ele escolhe onde está trabalhando (tela `contexto.php`):
+quem tem uma só turma entra direto; quem tem mais de uma escolhe antes de ver o
+painel. A troca pode ser feita a qualquer momento pelo menu lateral
+(**Trocar escola/turma**), que mostra onde ele está trabalhando.
+
+O contexto fica só na sessão (`$_SESSION['ch_contexto']`) — não há tabela nova
+nem migração de banco. Ele é aplicado no funil único de acesso do professor,
+`ch_turmas_ids()` (`inc/chamada.php`): com o contexto, o professor só alcança
+**aquela turma**, e todas as telas (chamada, alunos, observações, diário,
+relatórios, painel) passam a mostrar só ela. A conferência é feita no banco
+(`ID`, `ID_UNIDADE` e `ANO_LETIVO`), então uma turma movida de escola ou de ano
+pela gestão não continua valendo por engano.
+
+**Turmas de anos anteriores somem sozinhas.** O ano padrão é o ano corrente
+(`date('Y')`); se o professor ainda não tem turma no ano atual — a secretaria
+ainda não criou as turmas novas — vale o ano mais recente em que ele tem turma,
+para que ele consiga terminar os relatórios do ano anterior. Quando a secretaria
+cria as turmas do ano seguinte, as turmas antigas deixam de aparecer em qualquer
+tela do professor, sem precisar inativar nada. Na tela de escolha há um filtro
+por ano letivo para quem precisa voltar a uma turma antiga.
+
+O substituto respeita o mesmo contexto: só pode escolher turmas em que está
+vigente hoje (dentro do prazo da substituição).
+
 ### Substituto e observações do professor
 
 Por padrão o substituto **não lê** o que os outros professores escreveram. Ele

@@ -432,8 +432,134 @@ function ch_turmas_ids()
     /* Vai para inc/equipe.php: o substituto só alcança a turma dentro do prazo
        da substituição. Como todas as telas de professor passam por aqui, o
        prazo vale de uma vez para chamada, observações, relatório e retificação. */
-    $cache = eq_turmas_ids_em(ch_uid(), ch_hoje());
+    $ids = eq_turmas_ids_em(ch_uid(), ch_hoje());
+
+    /* Professor: o contexto escolhido no login (escola + turma) restringe o
+       alcance. Turmas de outras escolas e de anos anteriores somem de todas
+       as telas de uma vez — é o que esconde as turmas antigas quando a
+       secretaria encerra o ano letivo e cria as turmas do ano seguinte.
+       A conferência é feita no banco (e não só na sessão) para que uma turma
+       movida de escola/ano pela gestão não continue valendo por engano. */
+    if (ch_professor()) {
+        $ctx = ch_contexto();
+        if ($ctx['turma'] > 0 && $ids) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $rows = ch_rows(
+                'SELECT ID FROM TB_TURMAS
+                  WHERE ID IN (' . $ph . ') AND ID = ? AND ID_UNIDADE = ? AND ANO_LETIVO = ?',
+                array_merge($ids, [$ctx['turma'], $ctx['unidade'], $ctx['ano']])
+            );
+            $ids = array_map(function ($r) { return (int)$r['ID']; }, $rows ?: []);
+        } else {
+            $ids = [];
+        }
+    }
+
+    $cache = $ids;
     return $cache;
+}
+
+/* ------------------------------------------------- contexto do professor
+   ----------------------------------------------------------------------------
+   O professor pode lecionar em mais de uma escola e em mais de uma turma.
+   Ao entrar, ele escolhe onde está trabalhando (escola + turma); a partir
+   daí o sistema mostra só esse recorte. A troca pode ser feita a qualquer
+   momento pelo menu lateral (contexto.php).
+
+   O contexto fica só na sessão: não há tabela nova nem migração de banco.
+   O ano padrão é o ano corrente; se ele ainda não tem turma no ano atual
+   (a secretaria ainda não criou as turmas novas), vale o ano mais recente
+   em que ele tem turma — assim ele consegue terminar os relatórios do ano
+   anterior sem ver a bagunça dos anos passados no dia a dia.
+   ---------------------------------------------------------------------------- */
+
+/** Contexto de trabalho do professor: ['unidade', 'ano', 'turma'].
+ *  Zeros quando nada foi escolhido (professor sem turma ainda). */
+function ch_contexto()
+{
+    $c = $_SESSION['ch_contexto'] ?? null;
+    if (!is_array($c)) {
+        return ['unidade' => 0, 'ano' => 0, 'turma' => 0];
+    }
+    return [
+        'unidade' => (int)($c['unidade'] ?? 0),
+        'ano'     => (int)($c['ano'] ?? 0),
+        'turma'   => (int)($c['turma'] ?? 0),
+    ];
+}
+
+/** A turma do contexto, já conferida com escola e ano. Null se não houver. */
+function ch_contexto_turma()
+{
+    $ctx = ch_contexto();
+    if ($ctx['turma'] <= 0) return null;
+    $t = ch_turma($ctx['turma']);
+    if (!$t || (int)$t['ID_UNIDADE'] !== $ctx['unidade'] || (int)$t['ANO_LETIVO'] !== $ctx['ano']) {
+        return null;
+    }
+    return $t;
+}
+
+/** Turmas ativas em que o professor está na equipe, num ano letivo.
+ *  Respeita o prazo do substituto, igual a eq_turmas_ids_em(). */
+function ch_professor_turmas_por_escola($idUsuario, $ano)
+{
+    $idUsuario = (int)$idUsuario;
+    $ano = (int)$ano;
+    if ($idUsuario <= 0 || $ano <= 0) return [];
+    return ch_rows(
+        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ANO_LETIVO,
+                u.unidade AS UNIDADE, p.NOME AS PERIODO,
+                tp.PAPEL, tp.TURNO
+           FROM TB_TURMA_PROFESSORES tp
+           INNER JOIN TB_TURMAS t ON t.ID = tp.ID_TURMA
+           INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+           INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+          WHERE tp.ID_USUARIO = ? AND tp.ATIVO = 1 AND t.ATIVO = 1 AND t.ANO_LETIVO = ?
+            AND (tp.PAPEL <> \'SUBSTITUTO\'
+                 OR (tp.DATA_INICIO IS NOT NULL AND tp.DATA_FIM IS NOT NULL
+                     AND ? >= tp.DATA_INICIO AND ? <= tp.DATA_FIM))
+          ORDER BY u.unidade, t.SERIE, t.NOME, p.NOME',
+        [$idUsuario, $ano, ch_hoje(), ch_hoje()]
+    ) ?: [];
+}
+
+/** Anos letivos em que o professor tem turma ativa na equipe, do mais novo. */
+function ch_professor_anos($idUsuario)
+{
+    $idUsuario = (int)$idUsuario;
+    if ($idUsuario <= 0) return [];
+    $rows = ch_rows(
+        'SELECT DISTINCT t.ANO_LETIVO
+           FROM TB_TURMA_PROFESSORES tp
+           INNER JOIN TB_TURMAS t ON t.ID = tp.ID_TURMA
+          WHERE tp.ID_USUARIO = ? AND tp.ATIVO = 1 AND t.ATIVO = 1
+            AND (tp.PAPEL <> \'SUBSTITUTO\'
+                 OR (tp.DATA_INICIO IS NOT NULL AND tp.DATA_FIM IS NOT NULL
+                     AND ? >= tp.DATA_INICIO AND ? <= tp.DATA_FIM))
+          ORDER BY t.ANO_LETIVO DESC',
+        [$idUsuario, ch_hoje(), ch_hoje()]
+    ) ?: [];
+    return array_map(function ($r) { return (int)$r['ANO_LETIVO']; }, $rows);
+}
+
+/** Contexto padrão no login: a primeira turma do ano corrente; se não houver,
+ *  a primeira turma do ano mais recente em que ele tem turma. */
+function ch_contexto_padrao($idUsuario)
+{
+    $idUsuario = (int)$idUsuario;
+    $anoAtual = (int)date('Y');
+    $turmas = ch_professor_turmas_por_escola($idUsuario, $anoAtual);
+    if ($turmas) {
+        return ['unidade' => (int)$turmas[0]['ID_UNIDADE'], 'ano' => $anoAtual, 'turma' => (int)$turmas[0]['ID']];
+    }
+    foreach (ch_professor_anos($idUsuario) as $ano) {
+        $turmas = ch_professor_turmas_por_escola($idUsuario, $ano);
+        if ($turmas) {
+            return ['unidade' => (int)$turmas[0]['ID_UNIDADE'], 'ano' => $ano, 'turma' => (int)$turmas[0]['ID']];
+        }
+    }
+    return ['unidade' => 0, 'ano' => $anoAtual, 'turma' => 0];
 }
 
 /** Filtro SQL para restringir uma consulta de TURMAS ao alcance do usuário.

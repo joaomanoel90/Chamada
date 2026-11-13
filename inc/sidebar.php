@@ -65,6 +65,19 @@ function ch_menu_item($item)
 
       <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php" title="Dashboard"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
 
+      <?php if (ch_professor()): $ch_ctx_turma = ch_contexto_turma(); ?>
+        <div class="contexto-professor">
+          <div class="ctx-rotulo">Trabalhando em</div>
+          <?php if ($ch_ctx_turma): ?>
+            <div class="ctx-escola"><?= ch_h($ch_ctx_turma['UNIDADE']) ?></div>
+            <div class="ctx-turma"><?= ch_h(ch_series_ensino()[$ch_ctx_turma['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · Sala <?= ch_h($ch_ctx_turma['NOME']) ?> · <?= (int)$ch_ctx_turma['ANO_LETIVO'] ?></div>
+          <?php else: ?>
+            <div class="ctx-escola">Nenhuma turma escolhida</div>
+          <?php endif; ?>
+          <a class="ctx-trocar" href="<?php echo BASEURL; ?>contexto.php" title="Trocar escola/turma"><i class="fas fa-right-left"></i> Trocar escola/turma</a>
+        </div>
+      <?php endif; ?>
+
       <hr class="border-light">
       <p class="text-white-50 small mb-1 px-2">ROTINA ESCOLAR</p>
       <?php foreach ($ch_links_chamada as $item) ch_menu_item($item); ?>

@@ -192,6 +192,21 @@ O vínculo do **professor** é por turma: **Turmas → Editar → Equipe da turm
 Ao incluir o professor na equipe, ele já alcança a turma — não é obrigatório
 vínculo em `TB_ACESSO` para isso.
 
+### Professor com mais de uma escola ou turma
+
+Quem leciona em mais de uma escola ou tem mais de uma turma escolhe, ao entrar,
+**onde está trabalhando** (escola + turma). A partir daí o sistema mostra só
+esse recorte em todas as telas, e o menu lateral mostra onde ele está, com o
+botão **Trocar escola/turma** para mudar a qualquer momento. Quem tem uma só
+turma entra direto.
+
+As turmas de **anos anteriores ficam ocultas automaticamente**: o padrão é o
+ano corrente, e quando a secretaria cria as turmas do ano seguinte, as antigas
+deixam de aparecer — sem precisar inativar nada. Se o professor ainda não tem
+turma no ano atual, vale o ano mais recente em que ele tem turma, para terminar
+os relatórios do ano anterior. Na tela de escolha há um filtro por ano letivo
+para voltar a uma turma antiga quando for preciso.
+
 ## Equipe da turma (por turno, com substituto)
 
 Uma turma pode ter **quantos professores forem necessários**. Em

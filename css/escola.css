@@ -106,6 +106,42 @@ a:hover { color: var(--uva); }
 .sidebar hr { border-color: var(--borda) !important; margin: 10px 12px; }
 .sidebar p.small { color: var(--tinta-sua) !important; letter-spacing: .7px; font-weight: 700; }
 
+/* --- contexto de trabalho do professor (escola + turma escolhidas) ---
+   O menu lateral tem fundo claro e texto escuro: nada de text-white aqui,
+   senão o bloco fica invisível. Recolhido, o bloco sai do fluxo igual aos
+   rótulos das seções. */
+.sidebar .contexto-professor {
+  margin: 4px 8px 2px;
+  padding: 10px 12px;
+  background: #F1F5F7;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+.sidebar .contexto-professor .ctx-rotulo {
+  color: var(--tinta-sua);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+.sidebar .contexto-professor .ctx-escola {
+  color: var(--tinta);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.sidebar .contexto-professor .ctx-turma { color: var(--tinta-sua); }
+.sidebar .contexto-professor .ctx-trocar {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--ceu-esc);
+  font-weight: 700;
+  text-decoration: none;
+}
+.sidebar .contexto-professor .ctx-trocar:hover { text-decoration: underline; }
+.sidebar:not(:hover):not(.active) .contexto-professor { display: none; }
+
 .toggle-btn {
   background: #fff !important;
   color: var(--tinta) !important;

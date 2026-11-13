@@ -49,6 +49,22 @@ if ($resultado['status'] === 'success') {
 	$_SESSION['usuarioNiveisAcessoId'] = $row['NIVEL'];
 	$_SESSION['usuarioCPF'] = $row['CPF'];
 	$_SESSION['ch_ultima_atividade'] = time();
+
+	/* Professor: define o contexto de trabalho (escola + turma). Quem leciona
+	   em mais de uma escola ou tem mais de uma turma escolhe onde está
+	   trabalhando antes de entrar; quem tem uma só entra direto. */
+	if ((int)$row['NIVEL'] === 3) {
+		$ctx = ch_contexto_padrao((int)$row['ID']);
+		$_SESSION['ch_contexto'] = $ctx;
+		$opcoes = $ctx['ano'] > 0
+			? ch_professor_turmas_por_escola((int)$row['ID'], $ctx['ano'])
+			: [];
+		if (count($opcoes) > 1) {
+			header('Location: ' . BASEURL . 'contexto.php');
+			exit;
+		}
+	}
+
 	header('Location: ' . BASEURL . 'index.php');
 	exit;
 }

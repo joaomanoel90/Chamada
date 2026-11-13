@@ -222,6 +222,8 @@ $funcoes = array(
 		'ch_db', 'ch_q', 'ch_rows', 'ch_row', 'ch_val', 'ch_exec', 'ch_afetadas', 'ch_insert_id',
 		'ch_uid', 'ch_nivel', 'ch_admin', 'ch_diretor', 'ch_professor', 'ch_gestor',
 		'ch_unidades_ids', 'ch_turmas_ids', 'ch_filtro_turma', 'ch_pode_unidade', 'ch_pode_turma',
+		'ch_contexto', 'ch_contexto_turma', 'ch_contexto_padrao',
+		'ch_professor_turmas_por_escola', 'ch_professor_anos',
 		'ch_aluno', 'ch_pode_aluno', 'ch_pode_aluno_atual', 'ch_exige_aluno_atual',
 		'ch_csrf_token', 'ch_csrf_campo', 'ch_csrf_ok', 'ch_flash', 'ch_bloqueio_chamada',
 		'ch_feriados_do_periodo', 'ch_turma_equipe_texto',
