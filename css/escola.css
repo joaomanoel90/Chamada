@@ -113,25 +113,26 @@ a:hover { color: var(--uva); }
 .sidebar .contexto-professor {
   margin: 4px 8px 2px;
   padding: 10px 12px;
-  background: #F1F5F7;
-  border: 1px solid var(--borda);
+  background: #EAF2F6;
+  border: 1px solid #C9DCE6;
+  border-left: 4px solid var(--ceu);
   border-radius: 10px;
   font-size: .82rem;
   line-height: 1.35;
 }
 .sidebar .contexto-professor .ctx-rotulo {
-  color: var(--tinta-sua);
+  color: var(--ceu-esc);
   font-size: .72rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: .7px;
   text-transform: uppercase;
 }
 .sidebar .contexto-professor .ctx-escola {
   color: var(--tinta);
-  font-weight: 700;
+  font-weight: 800;
   margin-top: 2px;
 }
-.sidebar .contexto-professor .ctx-turma { color: var(--tinta-sua); }
+.sidebar .contexto-professor .ctx-turma { color: var(--tinta); font-weight: 600; }
 .sidebar .contexto-professor .ctx-trocar {
   display: inline-block;
   margin-top: 6px;
