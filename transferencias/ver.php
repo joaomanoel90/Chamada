@@ -65,11 +65,11 @@ ch_cabecalho((tr_e_troca_turma($t) ? 'Troca de turma #' : 'Transferência #') . 
         <h5 class="mb-3"><i class="fas fa-right-left"></i> Encaminhamento</h5>
         <dl class="row mb-0">
           <dt class="col-sm-4">De</dt>
-          <dd class="col-sm-8"><?= ch_h($t['UNIDADE_ORIGEM']) ?><br><small class="text-muted"><?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?> (<?= (int)$t['ANO_ORIGEM'] ?>)</small></dd>
+          <dd class="col-sm-8"><?= ch_h($t['UNIDADE_ORIGEM']) ?><br><small class="text-muted"><?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?> (<?= (int)$t['ANO_ORIGEM'] ?>)</small></dd>
           <dt class="col-sm-4">Para</dt>
           <dd class="col-sm-8"><?= ch_h($t['UNIDADE_DESTINO']) ?><br>
             <small class="text-muted"><?= $t['TURMA_DESTINO']
-                ? ch_h(ch_series_ensino()[$t['SERIE_DESTINO']]['rotulo'] ?? '') . ' · ' . ch_h($t['TURMA_DESTINO']) . ' — ' . ch_h($t['PERIODO_DESTINO']) . ' (' . (int)$t['ANO_DESTINO'] . ')'
+                ? ch_h(ch_series_ensino()[$t['SERIE_DESTINO'] ?? '']['rotulo'] ?? '') . ' · ' . ch_h($t['TURMA_DESTINO']) . ' — ' . ch_h($t['PERIODO_DESTINO']) . ' (' . (int)$t['ANO_DESTINO'] . ')'
                 : 'turma ainda não escolhida' ?></small></dd>
           <dt class="col-sm-4">Tipo</dt>
           <dd class="col-sm-8"><?= tr_e_troca_turma($t) ? 'Troca de turma na mesma escola' : 'Transferência entre escolas' ?></dd>

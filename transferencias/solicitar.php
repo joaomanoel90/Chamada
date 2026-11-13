@@ -39,7 +39,7 @@
             <div class="mb-3">
               <label class="fw-bold">Escola e turma atuais</label>
               <input type="text" class="form-control" disabled
-                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h(ch_series_ensino()[$aluno['SERIE']]['rotulo'] ?? 'série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
+                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
             </div>
 
             <div class="mb-3">

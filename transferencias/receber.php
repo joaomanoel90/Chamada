@@ -32,7 +32,7 @@
             <div class="mb-3">
               <label class="fw-bold">Vem de</label>
               <input type="text" class="form-control" disabled
-                     value="<?= ch_h($t['UNIDADE_ORIGEM']) ?> — <?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?>">
+                     value="<?= ch_h($t['UNIDADE_ORIGEM']) ?> — <?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?>">
               <div class="form-text">
                 Encaminhado por <?= ch_h($t['SOLICITADA_POR']) ?> em <?= ch_h(ch_confirma_texto($t['SOLICITADA_EM'])) ?>.
                 Motivo: <?= ch_h($t['MOTIVO']) ?>

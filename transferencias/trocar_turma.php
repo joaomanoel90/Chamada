@@ -41,7 +41,7 @@
             <div class="mb-3">
               <label class="fw-bold">Escola e turma atuais</label>
               <input type="text" class="form-control" disabled
-                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h(ch_series_ensino()[$aluno['SERIE']]['rotulo'] ?? 'série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
+                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
             </div>
 
             <div class="mb-3">
@@ -50,7 +50,7 @@
                 <option value="">Selecione...</option>
                 <?php foreach ($turmas as $t): ?>
                   <option value="<?= (int)$t['ID'] ?>" <?= (int)$d['ID_TURMA_DESTINO'] === (int)$t['ID'] ? 'selected' : '' ?>>
-                    <?= ch_h(ch_series_ensino()[$t['SERIE']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['NOME']) ?> — <?= ch_h($t['PERIODO']) ?>
+                    <?= ch_h(ch_series_ensino()[$t['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['NOME']) ?> — <?= ch_h($t['PERIODO']) ?>
                     (<?= (int)$t['OCUPADAS'] ?>/<?= (int)$t['CAPACIDADE'] ?> vagas)
                   </option>
                 <?php endforeach; ?>

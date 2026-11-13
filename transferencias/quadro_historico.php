@@ -33,9 +33,9 @@ if (!isset($historico)) { $historico = []; }
         </a>
       </div>
       <p class="mb-1">
-        <b><?= ch_h($h['UNIDADE_ORIGEM']) ?></b> — <?= ch_h(ch_series_ensino()[$h['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($h['TURMA_ORIGEM']) ?>
+        <b><?= ch_h($h['UNIDADE_ORIGEM']) ?></b> — <?= ch_h(ch_series_ensino()[$h['SERIE_ORIGEM'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($h['TURMA_ORIGEM']) ?>
         <i class="fas fa-arrow-right mx-1 text-muted"></i>
-        <b><?= ch_h($h['UNIDADE_DESTINO']) ?></b><?php if ($h['TURMA_DESTINO']): ?> — <?= ch_h(ch_series_ensino()[$h['SERIE_DESTINO']]['rotulo'] ?? '') ?> · <?= ch_h($h['TURMA_DESTINO']) ?><?php endif; ?>
+        <b><?= ch_h($h['UNIDADE_DESTINO']) ?></b><?php if ($h['TURMA_DESTINO']): ?> — <?= ch_h(ch_series_ensino()[$h['SERIE_DESTINO'] ?? '']['rotulo'] ?? '') ?> · <?= ch_h($h['TURMA_DESTINO']) ?><?php endif; ?>
       </p>
       <p class="mb-1"><small><b>Motivo:</b> <?= ch_h($h['MOTIVO']) ?></small></p>
       <?php if ($h['RESULTADO']): ?>
