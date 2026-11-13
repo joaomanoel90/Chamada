@@ -100,8 +100,8 @@ $folhas = array_chunk($alunos, 9);
       word-break: break-word;
     }
     .foto {
-      width: 28mm;
-      height: 30mm;
+      width: 25mm;
+      height: 26mm;
       margin: 3mm auto 2mm;
       flex: 0 0 auto;
       overflow: hidden;
@@ -185,8 +185,8 @@ $folhas = array_chunk($alunos, 9);
                no crachá sem cortar nenhuma letra. */
             $tamNome = mb_strlen($aluno['NOME']);
             $nomeFonte = $tamNome <= 28 ? '11pt'
-                       : ($tamNome <= 42 ? '10pt'
-                       : ($tamNome <= 56 ? '9pt' : '8pt'));
+                       : ($tamNome <= 38 ? '10pt'
+                       : ($tamNome <= 48 ? '9pt' : '8pt'));
           ?>
           <article class="cracha">
             <div class="marca">PREFEITURA DE ANGATUBA</div>
