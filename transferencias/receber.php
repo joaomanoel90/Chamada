@@ -16,7 +16,7 @@
 
         <?php if (!$turmas): ?>
           <div class="alert alert-warning mb-0">
-            A sua escola não tem turma ativa cadastrada. Cadastre a turma antes de receber o aluno.
+            Não há turma ativa e classificada compatível com o resultado informado. Cadastre a série e a sala corretas antes de receber o aluno.
           </div>
         <?php else: ?>
           <form method="post" action="receber.php">
@@ -32,11 +32,16 @@
             <div class="mb-3">
               <label class="fw-bold">Vem de</label>
               <input type="text" class="form-control" disabled
-                     value="<?= ch_h($t['UNIDADE_ORIGEM']) ?> — <?= ch_h($t['TURMA_ORIGEM']) ?>">
+                     value="<?= ch_h($t['UNIDADE_ORIGEM']) ?> — <?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?>">
               <div class="form-text">
                 Encaminhado por <?= ch_h($t['SOLICITADA_POR']) ?> em <?= ch_h(ch_confirma_texto($t['SOLICITADA_EM'])) ?>.
                 Motivo: <?= ch_h($t['MOTIVO']) ?>
               </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="fw-bold">Resultado informado pela escola de origem</label>
+                <input type="text" class="form-control" disabled value="<?= ch_h(ch_resultado_escolar_rotulo($t['RESULTADO'])) ?>">
             </div>
 
             <div class="mb-3">
@@ -45,7 +50,8 @@
                 <option value="">Selecione...</option>
                 <?php foreach ($turmas as $x): ?>
                   <option value="<?= (int)$x['ID'] ?>" <?= (int)$d['ID_TURMA_DESTINO'] === (int)$x['ID'] ? 'selected' : '' ?>>
-                    <?= ch_h($x['NOME']) ?> — <?= ch_h($x['PERIODO']) ?> (<?= (int)$x['ANO_LETIVO'] ?>)
+                    <?= ch_h($x['UNIDADE']) ?> — Turma <?= ch_h(ch_series_ensino()[$x['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+                    · Sala <?= ch_h($x['NOME']) ?> · <?= ch_h($x['PERIODO']) ?> (<?= (int)$x['ANO_LETIVO'] ?>)
                     [<?= (int)$x['OCUPADAS'] ?>/<?= (int)$x['CAPACIDADE'] ?>]
                   </option>
                 <?php endforeach; ?>
@@ -57,6 +63,7 @@
               <label class="fw-bold" for="data_inicio">Data de início na nova turma</label>
               <input type="date" name="data_inicio" id="data_inicio" class="form-control"
                      min="<?= ch_h($dataMin) ?>" required
+                     max="<?= (int)$turmas[0]['ANO_LETIVO'] ?>-12-31"
                      value="<?= ch_h($d['DATA_INICIO'] !== '' ? $d['DATA_INICIO'] : ch_hoje()) ?>">
               <div class="form-text">
                 A partir de <b><?= ch_data_br($dataMin) ?></b>. É esta data que separa os dois períodos:

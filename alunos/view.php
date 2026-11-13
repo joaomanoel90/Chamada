@@ -15,7 +15,7 @@ if ($podeTransferir) {
 }
 if (ch_gestor() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1
     && !$transferenciaPendente && !$saidaExternaAberta) {
-    $botoesAluno .= ' <a class="btn btn-outline-success" href="' . ch_url('promocoes/aluno.php?aluno_id=' . (int)$id) . '"><i class="fas fa-arrow-up"></i> Promover</a>';
+    $botoesAluno .= ' <a class="btn btn-outline-success" href="' . ch_url('promocoes/aluno.php?aluno_id=' . (int)$id) . '"><i class="fas fa-arrow-up"></i> Promover ou reter</a>';
 }
 ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
 ?>
@@ -71,7 +71,7 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
           <dt class="col-sm-4">Telefone</dt><dd class="col-sm-8"><?= ch_h($aluno['TELEFONE']) ?></dd>
           <dt class="col-sm-4">E-mail</dt><dd class="col-sm-8"><?= $aluno['EMAIL'] ? ch_h($aluno['EMAIL']) : '<span class="text-muted">—</span>' ?></dd>
           <dt class="col-sm-4">Unidade</dt><dd class="col-sm-8"><?= ch_h($aluno['UNIDADE']) ?></dd>
-          <dt class="col-sm-4">Turma</dt><dd class="col-sm-8"><?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)</dd>
+          <dt class="col-sm-4">Turma</dt><dd class="col-sm-8"><?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)</dd>
         </dl>
       </div>
     </div>
@@ -228,11 +228,12 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
     <h5 class="mb-3"><i class="fas fa-arrow-up"></i> Histórico de promoções</h5>
     <?php foreach ($historicoPromocoes as $promocao): ?>
       <div class="border-bottom pb-2 mb-2">
-        <strong><?= ch_h($promocao['TURMA_ORIGEM']) ?> (<?= (int)$promocao['ANO_ORIGEM'] ?>)</strong>
+        <strong><?= ch_h(ch_series_ensino()[$promocao['SERIE_ORIGEM'] ?? '']['rotulo'] ?? '') ?> · <?= ch_h($promocao['TURMA_ORIGEM']) ?> (<?= (int)$promocao['ANO_ORIGEM'] ?>)</strong>
         <i class="fas fa-arrow-right mx-1"></i>
-        <strong><?= ch_h($promocao['TURMA_DESTINO']) ?> (<?= (int)$promocao['ANO_DESTINO'] ?>)</strong>
+        <strong><?= ch_h(ch_series_ensino()[$promocao['SERIE_DESTINO'] ?? '']['rotulo'] ?? '') ?> · <?= ch_h($promocao['TURMA_DESTINO']) ?> (<?= (int)$promocao['ANO_DESTINO'] ?>)</strong>
         <div class="small text-muted">
-          Vigência em <?= ch_data_br($promocao['DATA_INICIO']) ?> · <?= ch_h($promocao['UNIDADE']) ?>
+          <?= ch_h(ch_resultado_escolar_rotulo($promocao['RESULTADO'])) ?> · vigência em <?= ch_data_br($promocao['DATA_INICIO']) ?> · <?= ch_h($promocao['UNIDADE']) ?>
+          <?php if ($promocao['MOTIVO_RESULTADO']): ?> · retenção por <?= ch_h(ch_motivo_retencao_rotulo($promocao['MOTIVO_RESULTADO'])) ?><?php endif; ?>
           · registrada por <?= ch_h($promocao['REGISTRADA_POR']) ?> em <?= ch_h($promocao['REGISTRADA_EM']) ?>
         </div>
       </div>

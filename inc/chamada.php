@@ -563,11 +563,11 @@ function ch_aluno($idAluno)
                 a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
                 CONVERT(varchar(10), a.NASCIMENTO, 23)     AS NASCIMENTO,
                 CONVERT(varchar(10), a.DATA_MATRICULA, 23) AS DATA_MATRICULA,
-                t.NOME AS TURMA, t.ANO_LETIVO, t.ID_UNIDADE, t.ID_PERIODO,
+                t.NOME AS TURMA, t.SERIE, t.ANO_LETIVO, t.ID_UNIDADE, t.ID_PERIODO,
                 t.HORA_INICIO, t.HORA_FIM, t.PERIODO, t.UNIDADE
          FROM TB_ALUNOS a
          INNER JOIN (
-            SELECT tt.ID, tt.NOME, tt.ANO_LETIVO, tt.ID_UNIDADE, tt.ID_PERIODO,
+            SELECT tt.ID, tt.NOME, tt.SERIE, tt.ANO_LETIVO, tt.ID_UNIDADE, tt.ID_PERIODO,
                    p.HORA_INICIO, p.HORA_FIM, p.NOME AS PERIODO, u.unidade AS UNIDADE
             FROM TB_TURMAS tt
             INNER JOIN TB_PERIODOS p ON p.ID = tt.ID_PERIODO
@@ -732,6 +732,74 @@ function ch_etapa_ensino_rotulo($etapa)
     return is_string($etapa) && isset($etapas[$etapa])
         ? $etapas[$etapa]
         : 'Etapa não classificada';
+}
+
+/** Séries em ordem de progressão escolar. A série é independente da sala A/B/C. */
+function ch_series_ensino()
+{
+    return [
+        'BERCARIO_I' => ['rotulo' => 'Berçário I', 'etapa' => 'INFANTIL_CRECHE', 'ordem' => 1],
+        'BERCARIO_II' => ['rotulo' => 'Berçário II', 'etapa' => 'INFANTIL_CRECHE', 'ordem' => 2],
+        'MATERNAL_I' => ['rotulo' => 'Maternal I', 'etapa' => 'INFANTIL_CRECHE', 'ordem' => 3],
+        'MATERNAL_II' => ['rotulo' => 'Maternal II', 'etapa' => 'INFANTIL_CRECHE', 'ordem' => 4],
+        'PRE_I' => ['rotulo' => 'Pré I', 'etapa' => 'INFANTIL_PRE_ESCOLA', 'ordem' => 5],
+        'PRE_II' => ['rotulo' => 'Pré II', 'etapa' => 'INFANTIL_PRE_ESCOLA', 'ordem' => 6],
+        'ANO_1' => ['rotulo' => '1º ano', 'etapa' => 'FUNDAMENTAL_1_5', 'ordem' => 7],
+        'ANO_2' => ['rotulo' => '2º ano', 'etapa' => 'FUNDAMENTAL_1_5', 'ordem' => 8],
+        'ANO_3' => ['rotulo' => '3º ano', 'etapa' => 'FUNDAMENTAL_1_5', 'ordem' => 9],
+        'ANO_4' => ['rotulo' => '4º ano', 'etapa' => 'FUNDAMENTAL_1_5', 'ordem' => 10],
+        'ANO_5' => ['rotulo' => '5º ano', 'etapa' => 'FUNDAMENTAL_1_5', 'ordem' => 11],
+        'ANO_6' => ['rotulo' => '6º ano', 'etapa' => 'FUNDAMENTAL_6_9', 'ordem' => 12],
+        'ANO_7' => ['rotulo' => '7º ano', 'etapa' => 'FUNDAMENTAL_6_9', 'ordem' => 13],
+        'ANO_8' => ['rotulo' => '8º ano', 'etapa' => 'FUNDAMENTAL_6_9', 'ordem' => 14],
+        'ANO_9' => ['rotulo' => '9º ano', 'etapa' => 'FUNDAMENTAL_6_9', 'ordem' => 15],
+    ];
+}
+
+function ch_serie_ordem($codigo)
+{
+    $series = ch_series_ensino();
+    return isset($series[$codigo]) ? (int)$series[$codigo]['ordem'] : null;
+}
+
+function ch_serie_seguinte($codigo)
+{
+    $ordem = ch_serie_ordem($codigo);
+    if ($ordem === null) return null;
+    foreach (ch_series_ensino() as $serie => $dados) {
+        if ((int)$dados['ordem'] === $ordem + 1) return $serie;
+    }
+    return null;
+}
+
+function ch_resultados_escolares()
+{
+    return [
+        'PROMOVIDO' => 'Promovido',
+        'RETIDO' => 'Retido',
+        'TRANSFERENCIA' => 'Transferência durante o ano',
+    ];
+}
+
+function ch_resultado_escolar_rotulo($resultado)
+{
+    $resultados = ch_resultados_escolares();
+    return isset($resultados[$resultado]) ? $resultados[$resultado] : 'Não informado';
+}
+
+function ch_motivos_retencao()
+{
+    return [
+        'FALTAS' => 'Faltas',
+        'NOTAS' => 'Notas',
+        'FALTAS_NOTAS' => 'Faltas e notas',
+    ];
+}
+
+function ch_motivo_retencao_rotulo($motivo)
+{
+    $motivos = ch_motivos_retencao();
+    return isset($motivos[$motivo]) ? $motivos[$motivo] : 'Não informado';
 }
 
 /** '2026-11-05' -> '05/11/2026' */

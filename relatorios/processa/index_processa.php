@@ -10,9 +10,11 @@ $filtro = ch_filtro_turma_relatorios('tv');
 $semUnidadesVinculadas = ch_secretario_escolar() && !ch_unidades_relatorios_ids();
 
 $turmas = ch_rows(
-    'SELECT tv.ID, tv.NOME, tv.ANO_LETIVO, u.unidade AS UNIDADE
-     FROM TB_TURMAS tv INNER JOIN TB_UNIDADES u ON u.id = tv.ID_UNIDADE
-     WHERE tv.ANO_LETIVO = ?' . $filtro['sql'] . ' ORDER BY u.unidade, tv.NOME',
+    'SELECT tv.ID, tv.NOME, tv.SERIE, tv.ANO_LETIVO, u.unidade AS UNIDADE, p.NOME AS PERIODO
+     FROM TB_TURMAS tv
+     INNER JOIN TB_UNIDADES u ON u.id = tv.ID_UNIDADE
+     INNER JOIN TB_PERIODOS p ON p.ID = tv.ID_PERIODO
+     WHERE tv.ANO_LETIVO = ?' . $filtro['sql'] . ' ORDER BY u.unidade, tv.SERIE, tv.NOME, p.NOME',
     array_merge([$fAno], $filtro['params'])
 );
 

@@ -10,7 +10,8 @@
       <option value="0">Todas</option>
       <?php foreach ($turmas as $t): ?>
         <option value="<?= (int)$t['ID'] ?>" <?= (int)$t['ID'] === $fTurma ? 'selected' : '' ?>>
-          <?= ch_h($t['UNIDADE']) ?> — <?= ch_h($t['NOME']) ?>
+          <?= ch_h($t['UNIDADE']) ?> — Turma <?= ch_h(ch_series_ensino()[$t['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+          · Sala <?= ch_h($t['NOME']) ?> · <?= ch_h($t['PERIODO']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
         </option>
       <?php endforeach; ?>
     </select>

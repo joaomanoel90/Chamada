@@ -120,10 +120,12 @@ function aluno_turmas_disponiveis()
 {
     $f = ch_filtro_turma('t');
     return ch_rows(
-        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, u.unidade AS UNIDADE,
+        'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ANO_LETIVO, t.CAPACIDADE,
+                u.unidade AS UNIDADE, p.NOME AS PERIODO,
                 (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS
          FROM TB_TURMAS t INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
-         WHERE t.ATIVO = 1' . $f['sql'] . ' ORDER BY u.unidade, t.NOME',
+         INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+         WHERE t.ATIVO = 1' . $f['sql'] . ' ORDER BY u.unidade, t.SERIE, t.NOME, p.NOME',
         $f['params']
     );
 }

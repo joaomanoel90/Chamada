@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sqlsrv_begin_transaction(ch_db());
 
         $ok = ch_exec(
-            'UPDATE TB_TURMAS SET ID_UNIDADE = ?, NOME = ?, ANO_LETIVO = ?, ETAPA_ENSINO = ?, ID_PERIODO = ?,
+            'UPDATE TB_TURMAS SET ID_UNIDADE = ?, NOME = ?, ANO_LETIVO = ?, ETAPA_ENSINO = ?, SERIE = ?, ID_PERIODO = ?,
                     ID_PROFESSOR = ?, CAPACIDADE = ?, NOTAS_ATIVAS = ? WHERE ID = ?',
-            [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['ID_PERIODO'],
+            [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['SERIE'] ?: null, $d['ID_PERIODO'],
              $d['ID_PROFESSOR'] > 0 ? $d['ID_PROFESSOR'] : null, $d['CAPACIDADE'], $d['NOTAS_ATIVAS'], $id]
         );
 

@@ -30,11 +30,17 @@ if (!isset($historico)) { $historico = []; }
         </a>
       </div>
       <p class="mb-1">
-        <b><?= ch_h($h['UNIDADE_ORIGEM']) ?></b> — <?= ch_h($h['TURMA_ORIGEM']) ?>
+        <b><?= ch_h($h['UNIDADE_ORIGEM']) ?></b> — <?= ch_h(ch_series_ensino()[$h['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($h['TURMA_ORIGEM']) ?>
         <i class="fas fa-arrow-right mx-1 text-muted"></i>
-        <b><?= ch_h($h['UNIDADE_DESTINO']) ?></b><?php if ($h['TURMA_DESTINO']): ?> — <?= ch_h($h['TURMA_DESTINO']) ?><?php endif; ?>
+        <b><?= ch_h($h['UNIDADE_DESTINO']) ?></b><?php if ($h['TURMA_DESTINO']): ?> — <?= ch_h(ch_series_ensino()[$h['SERIE_DESTINO']]['rotulo'] ?? '') ?> · <?= ch_h($h['TURMA_DESTINO']) ?><?php endif; ?>
       </p>
       <p class="mb-1"><small><b>Motivo:</b> <?= ch_h($h['MOTIVO']) ?></small></p>
+      <?php if ($h['RESULTADO']): ?>
+        <p class="mb-1"><small><b>Resultado escolar informado:</b> <?= ch_h(ch_resultado_escolar_rotulo($h['RESULTADO'])) ?></small></p>
+      <?php endif; ?>
+      <?php if ($h['MOTIVO_RESULTADO']): ?>
+        <p class="mb-1"><small><b>Motivo da retenção:</b> <?= ch_h(ch_motivo_retencao_rotulo($h['MOTIVO_RESULTADO'])) ?></small></p>
+      <?php endif; ?>
       <?php if ($h['DOCUMENTO']): ?>
         <p class="mb-1"><small><b>Documento:</b> <?= ch_h($h['DOCUMENTO']) ?></small></p>
       <?php endif; ?>

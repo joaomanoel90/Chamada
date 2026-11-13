@@ -60,12 +60,18 @@ ch_cabecalho('Transferência #' . (int)$id, 'fa-right-left', $botoes);
         <h5 class="mb-3"><i class="fas fa-right-left"></i> Encaminhamento</h5>
         <dl class="row mb-0">
           <dt class="col-sm-4">De</dt>
-          <dd class="col-sm-8"><?= ch_h($t['UNIDADE_ORIGEM']) ?><br><small class="text-muted"><?= ch_h($t['TURMA_ORIGEM']) ?> (<?= (int)$t['ANO_ORIGEM'] ?>)</small></dd>
+          <dd class="col-sm-8"><?= ch_h($t['UNIDADE_ORIGEM']) ?><br><small class="text-muted"><?= ch_h(ch_series_ensino()[$t['SERIE_ORIGEM']]['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($t['TURMA_ORIGEM']) ?> (<?= (int)$t['ANO_ORIGEM'] ?>)</small></dd>
           <dt class="col-sm-4">Para</dt>
           <dd class="col-sm-8"><?= ch_h($t['UNIDADE_DESTINO']) ?><br>
             <small class="text-muted"><?= $t['TURMA_DESTINO']
-                ? ch_h($t['TURMA_DESTINO']) . ' — ' . ch_h($t['PERIODO_DESTINO']) . ' (' . (int)$t['ANO_DESTINO'] . ')'
+                ? ch_h(ch_series_ensino()[$t['SERIE_DESTINO']]['rotulo'] ?? '') . ' · ' . ch_h($t['TURMA_DESTINO']) . ' — ' . ch_h($t['PERIODO_DESTINO']) . ' (' . (int)$t['ANO_DESTINO'] . ')'
                 : 'turma ainda não escolhida' ?></small></dd>
+          <dt class="col-sm-4">Resultado</dt>
+          <dd class="col-sm-8"><?= ch_h(ch_resultado_escolar_rotulo($t['RESULTADO'])) ?></dd>
+          <?php if ($t['MOTIVO_RESULTADO']): ?>
+            <dt class="col-sm-4">Motivo da retenção</dt>
+            <dd class="col-sm-8"><?= ch_h(ch_motivo_retencao_rotulo($t['MOTIVO_RESULTADO'])) ?></dd>
+          <?php endif; ?>
           <dt class="col-sm-4">Início</dt>
           <dd class="col-sm-8"><?= $t['DATA_INICIO'] ? '<b>' . ch_data_br($t['DATA_INICIO']) . '</b>' : '<span class="text-muted">a definir</span>' ?></dd>
           <dt class="col-sm-4">Motivo</dt><dd class="col-sm-8"><?= ch_h($t['MOTIVO']) ?></dd>

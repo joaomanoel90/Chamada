@@ -18,7 +18,8 @@ function turma_validar($post, $idAtual = 0)
         'ID_UNIDADE'   => (int)($post['id_unidade'] ?? 0),
         'NOME'         => strip_tags(trim($post['nome'] ?? '')),
         'ANO_LETIVO'   => (int)($post['ano_letivo'] ?? 0),
-        'ETAPA_ENSINO' => is_string($post['etapa_ensino'] ?? null) ? $post['etapa_ensino'] : '',
+        'SERIE'        => is_string($post['serie'] ?? null) ? $post['serie'] : '',
+        'ETAPA_ENSINO' => '',
         'ID_PERIODO'   => (int)($post['id_periodo'] ?? 0),
         'ID_PROFESSOR' => 0,
         'CAPACIDADE'   => (int)($post['capacidade'] ?? 0),
@@ -35,8 +36,37 @@ function turma_validar($post, $idAtual = 0)
     if ($d['NOME'] === '' || mb_strlen($d['NOME']) > 80) {
         $e[] = 'Informe o nome da turma (até 80 caracteres).';
     }
-    if (!array_key_exists($d['ETAPA_ENSINO'], ch_etapas_ensino())) {
-        $e[] = 'Selecione uma etapa de ensino válida.';
+    $series = ch_series_ensino();
+    if ($d['SERIE'] !== '' && !isset($series[$d['SERIE']])) {
+        $e[] = 'Selecione uma série válida.';
+    } elseif ($d['SERIE'] === '' && $idAtual === 0) {
+        $e[] = 'Selecione a série/ano escolar da turma.';
+    }
+    $serieAtual = $idAtual > 0
+        ? ch_row('SELECT SERIE, ETAPA_ENSINO FROM TB_TURMAS WHERE ID = ?', [$idAtual])
+        : null;
+    if ($idAtual > 0 && !$serieAtual) {
+        $e[] = 'Não foi possível carregar a classificação atual da turma.';
+    }
+    if ($d['SERIE'] !== '' && isset($series[$d['SERIE']])) {
+        $d['ETAPA_ENSINO'] = $series[$d['SERIE']]['etapa'];
+        if ($serieAtual && !empty($serieAtual['SERIE']) && $serieAtual['SERIE'] !== $d['SERIE']) {
+            $serieUsada = ch_val(
+                'SELECT TOP 1 ID FROM TB_ALUNOS WHERE ID_TURMA = ?
+                 UNION ALL SELECT TOP 1 ID FROM TB_PROMOCOES WHERE ID_TURMA_ORIGEM = ? OR ID_TURMA_DESTINO = ?
+                 UNION ALL SELECT TOP 1 ID FROM TB_TRANSFERENCIAS WHERE ID_TURMA_ORIGEM = ? OR ID_TURMA_DESTINO = ?',
+                [$idAtual, $idAtual, $idAtual, $idAtual, $idAtual]
+            );
+            if ($serieUsada) {
+                $e[] = 'A série não pode ser alterada depois que a turma tiver alunos ou movimentações registradas.';
+            }
+        }
+    } elseif ($idAtual > 0) {
+        if ($serieAtual && $serieAtual['SERIE'] !== null && $serieAtual['SERIE'] !== '') {
+            $e[] = 'A série desta turma não pode ser removida.';
+        } elseif ($serieAtual) {
+            $d['ETAPA_ENSINO'] = (string)($serieAtual['ETAPA_ENSINO'] ?? '');
+        }
     }
     if ($d['ETAPA_ENSINO'] === 'INFANTIL_CRECHE' && $d['NOTAS_ATIVAS']) {
         $e[] = 'O diário de notas não pode ser habilitado para turmas de creche.';
@@ -58,8 +88,13 @@ function turma_validar($post, $idAtual = 0)
     if ($d['CAPACIDADE'] < 1 || $d['CAPACIDADE'] > 500) {
         $e[] = 'A capacidade deve ficar entre 1 e 500.';
     }
-    if (!$e && ch_val('SELECT ID FROM TB_TURMAS WHERE ID_UNIDADE = ? AND NOME = ? AND ANO_LETIVO = ? AND ID <> ?',
-                      [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $idAtual])) {
+    $serieFiltro = $d['SERIE'] === '' ? 'SERIE IS NULL' : 'SERIE = ?';
+    $serieParams = $d['SERIE'] === '' ? [] : [$d['SERIE']];
+    if (!$e && ch_val(
+        'SELECT ID FROM TB_TURMAS
+         WHERE ID_UNIDADE = ? AND NOME = ? AND ANO_LETIVO = ? AND ' . $serieFiltro . ' AND ID <> ?',
+        array_merge([$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO']], $serieParams, [$idAtual])
+    )) {
         $e[] = 'Já existe uma turma com esse nome nessa unidade e ano letivo.';
     }
     if (!$e && $idAtual > 0) {

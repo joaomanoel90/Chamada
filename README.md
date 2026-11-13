@@ -28,8 +28,11 @@ da rede municipal (creches e escolas).
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Histórico de alterações** das observações e dos pareceres, com versões anteriores,
   usuário responsável e data/hora
-- **Promoção de alunos** individual ou por turma para a turma do ano letivo seguinte,
-  com data de vigência escolhida conforme o calendário escolar e histórico preservado
+- **Progressão escolar** com séries ordenadas de Berçário I ao 9º ano, promoção
+  ou retenção (por faltas, notas ou ambos) para o próximo ano letivo, salas
+  paralelas e histórico preservado
+- **Transferência entre escolas** com resultado escolar informado pela origem e
+  escolha de uma turma compatível pela escola de destino
 - **Relatório anual** com frequência mês a mês, observações do ano, parecer
   descritivo, encaminhamentos, versão para impressão e exportação CSV
 - **Cadastros** de alunos, turmas, períodos, unidades e usuários
@@ -51,6 +54,8 @@ idempotente e faz o upgrade sem apagar dados:
   o dado correto seja informado ao editar cada cadastro;
 - adiciona o Diário de Classe, a etapa de ensino das turmas e o professor
   responsável por disciplina.
+- adiciona a série escolar estruturada e o resultado de promoção/retenção nas
+  movimentações.
 - amplia a coluna de senha e instala a tabela de limitação de tentativas.
 
 Depois do script, revise as equipes em **Turmas → Editar**: cada turma começa
@@ -67,6 +72,11 @@ Para habilitar o histórico de alterações e a promoção de alunos em instala�
 existentes, execute `sql_inicial/ATUALIZAR_HISTORICO_PROMOCOES.sql` depois da
 atualização de transferências. O script é idempotente e atualiza a linha do tempo
 escolar sem alterar dados anteriores.
+Para habilitar a progressão por série e o registro de promoção/retenção, execute
+`sql_inicial/ATUALIZAR_PROGRESSAO_ESCOLAR.sql` após as atualizações de transferência
+e histórico. Depois, classifique as turmas existentes em **Turmas → Editar**; o
+sistema não infere a série pelo nome. Transferências pendentes antigas sem resultado
+devem ser canceladas e solicitadas novamente.
 Para autorizar Secretários Escolares a consultar relatórios, execute
 `sql_inicial/ATUALIZAR_PERMISSAO_RELATORIO_SECRETARIO.sql`; o Diretor libera
 por unidade em **Permissões de relatórios**, e o acesso fica negado por padrão.

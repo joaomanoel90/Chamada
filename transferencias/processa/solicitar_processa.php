@@ -42,7 +42,7 @@ if ($pendente) {
 
 $unidades = tr_unidades_destino($aluno['ID_UNIDADE']);
 $erros = [];
-$d = ['ID_UNIDADE_DESTINO' => 0, 'MOTIVO' => '', 'DOCUMENTO' => ''];
+$d = ['ID_UNIDADE_DESTINO' => 0, 'RESULTADO' => '', 'MOTIVO_RESULTADO' => '', 'MOTIVO' => '', 'DOCUMENTO' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -51,6 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $d['ID_UNIDADE_DESTINO'] = (int)($_POST['id_unidade_destino'] ?? 0);
+    $d['RESULTADO'] = (string)($_POST['resultado'] ?? '');
+    $d['MOTIVO_RESULTADO'] = (string)($_POST['motivo_resultado'] ?? '');
     $d['MOTIVO']    = strip_tags(trim((string)($_POST['motivo'] ?? '')));
     $d['DOCUMENTO'] = strip_tags(trim((string)($_POST['documento'] ?? '')));
 
@@ -60,6 +62,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!$escolhida) {
         $erros[] = 'Selecione a escola de destino. Não pode ser a escola atual do aluno.';
+    }
+    if (!isset(ch_resultados_escolares()[$d['RESULTADO']])) {
+        $erros[] = 'Informe o resultado escolar do aluno para a transferência.';
+    }
+    if (empty($aluno['SERIE'])) {
+        $erros[] = 'Classifique a série da turma atual em Turmas → Editar antes de solicitar a transferência.';
+    }
+    if ($d['RESULTADO'] === 'PROMOVIDO' && ch_serie_seguinte($aluno['SERIE'] ?? '') === null) {
+        $erros[] = 'Não há série seguinte cadastrada na progressão escolar para este aluno.';
+    }
+    if ($d['RESULTADO'] === 'RETIDO' && !isset(ch_motivos_retencao()[$d['MOTIVO_RESULTADO']])) {
+        $erros[] = 'Informe se a retenção foi por faltas, notas ou ambos.';
     }
     if ($d['MOTIVO'] === '') {
         $erros[] = 'Informe o motivo da transferência.';
@@ -82,23 +96,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erros[] = 'Não foi possível iniciar o registro da transferência.';
         } else {
             $alunoBloqueado = ch_row(
-                'SELECT ID, ID_TURMA, ATIVO FROM TB_ALUNOS WITH (UPDLOCK, HOLDLOCK) WHERE ID = ?',
+                'SELECT a.ID, a.ID_TURMA, a.ATIVO, t.SERIE
+                 FROM TB_ALUNOS a WITH (UPDLOCK, HOLDLOCK)
+                 INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
+                 WHERE a.ID = ?',
                 [$idAluno]
             );
             $pendenteAtual = tr_pendente($idAluno);
             if (!$alunoBloqueado || (int)$alunoBloqueado['ATIVO'] !== 1
                 || (int)$alunoBloqueado['ID_TURMA'] !== (int)$aluno['ID_TURMA']
+                || $alunoBloqueado['SERIE'] !== $aluno['SERIE']
                 || $pendenteAtual || tr_saida_externa_aberta($idAluno)) {
                 sqlsrv_rollback($conn);
                 $erros[] = 'O cadastro mudou ou já há uma movimentação em andamento. Atualize a página antes de tentar novamente.';
             } else {
                 $novoId = ch_insert_id(
                     'INSERT INTO TB_TRANSFERENCIAS
-                        (ID_ALUNO, ID_TURMA_ORIGEM, ID_UNIDADE_DESTINO, MOTIVO, DOCUMENTO,
+                        (ID_ALUNO, ID_TURMA_ORIGEM, ID_UNIDADE_DESTINO, RESULTADO, MOTIVO_RESULTADO, MOTIVO, DOCUMENTO,
                          ID_USUARIO_SOLIC, SITUACAO)
                      OUTPUT INSERTED.ID
-                     VALUES (?, ?, ?, ?, ?, ?, \'PENDENTE\')',
-                    [$idAluno, (int)$alunoBloqueado['ID_TURMA'], $d['ID_UNIDADE_DESTINO'], $d['MOTIVO'],
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'PENDENTE\')',
+                    [$idAluno, (int)$alunoBloqueado['ID_TURMA'], $d['ID_UNIDADE_DESTINO'], $d['RESULTADO'],
+                     $d['RESULTADO'] === 'RETIDO' ? $d['MOTIVO_RESULTADO'] : null, $d['MOTIVO'],
                      $d['DOCUMENTO'] !== '' ? $d['DOCUMENTO'] : null, ch_uid()]
                 );
                 if ($novoId > 0) {

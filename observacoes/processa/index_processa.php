@@ -18,9 +18,11 @@ $obsOcultas = $fObs['sql'] !== '';
 $podeLerObservacoes = !ch_secretario_escolar() || count(ch_unidades_observacoes_ids(1)) > 0;
 
 $turmas = ch_rows(
-    'SELECT t.ID, t.NOME, t.ANO_LETIVO, u.unidade AS UNIDADE
-     FROM TB_TURMAS t INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
-     WHERE t.ATIVO = 1' . $filtro['sql'] . ' ORDER BY u.unidade, t.NOME',
+    'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, u.unidade AS UNIDADE, p.NOME AS PERIODO
+     FROM TB_TURMAS t
+     INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+     INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+     WHERE t.ATIVO = 1' . $filtro['sql'] . ' ORDER BY u.unidade, t.SERIE, t.NOME, p.NOME',
     $filtro['params']
 );
 

@@ -54,7 +54,10 @@
       <tr>
         <td><?= ch_h($row['UNIDADE']) ?></td>
         <td><?= ch_h($row['NOME']) ?>
-          <br><small class="text-muted"><?= ch_h(ch_etapa_ensino_rotulo($row['ETAPA_ENSINO'])) ?></small>
+          <br><small class="text-muted">
+            <?= ch_h(ch_series_ensino()[$row['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?>
+            · <?= ch_h(ch_etapa_ensino_rotulo($row['ETAPA_ENSINO'])) ?>
+          </small>
           <?php if (!empty($row['NOTAS_ATIVAS']) && $row['ETAPA_ENSINO'] !== 'INFANTIL_CRECHE'): ?>
             <br><span class="badge bg-primary"><i class="fas fa-book-open"></i> Diário escolar</span>
           <?php endif; ?>

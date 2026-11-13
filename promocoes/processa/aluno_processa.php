@@ -17,11 +17,14 @@ if (tr_pendente($alunoId) || tr_saida_externa_aberta($alunoId)) {
     header('Location: ' . ch_url('alunos/view.php?id=' . $alunoId));
     exit;
 }
+$filtro = ch_filtro_turma('t');
 $destinos = ch_rows(
-    'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, p.NOME AS PERIODO,
+    'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.CAPACIDADE, p.NOME AS PERIODO,
+            u.unidade AS UNIDADE,
             (SELECT COUNT(*) FROM TB_ALUNOS x WHERE x.ID_TURMA = t.ID AND x.ATIVO = 1) AS OCUPADAS
      FROM TB_TURMAS t INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
-     WHERE t.ATIVO = 1 AND t.ID_UNIDADE = ? AND t.ANO_LETIVO = ?
-     ORDER BY t.NOME',
-    [(int)$aluno['ID_UNIDADE'], (int)$aluno['ANO_LETIVO'] + 1]
+     INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+     WHERE t.ATIVO = 1 AND t.SERIE IS NOT NULL AND t.ANO_LETIVO = ?' . $filtro['sql'] . '
+     ORDER BY u.unidade, t.SERIE, t.NOME',
+    array_merge([(int)$aluno['ANO_LETIVO'] + 1], $filtro['params'])
 );

@@ -23,7 +23,8 @@ if (!defined('ABSPATH')) {
         <?php $atual = null; foreach ($turmasDisponiveis as $t) { if ((int)$t['ID'] === (int)$d['ID_TURMA']) { $atual = $t; break; } } ?>
         <input type="text" class="form-control" disabled
                value="<?= $atual
-                    ? ch_h($atual['UNIDADE']) . ' — ' . ch_h($atual['NOME']) . ' (' . (int)$atual['ANO_LETIVO'] . ')'
+                    ? ch_h($atual['UNIDADE']) . ' — Turma ' . ch_h(ch_series_ensino()[$atual['SERIE'] ?? '']['rotulo'] ?? 'não classificada')
+                        . ' · Sala ' . ch_h($atual['NOME']) . ' · ' . ch_h($atual['PERIODO']) . ' (' . (int)$atual['ANO_LETIVO'] . ')'
                     : 'Turma #' . (int)$d['ID_TURMA'] ?>">
         <div class="form-text">
           Para mudar o aluno de escola ou turma, use
@@ -35,7 +36,8 @@ if (!defined('ABSPATH')) {
           <option value="">Selecione...</option>
           <?php foreach ($turmasDisponiveis as $t): ?>
             <option value="<?= (int)$t['ID'] ?>" <?= (int)$d['ID_TURMA'] === (int)$t['ID'] ? 'selected' : '' ?>>
-              <?= ch_h($t['UNIDADE']) ?> — <?= ch_h($t['NOME']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
+              <?= ch_h($t['UNIDADE']) ?> — Turma <?= ch_h(ch_series_ensino()[$t['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+              · Sala <?= ch_h($t['NOME']) ?> · <?= ch_h($t['PERIODO']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
               [<?= (int)$t['OCUPADAS'] ?>/<?= (int)$t['CAPACIDADE'] ?>]
             </option>
           <?php endforeach; ?>

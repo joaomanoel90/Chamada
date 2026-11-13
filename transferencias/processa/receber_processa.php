@@ -35,7 +35,7 @@ if (!tr_pode_receber($t)) {
    que em geral não é a de quem está recebendo. O acesso aqui vem da
    transferência, conferido acima. */
 $aluno   = ch_aluno($t['ID_ALUNO']);
-$turmas  = tr_turmas_destino($t['ID_UNIDADE_DESTINO']);
+$turmas  = tr_turmas_destino($t['ID_UNIDADE_DESTINO'], $t['SERIE_ORIGEM'], $t['RESULTADO'], $t['ANO_ORIGEM']);
 $dataMin = tr_data_minima($aluno);
 $erros   = [];
 $d = ['ID_TURMA_DESTINO' => 0, 'DATA_INICIO' => '', 'OBSERVACAO_DESTINO' => ''];
@@ -55,13 +55,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ((int)$x['ID'] === $d['ID_TURMA_DESTINO']) { $turma = $x; break; }
     }
     if (!$turma) {
-        $erros[] = 'Selecione uma turma ativa da sua escola.';
+        $erros[] = 'Não há turma compatível classificada na sua escola, ou a turma selecionada não corresponde ao resultado escolar.';
+    } else {
+        $turma = ch_row(
+            'SELECT ID, NOME, SERIE, ANO_LETIVO, CAPACIDADE
+             FROM TB_TURMAS WITH (UPDLOCK, HOLDLOCK)
+             WHERE ID = ? AND ID_UNIDADE = ? AND ATIVO = 1',
+            [(int)$turma['ID'], (int)$t['ID_UNIDADE_DESTINO']]
+        );
+        $esperadas = tr_turmas_destino($t['ID_UNIDADE_DESTINO'], $t['SERIE_ORIGEM'], $t['RESULTADO'], $t['ANO_ORIGEM']);
+        if (!$turma || !in_array((int)$turma['ID'], array_map(function ($x) { return (int)$x['ID']; }, $esperadas), true)) {
+            $erros[] = 'A turma de destino mudou ou deixou de corresponder ao resultado escolar. Atualize a página.';
+        }
     }
     if (!$d['DATA_INICIO']) {
         $erros[] = 'Informe a data de início do aluno na nova turma.';
     } elseif ($d['DATA_INICIO'] < $dataMin) {
         $erros[] = 'A data de início não pode ser anterior a ' . ch_data_br($dataMin)
                  . ' (data de matrícula ou dia seguinte ao período anterior).';
+    } elseif ($turma && substr($d['DATA_INICIO'], 0, 4) !== (string)$turma['ANO_LETIVO']) {
+        $erros[] = 'A data de início deve estar dentro do ano letivo da turma escolhida.';
     } elseif ((int)substr($d['DATA_INICIO'], 0, 4) > ((int)date('Y') + 1)) {
         $erros[] = 'A data de início está muito distante. Confira o ano.';
     }
@@ -83,11 +96,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$erros) {
-        sqlsrv_begin_transaction(ch_db());
+        $conn = ch_db();
+        if (!sqlsrv_begin_transaction($conn)) {
+            $erros[] = 'Não foi possível iniciar o recebimento. Tente novamente.';
+        } else {
+            $turmaAtual = ch_row(
+                'SELECT ID, NOME, SERIE, ANO_LETIVO, CAPACIDADE
+                 FROM TB_TURMAS WITH (UPDLOCK, HOLDLOCK)
+                 WHERE ID = ? AND ID_UNIDADE = ? AND ATIVO = 1',
+                [(int)$turma['ID'], (int)$t['ID_UNIDADE_DESTINO']]
+            );
+            $serieEsperada = $t['RESULTADO'] === 'PROMOVIDO'
+                ? ch_serie_seguinte($t['SERIE_ORIGEM'])
+                : $t['SERIE_ORIGEM'];
+            $anoEsperado = $t['RESULTADO'] === 'TRANSFERENCIA'
+                ? (int)$t['ANO_ORIGEM']
+                : (int)$t['ANO_ORIGEM'] + 1;
+            if (!$turmaAtual || $turmaAtual['SERIE'] !== $serieEsperada
+                || (int)$turmaAtual['ANO_LETIVO'] !== $anoEsperado) {
+                sqlsrv_rollback($conn);
+                $erros[] = 'A turma de destino mudou ou deixou de corresponder ao resultado escolar. Atualize a página.';
+            } else {
+                $turma = $turmaAtual;
+                $ocupadas = (int)ch_val(
+                    'SELECT COUNT(*) FROM TB_ALUNOS WITH (UPDLOCK, HOLDLOCK)
+                     WHERE ID_TURMA = ? AND ATIVO = 1 AND ID <> ?',
+                    [(int)$turma['ID'], (int)$aluno['ID']]
+                );
+                if ($ocupadas >= (int)$turma['CAPACIDADE']) {
+                    sqlsrv_rollback($conn);
+                    $erros[] = 'A turma ' . $turma['NOME'] . ' já atingiu a capacidade de '
+                             . (int)$turma['CAPACIDADE'] . ' alunos.';
+                }
+            }
 
         /* O WHERE inclui a situação: se outra pessoa aceitou esta transferência
            um instante antes, nenhuma linha é alterada e o processo para. */
-        $n = ch_afetadas(
+        $n = $erros ? 0 : ch_afetadas(
             "UPDATE TB_TRANSFERENCIAS
              SET ID_TURMA_DESTINO = ?, DATA_INICIO = ?, OBSERVACAO_DESTINO = ?,
                  ID_USUARIO_EFETIVA = ?, EFETIVADA_EM = GETDATE(), SITUACAO = 'CONCLUIDA'
@@ -97,14 +142,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              ch_uid(), $id]
         );
 
-        $ok = ($n === 1);
+        $ok = !$erros && ($n === 1);
         if ($ok) {
             $ok = ch_exec('UPDATE TB_ALUNOS SET ID_TURMA = ? WHERE ID = ?',
                           [(int)$turma['ID'], (int)$aluno['ID']]);
         }
 
-        if ($ok) {
-            sqlsrv_commit(ch_db());
+        if ($ok && sqlsrv_commit($conn)) {
 
             /* Registros já lançados a partir da data escolhida continuam com o
                aluno — o histórico não é apagado. Vale avisar quem recebeu. */
@@ -124,10 +168,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        sqlsrv_rollback(ch_db());
-        $erros[] = $n === 0
-            ? 'Esta transferência acabou de ser tratada por outra pessoa. Recarregue a página.'
-            : 'Não foi possível concluir a transferência.';
-        if (ch_admin() && $n !== 0) { $erros[] = ch_erro_sql(); }
+        if (!$erros) {
+            sqlsrv_rollback($conn);
+            $erros[] = $n === 0
+                ? 'Esta transferência acabou de ser tratada por outra pessoa. Recarregue a página.'
+                : 'Não foi possível concluir a transferência.';
+            if (ch_admin() && $n !== 0) { $erros[] = ch_erro_sql(); }
+        }
+        }
     }
 }

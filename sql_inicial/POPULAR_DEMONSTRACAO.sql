@@ -213,10 +213,18 @@ CROSS JOIN @tipos t
 WHERE t.ordem <= @TurmasPorUnidade
 ORDER BY u.ordem, t.ordem;
 
-INSERT INTO dbo.TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ETAPA_ENSINO, ID_PERIODO, CAPACIDADE, ATIVO)
+INSERT INTO dbo.TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ETAPA_ENSINO, SERIE, ID_PERIODO, CAPACIDADE, ATIVO)
 OUTPUT 'TB_TURMAS', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
 SELECT p.id_unidade, p.nome, @AnoLetivo,
        CASE WHEN p.nome LIKE N'Pré %' THEN N'INFANTIL_PRE_ESCOLA' ELSE N'INFANTIL_CRECHE' END,
+       CASE p.nome
+           WHEN N'Berçário I' THEN N'BERCARIO_I'
+           WHEN N'Berçário II' THEN N'BERCARIO_II'
+           WHEN N'Maternal I' THEN N'MATERNAL_I'
+           WHEN N'Maternal II' THEN N'MATERNAL_II'
+           WHEN N'Pré I' THEN N'PRE_I'
+           WHEN N'Pré II' THEN N'PRE_II'
+       END,
        p.id_periodo, p.capacidade, 1
 FROM @planoTurma p
 WHERE p.id_periodo IS NOT NULL

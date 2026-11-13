@@ -191,6 +191,7 @@ function tr_transferencia($id)
 {
     return ch_row(
         'SELECT tr.ID, tr.ID_ALUNO, tr.ID_TURMA_ORIGEM, tr.ID_UNIDADE_DESTINO,
+                tr.RESULTADO, tr.MOTIVO_RESULTADO,
                 tr.ID_TURMA_DESTINO, tr.SITUACAO, tr.MOTIVO, tr.DOCUMENTO,
                 tr.OBSERVACAO_DESTINO, tr.MOTIVO_CANCELAMENTO,
                 CONVERT(varchar(10), tr.DATA_INICIO, 23)   AS DATA_INICIO,
@@ -201,10 +202,10 @@ function tr_transferencia($id)
                 CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO,
                 a.RESPONSAVEL, a.TELEFONE,
                 tor.ID_UNIDADE AS ID_UNIDADE_ORIGEM,
-                tor.NOME AS TURMA_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
+                tor.NOME AS TURMA_ORIGEM, tor.SERIE AS SERIE_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
                 uor.unidade AS UNIDADE_ORIGEM,
                 ude.unidade AS UNIDADE_DESTINO,
-                tde.NOME AS TURMA_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
+                tde.NOME AS TURMA_DESTINO, tde.SERIE AS SERIE_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
                 pde.NOME AS PERIODO_DESTINO,
                 us.NOME AS SOLICITADA_POR,
                 ue.NOME AS EFETIVADA_POR,
@@ -227,12 +228,12 @@ function tr_transferencia($id)
 /** Histórico de transferências do aluno, mais recente primeiro. */
 function tr_historico_aluno($idAluno)
 {
-    $sql = 'SELECT tr.ID, tr.SITUACAO, tr.MOTIVO, tr.DOCUMENTO, tr.MOTIVO_CANCELAMENTO,
+    $sql =     'SELECT tr.ID, tr.SITUACAO, tr.RESULTADO, tr.MOTIVO_RESULTADO, tr.MOTIVO, tr.DOCUMENTO, tr.MOTIVO_CANCELAMENTO,
                 CONVERT(varchar(10), tr.DATA_INICIO, 23)    AS DATA_INICIO,
                 CONVERT(varchar(16), tr.SOLICITADA_EM, 120) AS SOLICITADA_EM,
                 CONVERT(varchar(16), tr.EFETIVADA_EM, 120)  AS EFETIVADA_EM,
-                tor.NOME AS TURMA_ORIGEM, uor.unidade AS UNIDADE_ORIGEM,
-                ude.unidade AS UNIDADE_DESTINO, tde.NOME AS TURMA_DESTINO,
+                tor.NOME AS TURMA_ORIGEM, tor.SERIE AS SERIE_ORIGEM, uor.unidade AS UNIDADE_ORIGEM,
+                ude.unidade AS UNIDADE_DESTINO, tde.NOME AS TURMA_DESTINO, tde.SERIE AS SERIE_DESTINO,
                 us.NOME AS SOLICITADA_POR, ue.NOME AS EFETIVADA_POR
          FROM TB_TRANSFERENCIAS tr
          INNER JOIN TB_TURMAS tor   ON tor.ID = tr.ID_TURMA_ORIGEM
@@ -258,10 +259,10 @@ function tr_historico_aluno($idAluno)
 /** Histórico de promoções, incluindo a vigência e o usuário que as registrou. */
 function tr_promocoes_aluno($idAluno)
 {
-    $sql = 'SELECT p.ID, CONVERT(varchar(10), p.DATA_INICIO, 23) AS DATA_INICIO,
+    $sql =     'SELECT p.ID, p.RESULTADO, p.MOTIVO_RESULTADO, CONVERT(varchar(10), p.DATA_INICIO, 23) AS DATA_INICIO,
                    CONVERT(varchar(16), p.REGISTRADA_EM, 120) AS REGISTRADA_EM,
-                   tor.NOME AS TURMA_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
-                   tde.NOME AS TURMA_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
+                   tor.NOME AS TURMA_ORIGEM, tor.SERIE AS SERIE_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
+                   tde.NOME AS TURMA_DESTINO, tde.SERIE AS SERIE_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
                    u.NOME AS UNIDADE, us.NOME AS REGISTRADA_POR
             FROM TB_PROMOCOES p
             INNER JOIN TB_TURMAS tor ON tor.ID = p.ID_TURMA_ORIGEM
@@ -352,16 +353,31 @@ function tr_unidades_destino($idUnidadeAtual)
 }
 
 /** Turmas ativas da escola de destino, com a lotação, para a escola escolher. */
-function tr_turmas_destino($idUnidade)
+function tr_turmas_destino($idUnidade, $serieOrigem, $resultado, $anoOrigem)
 {
+    $series = ch_series_ensino();
+    if (!isset($series[$serieOrigem]) || !isset(ch_resultados_escolares()[$resultado])) return [];
+    if ($resultado === 'PROMOVIDO') {
+        $serieDestino = ch_serie_seguinte($serieOrigem);
+        $anoDestino = (int)$anoOrigem + 1;
+    } elseif ($resultado === 'RETIDO') {
+        $serieDestino = $serieOrigem;
+        $anoDestino = (int)$anoOrigem + 1;
+    } else {
+        $serieDestino = $serieOrigem;
+        $anoDestino = (int)$anoOrigem;
+    }
+    if ($serieDestino === null) return [];
     return ch_rows(
-        'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, p.NOME AS PERIODO,
+        'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.CAPACIDADE,
+                p.NOME AS PERIODO, u.unidade AS UNIDADE,
                 (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS
          FROM TB_TURMAS t
          INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
-         WHERE t.ATIVO = 1 AND t.ID_UNIDADE = ?
-         ORDER BY t.ANO_LETIVO DESC, t.NOME',
-        [(int)$idUnidade]
+         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+         WHERE t.ATIVO = 1 AND t.ID_UNIDADE = ? AND t.SERIE = ? AND t.ANO_LETIVO = ?
+         ORDER BY t.NOME, p.NOME',
+        [(int)$idUnidade, $serieDestino, $anoDestino]
     ) ?: [];
 }
 

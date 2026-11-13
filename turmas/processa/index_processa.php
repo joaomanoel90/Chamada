@@ -15,7 +15,7 @@ $fSituacao = $_GET['situacao'] ?? 'ativas';
 /* Usuários sem alcance de rede só veem turmas das unidades liberadas. */
 $filtro = ch_filtro_turma('t');
 
-$sql = 'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.ETAPA_ENSINO, t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
+$sql = 'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.ETAPA_ENSINO, t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
                u.unidade AS UNIDADE, p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM,
                (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS ALUNOS
         FROM TB_TURMAS t

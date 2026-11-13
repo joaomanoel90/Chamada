@@ -7,7 +7,7 @@ ch_require_gestor();
 
 $turmaId = (int)($_GET['turma_id'] ?? $_POST['turma_id'] ?? 0);
 $origem = ch_row(
-    'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.ANO_LETIVO, t.ATIVO, u.unidade AS UNIDADE
+    'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ANO_LETIVO, t.ATIVO, u.unidade AS UNIDADE
      FROM TB_TURMAS t INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
      WHERE t.ID = ?',
     [$turmaId]
@@ -18,13 +18,16 @@ if (!$origem || (int)$origem['ATIVO'] !== 1 || !ch_pode_turma($turmaId)) {
     exit;
 }
 
+$filtro = ch_filtro_turma('t');
 $destinos = ch_rows(
-    'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.CAPACIDADE, p.NOME AS PERIODO,
+    'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.CAPACIDADE, p.NOME AS PERIODO,
+            u.unidade AS UNIDADE,
             (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS OCUPADAS
      FROM TB_TURMAS t INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
-     WHERE t.ATIVO = 1 AND t.ID_UNIDADE = ? AND t.ANO_LETIVO = ?
-     ORDER BY t.NOME',
-    [(int)$origem['ID_UNIDADE'], (int)$origem['ANO_LETIVO'] + 1]
+     INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+     WHERE t.ATIVO = 1 AND t.SERIE IS NOT NULL AND t.ANO_LETIVO = ?' . $filtro['sql'] . '
+     ORDER BY u.unidade, t.SERIE, t.NOME',
+    array_merge([(int)$origem['ANO_LETIVO'] + 1], $filtro['params'])
 );
 $alunos = ch_rows(
     'SELECT ID, NOME, MATRICULA FROM TB_ALUNOS

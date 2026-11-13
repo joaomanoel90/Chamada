@@ -18,14 +18,18 @@ if (!ch_csrf_ok()) {
 $alunoId = (int)($_POST['aluno_id'] ?? 0);
 $turmaOrigemId = (int)($_POST['turma_id'] ?? 0);
 $turmaDestinoId = (int)($_POST['id_turma_destino'] ?? 0);
+$resultado = (string)($_POST['resultado'] ?? '');
+$motivoResultado = (string)($_POST['motivo_resultado'] ?? '');
 $dataInicio = ch_data_iso($_POST['data_inicio'] ?? '');
 $individual = $alunoId > 0;
 $destinoErro = $individual
     ? ch_url('promocoes/aluno.php?aluno_id=' . $alunoId)
     : ch_url('promocoes/turma.php?turma_id=' . $turmaOrigemId);
 
-if (($individual && !$alunoId) || (!$individual && !$turmaOrigemId) || !$turmaDestinoId || !$dataInicio) {
-    ch_flash('Informe uma turma de destino e uma data de início válida.', 'danger');
+if (($individual && !$alunoId) || (!$individual && !$turmaOrigemId) || !$turmaDestinoId
+    || !$dataInicio || !in_array($resultado, ['PROMOVIDO', 'RETIDO'], true)
+    || ($resultado === 'RETIDO' && !isset(ch_motivos_retencao()[$motivoResultado]))) {
+    ch_flash('Informe o resultado escolar, uma turma de destino e uma data de início válida.', 'danger');
     header('Location: ' . $destinoErro);
     exit;
 }
@@ -44,7 +48,7 @@ $alunos = [];
 
 if ($individual) {
     $aluno = ch_row(
-        'SELECT a.ID, a.ID_TURMA, a.ATIVO, t.ID_UNIDADE, t.ANO_LETIVO
+        'SELECT a.ID, a.ID_TURMA, a.ATIVO, t.ID_UNIDADE, t.ANO_LETIVO, t.SERIE
          FROM TB_ALUNOS a WITH (UPDLOCK, HOLDLOCK)
          INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
          WHERE a.ID = ?',
@@ -57,12 +61,13 @@ if ($individual) {
             'ID' => (int)$aluno['ID_TURMA'],
             'ID_UNIDADE' => (int)$aluno['ID_UNIDADE'],
             'ANO_LETIVO' => (int)$aluno['ANO_LETIVO'],
+            'SERIE' => $aluno['SERIE'],
         ];
         $alunos = [$aluno];
     }
 } else {
     $origem = ch_row(
-        'SELECT ID, ID_UNIDADE, ANO_LETIVO, ATIVO
+        'SELECT ID, ID_UNIDADE, ANO_LETIVO, SERIE, ATIVO
          FROM TB_TURMAS WITH (UPDLOCK, HOLDLOCK) WHERE ID = ?',
         [$turmaOrigemId]
     );
@@ -83,17 +88,24 @@ if (!$erro && !$alunos) {
 
 if (!$erro) {
     $destino = ch_row(
-        'SELECT ID, ID_UNIDADE, ANO_LETIVO, CAPACIDADE, ATIVO
+        'SELECT ID, ID_UNIDADE, ANO_LETIVO, SERIE, CAPACIDADE, ATIVO
          FROM TB_TURMAS WITH (UPDLOCK, HOLDLOCK) WHERE ID = ?',
         [$turmaDestinoId]
     );
     if (!$destino || (int)$destino['ATIVO'] !== 1
-        || (int)$destino['ID_UNIDADE'] !== (int)$origem['ID_UNIDADE']
+        || !ch_pode_unidade((int)$destino['ID_UNIDADE'])
         || (int)$destino['ANO_LETIVO'] !== (int)$origem['ANO_LETIVO'] + 1
         || (int)$destino['ID'] === (int)$origem['ID']) {
-        $erro = 'A turma de destino precisa ser ativa, da mesma unidade e do ano letivo seguinte.';
+        $erro = 'A turma de destino precisa ser ativa, em uma unidade autorizada e do ano letivo seguinte.';
     } elseif (substr($dataInicio, 0, 4) !== (string)((int)$destino['ANO_LETIVO'])) {
         $erro = 'A data de início deve estar dentro do ano letivo da turma de destino.';
+    } elseif (empty($origem['SERIE']) || empty($destino['SERIE'])) {
+        $erro = 'Classifique as séries das turmas de origem e destino antes desta movimentação.';
+    } elseif ($resultado === 'PROMOVIDO'
+        && ch_serie_seguinte($origem['SERIE']) !== $destino['SERIE']) {
+        $erro = 'Para promoção, a turma de destino deve ser da série imediatamente seguinte.';
+    } elseif ($resultado === 'RETIDO' && $origem['SERIE'] !== $destino['SERIE']) {
+        $erro = 'Para retenção, a turma de destino deve manter a mesma série.';
     }
 }
 
@@ -148,9 +160,10 @@ if (!$erro) {
         $idMovido = (int)$alunoMovido['ID'];
         $ok = ch_exec(
             'INSERT INTO TB_PROMOCOES
-                (ID_ALUNO, ID_TURMA_ORIGEM, ID_TURMA_DESTINO, DATA_INICIO, ID_USUARIO)
-             VALUES (?, ?, ?, ?, ?)',
-            [$idMovido, (int)$origem['ID'], $turmaDestinoId, $dataInicio, ch_uid()]
+                (ID_ALUNO, ID_TURMA_ORIGEM, ID_TURMA_DESTINO, DATA_INICIO, ID_USUARIO, RESULTADO, MOTIVO_RESULTADO)
+             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [$idMovido, (int)$origem['ID'], $turmaDestinoId, $dataInicio, ch_uid(), $resultado,
+             $resultado === 'RETIDO' ? $motivoResultado : null]
         );
         if ($ok) {
             $ok = ch_afetadas(
@@ -168,7 +181,7 @@ if (!$erro) {
 
 if ($erro === '' && sqlsrv_commit($conn)) {
     $nomeDestino = ch_val('SELECT NOME FROM TB_TURMAS WHERE ID = ?', [$turmaDestinoId]);
-    $aviso = count($alunos) . ' aluno(s) promovido(s) para ' . $nomeDestino
+    $aviso = count($alunos) . ' aluno(s) ' . strtolower(ch_resultados_escolares()[$resultado]) . ' para ' . $nomeDestino
            . ' a partir de ' . ch_data_br($dataInicio) . '. O histórico escolar foi preservado.';
     ch_flash($aviso);
     header('Location: ' . ($individual

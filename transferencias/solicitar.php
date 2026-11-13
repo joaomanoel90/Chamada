@@ -39,7 +39,7 @@
             <div class="mb-3">
               <label class="fw-bold">Escola e turma atuais</label>
               <input type="text" class="form-control" disabled
-                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
+                     value="<?= ch_h($aluno['UNIDADE']) ?> — <?= ch_h(ch_series_ensino()[$aluno['SERIE']]['rotulo'] ?? 'série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)">
             </div>
 
             <div class="mb-3">
@@ -56,6 +56,30 @@
             </div>
 
             <div class="mb-3">
+                <label class="fw-bold" for="resultado">Resultado escolar previsto</label>
+                <select name="resultado" id="resultado" class="form-select" required>
+                  <option value="">Selecione...</option>
+                  <?php foreach (ch_resultados_escolares() as $codigo => $rotulo): ?>
+                    <option value="<?= ch_h($codigo) ?>" <?= $d['RESULTADO'] === $codigo ? 'selected' : '' ?>
+                      <?= $codigo === 'PROMOVIDO' && ch_serie_seguinte($aluno['SERIE'] ?? '') === null ? 'disabled' : '' ?>>
+                      <?= ch_h($rotulo) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <div class="form-text">A escola de origem registra o resultado; a escola de destino só poderá escolher uma turma compatível com ele.</div>
+              </div>
+
+              <div class="mb-3" id="motivo-retencao-bloco" hidden>
+                <label class="fw-bold" for="motivo_resultado">Motivo da retenção</label>
+                <select name="motivo_resultado" id="motivo_resultado" class="form-select" disabled>
+                  <option value="">Selecione...</option>
+                  <?php foreach (ch_motivos_retencao() as $codigo => $rotulo): ?>
+                    <option value="<?= ch_h($codigo) ?>"><?= ch_h($rotulo) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+
+              <div class="mb-3">
               <label class="fw-bold" for="motivo">Motivo da transferência</label>
               <textarea name="motivo" id="motivo" class="form-control" rows="3" maxlength="500" required
                         placeholder="Ex.: mudança de endereço da família; solicitação do responsável."><?= ch_h($d['MOTIVO']) ?></textarea>
@@ -93,4 +117,20 @@
   </div>
 </div>
 
+<script>
+(function () {
+  var resultado = document.getElementById('resultado');
+  var bloco = document.getElementById('motivo-retencao-bloco');
+  var motivo = document.getElementById('motivo_resultado');
+  if (!resultado || !bloco || !motivo) return;
+  function atualizar() {
+    var retido = resultado.value === 'RETIDO';
+    bloco.hidden = !retido;
+    motivo.disabled = !retido;
+    motivo.required = retido;
+  }
+  resultado.addEventListener('change', atualizar);
+  atualizar();
+})();
+</script>
 <?php include(FOOTER_TEMPLATE); ?>

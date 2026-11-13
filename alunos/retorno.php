@@ -64,7 +64,8 @@
             <option value="">Selecione...</option>
             <?php foreach ($turmasDisponiveis as $turma): ?>
               <option value="<?= (int)$turma['ID'] ?>" <?= (int)$d['ID_TURMA'] === (int)$turma['ID'] ? 'selected' : '' ?>>
-                <?= ch_h($turma['UNIDADE']) ?> — <?= ch_h($turma['NOME']) ?>
+                <?= ch_h($turma['UNIDADE']) ?> — Turma <?= ch_h(ch_series_ensino()[$turma['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+                · Sala <?= ch_h($turma['NOME']) ?> · <?= ch_h($turma['PERIODO']) ?> (<?= (int)$turma['ANO_LETIVO'] ?>)
                 (<?= (int)$turma['OCUPADAS'] ?>/<?= (int)$turma['CAPACIDADE'] ?>)
               </option>
             <?php endforeach; ?>

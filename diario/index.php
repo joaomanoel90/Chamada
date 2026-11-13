@@ -24,7 +24,8 @@
       <select class="form-select" id="turma" name="turma_id" required>
         <?php foreach ($turmas as $opcao): ?>
           <option value="<?= (int)$opcao['ID'] ?>" <?= (int)$opcao['ID'] === $turmaId ? 'selected' : '' ?>>
-              <?= ch_h($opcao['UNIDADE']) ?> — <?= ch_h($opcao['NOME']) ?>
+              <?= ch_h($opcao['UNIDADE']) ?> — Turma <?= ch_h(ch_series_ensino()[$opcao['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+              · Sala <?= ch_h($opcao['NOME']) ?> · <?= ch_h($opcao['PERIODO']) ?>
               (<?= ch_h(ch_etapa_ensino_rotulo($opcao['ETAPA_ENSINO'])) ?>, <?= (int)$opcao['ANO_LETIVO'] ?>)
           </option>
         <?php endforeach; ?>

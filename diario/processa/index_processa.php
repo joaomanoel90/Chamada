@@ -23,12 +23,14 @@ function diario_nota_normalizar($valor)
 
 $filtro = ch_filtro_turma('t');
 $turmas = ch_rows(
-    'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.ETAPA_ENSINO, t.NOTAS_ATIVAS, u.unidade AS UNIDADE
+    'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, t.ETAPA_ENSINO, t.NOTAS_ATIVAS,
+            u.unidade AS UNIDADE, p.NOME AS PERIODO
      FROM TB_TURMAS t
      INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+     INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
      WHERE t.ATIVO = 1 AND t.NOTAS_ATIVAS = 1
        AND (t.ETAPA_ENSINO IS NULL OR t.ETAPA_ENSINO <> \'INFANTIL_CRECHE\')' . $filtro['sql'] . '
-     ORDER BY u.unidade, t.NOME',
+     ORDER BY u.unidade, t.SERIE, t.NOME, p.NOME',
     $filtro['params']
 );
 

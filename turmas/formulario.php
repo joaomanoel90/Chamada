@@ -155,18 +155,23 @@ function turma_linha_equipe($m, $op)
           <input type="number" class="form-control" name="ano_letivo" min="2000" max="2100" value="<?= (int)$d['ANO_LETIVO'] ?>" required>
         </div>
         <div class="form-group col-md-8">
-          <label class="fw-bold" for="etapa-ensino">Etapa de ensino</label>
-          <select class="form-select" id="etapa-ensino" name="etapa_ensino" required>
-            <option value="">Selecione...</option>
-            <?php foreach (ch_etapas_ensino() as $codigo => $rotulo): ?>
-              <option value="<?= ch_h($codigo) ?>" <?= ($d['ETAPA_ENSINO'] ?? '') === $codigo ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+          <label class="fw-bold" for="serie">Série / ano escolar</label>
+          <select class="form-select" id="serie" name="serie" <?= empty($id) ? 'required' : '' ?>>
+            <?php if (!empty($id)): ?>
+              <option value="" <?= empty($d['SERIE']) ? 'selected' : '' ?>>Não classificada (cadastro antigo)</option>
+            <?php else: ?>
+              <option value="">Selecione...</option>
+            <?php endif; ?>
+            <?php foreach (ch_series_ensino() as $codigo => $serie): ?>
+              <option value="<?= ch_h($codigo) ?>" <?= ($d['SERIE'] ?? '') === $codigo ? 'selected' : '' ?>><?= ch_h($serie['rotulo']) ?></option>
             <?php endforeach; ?>
           </select>
+          <small class="text-muted">A série define a ordem de progressão. O nome da turma pode identificar a sala, por exemplo A, B ou C.</small>
         </div>
 
         <div class="form-group col-md-5">
-          <label class="fw-bold">Nome da turma</label>
-          <input type="text" class="form-control" name="nome" maxlength="80" value="<?= ch_h($d['NOME']) ?>" placeholder="Ex.: Berçário I" required>
+          <label class="fw-bold">Nome / identificação da sala</label>
+          <input type="text" class="form-control" name="nome" maxlength="80" value="<?= ch_h($d['NOME']) ?>" placeholder="Ex.: A, B ou Integral" required>
         </div>
         <div class="form-group col-md-4">
           <label class="fw-bold">Período</label>
