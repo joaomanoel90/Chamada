@@ -8,6 +8,12 @@ ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);
 $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
+/* Fonte do nome pelo tamanho: garante que nomes grandes caibam no
+   crachá sem cortar nenhuma letra. */
+$tamNome = mb_strlen($aluno['NOME']);
+$nomeFonte = $tamNome <= 28 ? '11pt'
+           : ($tamNome <= 38 ? '10pt'
+           : ($tamNome <= 48 ? '9pt' : '8pt'));
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -51,13 +57,26 @@ $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
       background: linear-gradient(160deg, #fff 0%, #f5fbff 60%, #e8f6ef 100%);
       box-shadow: 0 8px 26px rgba(32, 48, 71, .18);
       text-align: center;
+      /* Coluna flex: o nome ocupa o espaço que sobra e as informações de
+         baixo (turma, período, ano) nunca saem do crachá. */
+      display: flex;
+      flex-direction: column;
     }
     .marca { color: #26734d; font-size: 9pt; font-weight: 800; letter-spacing: .5px; }
-    .subtitulo { margin-top: 1mm; color: #657487; font-size: 7pt; }
+    .subtitulo {
+      margin-top: 1mm;
+      color: #405168;
+      font-size: 7pt;
+      font-weight: 700;
+      line-height: 1.2;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
     .foto {
-      width: 31mm;
-      height: 34mm;
-      margin: 4mm auto 2.5mm;
+      width: 25mm;
+      height: 26mm;
+      margin: 3mm auto 2mm;
+      flex: 0 0 auto;
       overflow: hidden;
       border: 2px solid #fff;
       border-radius: 3mm;
@@ -70,9 +89,27 @@ $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
       font-weight: 800;
     }
     .foto img { width: 100%; height: 100%; object-fit: cover; }
-    .nome { margin: 0 auto 1.5mm; max-height: 14mm; overflow: hidden; font-size: 11pt; line-height: 1.15; font-weight: 800; }
-    .matricula { color: #26734d; font-size: 8pt; font-weight: 700; }
-    .linha { margin-top: 2mm; color: #405168; font-size: 7pt; line-height: 1.2; }
+    /* Nome: nunca corta. A fonte é ajustada no PHP pelo tamanho do nome
+       (ver $nomeFonte abaixo) e a quebra de palavra cobre sobrenomes
+       compridos sem espaço. */
+    .nome {
+      margin: 0 auto 1.5mm;
+      line-height: 1.15;
+      font-weight: 800;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      flex: 1 1 auto;
+    }
+    /* margin-top:auto cola o bloco de baixo no rodapé do crachá. */
+    .matricula { color: #26734d; font-size: 8pt; font-weight: 700; margin-top: auto; }
+    .linha {
+      margin-top: 2mm;
+      color: #405168;
+      font-size: 7pt;
+      line-height: 1.2;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
     @page { size: 54mm 86mm; margin: 0; }
     @media print {
@@ -97,7 +134,7 @@ $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
         <?= ch_h(ch_iniciais($aluno['NOME'])) ?>
       <?php endif; ?>
     </div>
-    <h1 class="nome"><?= ch_h($aluno['NOME']) ?></h1>
+    <h1 class="nome" style="font-size: <?= $nomeFonte ?>"><?= ch_h($aluno['NOME']) ?></h1>
     <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
     <div class="linha">Turma <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
       · Sala <?= ch_h($aluno['TURMA']) ?></div>
