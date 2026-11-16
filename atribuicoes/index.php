@@ -12,7 +12,8 @@
   No começo do ano ele ainda não tem equipe, e a categoria é o que permite
   atribuir. A turma define o <b>total de aulas</b> de cada matéria; as aulas são
   <b>divididas entre os professores</b> e o painel mostra <b>quantas aulas ainda
-  faltam</b>. Cada professor tem teto de <b>36 h/a</b> por semana. Quem recebe
+  faltam</b>. Cada professor tem teto de <b>36 h/a</b> por semana. Só é possível
+  atribuir a ele uma matéria que esteja <b>no cadastro dele</b>. Quem recebe
   aulas entra na equipe da turma automaticamente. O professor vê aqui as
   turmas e matérias dele.
 </div>
@@ -71,7 +72,7 @@
   <div class="alert alert-light border py-2">
     <i class="fas fa-id-card text-primary"></i>
     Categoria do concurso: <b><?= ch_h($resumoProfessor['categoria']) ?></b>
-    · Pode lecionar: <b><?= $resumoProfessor['materias'] ? ch_h(implode(', ', $resumoProfessor['materias'])) : 'todas as matérias' ?></b>
+    · Pode lecionar: <b><?= $resumoProfessor['materias'] ? ch_h(implode(', ', $resumoProfessor['materias'])) : 'nenhuma matéria cadastrada' ?></b>
   </div>
 <?php endif; ?>
 
@@ -240,13 +241,22 @@
                     <?php if ($fUnidade): ?><input type="hidden" name="unidade" value="<?= $fUnidade ?>"><?php endif; ?>
                     <?php if ($fProfessor): ?><input type="hidden" name="professor" value="<?= $fProfessor ?>"><?php endif; ?>
                     <div class="col-12 col-lg-5">
-                      <label class="fw-bold small">Professor(a)</label>
+                      <label class="fw-bold small">Professor(a) — só quem tem <?= ch_h($d['NOME']) ?> no cadastro</label>
                       <select name="id_professor" class="form-select" required>
                         <option value="">Selecione...</option>
                         <?php foreach ($elegiveisPorTurma[$idTurma] as $idP => $e): ?>
+                          <?php if (!eq_professor_pode_materia($e['MATERIAS'], $d['NOME'])) continue; ?>
                           <option value="<?= (int)$idP ?>"><?= ch_h($e['NOME']) ?></option>
                         <?php endforeach; ?>
                       </select>
+                      <?php
+                      $temQuemPode = false;
+                      foreach ($elegiveisPorTurma[$idTurma] as $e) {
+                          if (eq_professor_pode_materia($e['MATERIAS'], $d['NOME'])) { $temQuemPode = true; break; }
+                      }
+                      if (!$temQuemPode): ?>
+                        <small class="text-danger d-block mt-1">Nenhum professor elegível tem <?= ch_h($d['NOME']) ?> no cadastro.</small>
+                      <?php endif; ?>
                     </div>
                     <div class="col-6 col-lg-2">
                       <label class="fw-bold small">Aulas</label>

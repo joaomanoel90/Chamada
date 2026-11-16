@@ -92,11 +92,12 @@
               </select>
             </div>
             <div class="col-md-5">
-              <label class="fw-bold" for="novo-professor">Professor</label>
+              <label class="fw-bold" for="novo-professor">Professor — só quem tem a matéria no cadastro</label>
               <select class="form-select" id="novo-professor" name="id_professor" required>
                 <option value="">Selecione...</option>
                 <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
-                  <option value="<?= $idProfessor ?>" <?= $idProfessor === $professorDisciplinaPost ? 'selected' : '' ?>>
+                  <option value="<?= $idProfessor ?>" <?= $idProfessor === $professorDisciplinaPost ? 'selected' : '' ?>
+                          data-materias="<?= ch_h(implode('|', array_keys($materiasPorProfessor[$idProfessor] ?? []))) ?>">
                     <?= ch_h($nomeProfessor) ?>
                   </option>
                 <?php endforeach; ?>
@@ -143,10 +144,11 @@
                 <input type="hidden" name="disciplina_id" value="<?= $disciplinaId ?>">
                 <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
                 <div class="col-md-8">
-                  <label class="fw-bold" for="professor-disciplina">Atribuir professor à disciplina</label>
+                  <label class="fw-bold" for="professor-disciplina">Atribuir professor à disciplina — só quem tem <?= ch_h($nomeDisciplina) ?> no cadastro</label>
                   <select class="form-select" id="professor-disciplina" name="id_professor" required>
                     <option value="">Selecione...</option>
                     <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
+                      <?php if (!eq_professor_pode_materia($materiasPorProfessor[$idProfessor] ?? [], $nomeDisciplina)) continue; ?>
                       <option value="<?= $idProfessor ?>" <?= $idProfessor === $professorAtualDisciplina ? 'selected' : '' ?>>
                         <?= ch_h($nomeProfessor) ?>
                       </option>
@@ -232,5 +234,33 @@
       .card-escola { break-inside: avoid; }
     }
 </style>
+
+<script>
+(function () {
+  /* Nova disciplina: mostra só os professores que têm a matéria escolhida
+     no cadastro deles. */
+  var selMat = document.getElementById('nome-disciplina');
+  var selProf = document.getElementById('novo-professor');
+  if (!selMat || !selProf) return;
+
+  function filtrar() {
+    var mat = (selMat.value || '').toLowerCase();
+    var visivel = 0;
+    Array.prototype.forEach.call(selProf.options, function (op) {
+      if (!op.value) return;
+      var mats = (op.getAttribute('data-materias') || '').split('|');
+      var ok = mat !== '' && mats.indexOf(mat) !== -1;
+      op.hidden = !ok;
+      if (ok) visivel++;
+    });
+    if (selProf.selectedOptions.length && selProf.selectedOptions[0].hidden) {
+      selProf.value = '';
+    }
+    selProf.disabled = visivel === 0;
+  }
+  selMat.addEventListener('change', filtrar);
+  filtrar();
+})();
+</script>
 
 <?php include(FOOTER_TEMPLATE); ?>

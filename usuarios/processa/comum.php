@@ -34,10 +34,11 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $turno = strtoupper(trim((string)($post['turno'] ?? '')));
     $d['turno'] = ($d['nivel'] === 3 && isset(eq_turnos()[$turno])) ? $turno : null;
 
-    /* Categoria do concurso (PEB I / PEB II) e matérias que pode lecionar.
-       Só para professor. Sem categoria = todas as etapas; sem matérias
-       cadastradas = qualquer matéria. É o que permite atribuir o professor
-       no começo do ano, antes de existir equipe. */
+    /* Categoria do concurso (PDI / PEB I / PEB II) e matérias que pode
+       lecionar. Só para professor. Sem categoria = todas as etapas; sem
+       matérias cadastradas = ele ainda não pode lecionar nenhuma matéria.
+       É o que permite atribuir o professor no começo do ano, antes de
+       existir equipe. */
     $categoria = strtoupper(trim((string)($post['categoria'] ?? '')));
     $d['categoria'] = ($d['nivel'] === 3 && isset(eq_categorias_concurso()[$categoria])) ? $categoria : null;
     $d['materias'] = [];

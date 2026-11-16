@@ -859,9 +859,10 @@ function eq_disciplinas_salvar($idTurma, $lista)
    --------------------------------------------------------------------------
    No começo do ano o professor ainda não tem turma nem equipe vinculada a
    ele. Para o painel de atribuição saber em quais turmas ele pode ser
-   atribuído, o cadastro dele guarda a categoria do concurso (PEB I / PEB II)
-   e as matérias que ele pode lecionar. Sem categoria = todas as etapas;
-   sem matérias cadastradas = qualquer matéria.
+   atribuído, o cadastro dele guarda a categoria do concurso (PDI / PEB I /
+   PEB II) e as matérias que ele pode lecionar. Sem categoria = todas as
+   etapas; sem matérias cadastradas = ele ainda não pode lecionar nenhuma
+   matéria (só recebe atribuição de matéria que esteja no cadastro dele).
    ========================================================================== */
 
 /** Categorias do concurso e o que cada uma significa. */
@@ -920,10 +921,14 @@ function eq_professor_pode_turma($categoria, $etapa)
     return in_array($etapa, $etapas, true);
 }
 
-/** O professor pode lecionar esta matéria? (lista vazia = qualquer uma) */
+/**
+ * O professor pode lecionar esta matéria? Só se ela estiver no cadastro
+ * dele (TB_PROFESSOR_MATERIAS). Lista vazia = ele ainda não pode lecionar
+ * nenhuma matéria.
+ */
 function eq_professor_pode_materia($materias, $nomeMateria)
 {
-    if (!$materias) return true;
+    if (!$materias) return false;
     return isset($materias[mb_strtolower((string)$nomeMateria, 'UTF-8')]);
 }
 

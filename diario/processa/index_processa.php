@@ -81,6 +81,19 @@ if ($turmaId > 0) {
     foreach ($membros ?: [] as $membro) {
         $professoresDisciplina[(int)$membro['ID']] = $membro['NOME'];
     }
+    /* Matérias que cada membro pode lecionar (do cadastro dele). Só é
+       possível atribuir a ele uma matéria que esteja no cadastro. */
+    $materiasPorProfessor = [];
+    if ($professoresDisciplina) {
+        $idsP = array_keys($professoresDisciplina);
+        $phP = implode(',', array_fill(0, count($idsP), '?'));
+        foreach (ch_rows(
+            "SELECT ID_USUARIO, NOME FROM TB_PROFESSOR_MATERIAS WHERE ID_USUARIO IN ({$phP}) ORDER BY NOME",
+            $idsP
+        ) ?: [] as $mp) {
+            $materiasPorProfessor[(int)$mp['ID_USUARIO']][mb_strtolower((string)$mp['NOME'], 'UTF-8')] = (string)$mp['NOME'];
+        }
+    }
     $disciplinas = ch_rows(
         'SELECT d.ID, d.NOME, d.ID_PROFESSOR, d.AULAS
          FROM TB_TURMA_DISCIPLINAS d
@@ -175,6 +188,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erros[] = 'Escolha a disciplina da lista de matérias.';
         } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
             $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
+        } elseif (!eq_professor_pode_materia($materiasPorProfessor[$professorId] ?? [], $nome)) {
+            $erros[] = 'O professor ' . $professoresDisciplina[$professorId]
+                     . ' não tem "' . $nome . '" no cadastro dele. Só é possível atribuir a matéria que ele pode lecionar.';
         } elseif (ch_val('SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID_TURMA = ? AND NOME = ?', [$turmaId, $nome])) {
             $erros[] = 'Essa disciplina já está cadastrada na turma.';
         } else {
@@ -213,6 +229,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erros[] = 'Selecione uma disciplina válida.';
         } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
             $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
+        } elseif (!eq_professor_pode_materia(
+            $materiasPorProfessor[$professorId] ?? [],
+            $disciplinaSelecionada['NOME'] ?? ''
+        )) {
+            $erros[] = 'O professor ' . $professoresDisciplina[$professorId]
+                     . ' não tem "' . ($disciplinaSelecionada['NOME'] ?? '') . '" no cadastro dele. Só é possível atribuir a matéria que ele pode lecionar.';
         } else {
             /* Adiciona o professor às aulas da disciplina (1 aula, se ele
                ainda não tem atribuição; o ajuste fino é no painel). */

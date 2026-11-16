@@ -87,7 +87,7 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
             </option>
           <?php endforeach; ?>
         </select>
-        <small class="text-muted d-block mt-1">Só para professor. Escolha da lista. Deixe vazio se ele pode lecionar qualquer matéria.</small>
+        <small class="text-muted d-block mt-1">Só para professor. Escolha da lista. Só é possível atribuir a ele as matérias marcadas aqui — deixe vazio se ele ainda não pode lecionar nenhuma.</small>
       </div>
       <div class="col-12">
         <div class="form-check">
