@@ -5,14 +5,30 @@
 
 <div class="alert alert-info">
   <i class="fas fa-circle-info"></i>
-  As turmas aparecem agrupadas por <b>etapa</b> (da Creche ao Fundamental) e por série.
-  Em cada turma estão as <b>matérias</b>, com as <b>aulas por semana</b> e o
-  <b>professor</b> que as dá. A gestão pode trocar o professor, ajustar as aulas e
-  adicionar ou remover matérias; o professor vê aqui as turmas e matérias dele.
+  Primeiro escolha o <b>professor</b>: aparecem só as turmas em que ele pode ser
+  atribuído (as turmas da equipe dele), agrupadas por <b>etapa</b> (da Creche ao
+  Fundamental) e por série. As turmas <b>já completas</b> (todas as matérias com
+  professor) vêm marcadas. Em cada turma estão as <b>matérias</b>, com as
+  <b>aulas por semana</b> e o <b>professor</b> que as dá. A gestão pode trocar o
+  professor, ajustar as aulas e adicionar ou remover matérias; o professor vê
+  aqui as turmas e matérias dele.
 </div>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
-  <div class="col-md-5">
+  <?php if ($ehGestao): ?>
+  <div class="col-md-4">
+    <label class="fw-bold">Professor</label>
+    <select name="professor" class="form-select">
+      <option value="0">Todos os professores</option>
+      <?php foreach ($professores as $p): ?>
+        <option value="<?= (int)$p['ID'] ?>" <?= (int)$p['ID'] === $fProfessor ? 'selected' : '' ?>>
+          <?= ch_h($p['NOME']) ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+  <?php endif; ?>
+  <div class="col-md-<?= $ehGestao ? '3' : '5' ?>">
     <label class="fw-bold">Escola</label>
     <select name="unidade" class="form-select">
       <option value="0">Todas</option>
@@ -35,6 +51,16 @@
   </div>
   <div class="col-md-2"><button class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filtrar</button></div>
 </form>
+
+<?php if ($resumoProfessor): ?>
+  <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2">
+    <i class="fas fa-user-check text-success"></i>
+    <span><b><?= ch_h($nomeProfessor) ?></b> — <?= $resumoProfessor['turmas'] ?> turma(s) na equipe:</span>
+    <span class="badge bg-success"><i class="fas fa-check"></i> <?= $resumoProfessor['completas'] ?> completa(s)</span>
+    <span class="badge bg-warning text-dark"><?= $resumoProfessor['incompletas'] ?> incompleta(s)</span>
+    <span class="badge bg-secondary"><?= $resumoProfessor['sem_materias'] ?> sem matérias definidas</span>
+  </div>
+<?php endif; ?>
 
 <?php if ($erros): ?>
   <div class="alert alert-danger"><ul class="mb-0"><?php foreach ($erros as $e): ?><li><?= ch_h($e) ?></li><?php endforeach; ?></ul></div>
@@ -69,9 +95,20 @@
               <?= ch_h($t['NOME']) ?>
               <small class="text-muted">— <?= ch_h($t['ESCOLA']) ?> · <?= ch_h($t['PERIODO']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)</small>
             </h5>
-            <span class="badge bg-light text-dark border">
-              <?= count($discs) ?> <?= count($discs) === 1 ? 'matéria' : 'matérias' ?> ·
-              <?= $totalAulas ?> aulas/semana
+            <span class="d-flex flex-wrap gap-1">
+              <?php if ($fProfessor > 0): $st = $statusPorTurma[$idTurma]; ?>
+                <?php if ($st['completa']): ?>
+                  <span class="badge bg-success"><i class="fas fa-check"></i> Completa</span>
+                <?php elseif ($st['total'] === 0): ?>
+                  <span class="badge bg-secondary">Sem matérias definidas</span>
+                <?php else: ?>
+                  <span class="badge bg-warning text-dark">Faltam <?= $st['sem_professor'] ?> matéria(s)</span>
+                <?php endif; ?>
+              <?php endif; ?>
+              <span class="badge bg-light text-dark border">
+                <?= count($discs) ?> <?= count($discs) === 1 ? 'matéria' : 'matérias' ?> ·
+                <?= $totalAulas ?> aulas/semana
+              </span>
             </span>
           </div>
 
@@ -81,6 +118,7 @@
               <input type="hidden" name="id_turma" value="<?= $idTurma ?>">
               <input type="hidden" name="ano" value="<?= $fAno ?>">
               <?php if ($fUnidade): ?><input type="hidden" name="unidade" value="<?= $fUnidade ?>"><?php endif; ?>
+              <?php if ($fProfessor): ?><input type="hidden" name="professor" value="<?= $fProfessor ?>"><?php endif; ?>
               <div class="lista-disc">
                 <?php foreach ($discs as $d): ?>
                   <div class="row g-2 align-items-end mb-2" data-linha-disc>

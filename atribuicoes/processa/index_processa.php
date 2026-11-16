@@ -5,8 +5,11 @@
    Mostra as turmas agrupadas por etapa (da Creche ao Fundamental) e, dentro
    de cada turma, as matérias com as aulas semanais e o professor que as dá.
 
-   - A gestão atribui: troca o professor, ajusta as aulas e adiciona ou
-     remove matérias (a mesma tela que o formulário da turma usa).
+   - A gestão escolhe primeiro o PROFESSOR: aparecem só as turmas em que ele
+     pode ser atribuído (as turmas da equipe dele), com as turmas já
+     COMPLETAS marcadas (todas as matérias com professor). A gestão atribui:
+     troca o professor, ajusta as aulas e adiciona ou remove matérias (a
+     mesma tela que o formulário da turma usa).
    - O professor vê, em modo leitura, só as turmas e matérias dele.
    ============================================================================ */
 require_once(dirname(__DIR__, 2) . '/config.php');
@@ -22,10 +25,22 @@ if (!$ehGestao && !$ehProfessor) {
     exit;
 }
 
-$fAno     = (int)($_GET['ano'] ?? (int)date('Y'));
-$fUnidade = (int)($_GET['unidade'] ?? 0);
+$fAno     = (int)($_GET['ano'] ?? $_POST['ano'] ?? (int)date('Y'));
+$fUnidade = (int)($_GET['unidade'] ?? $_POST['unidade'] ?? 0);
 $unidades = ch_unidades_opcoes();
 $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC') ?: [];
+
+/* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
+   turmas em que ele pode ser atribuído (as turmas da equipe dele). */
+$fProfessor = $ehGestao ? (int)($_GET['professor'] ?? $_POST['professor'] ?? 0) : 0;
+$professores = $ehGestao ? eq_professores_opcoes() : [];
+$nomeProfessor = '';
+if ($fProfessor > 0) {
+    foreach ($professores as $p) {
+        if ((int)$p['ID'] === $fProfessor) { $nomeProfessor = $p['NOME']; break; }
+    }
+    if ($nomeProfessor === '') { $fProfessor = 0; }
+}
 
 /* Turmas do painel, já com as matérias e o professor de cada uma. */
 $sqlTurmas =
@@ -52,6 +67,14 @@ if ($ehProfessor && !$ehGestao) {
 if ($fUnidade > 0) {
     $sqlTurmas .= ' AND t.ID_UNIDADE = ?';
     $params[] = $fUnidade;
+}
+if ($fProfessor > 0) {
+    /* Só as turmas em que o professor escolhido é da equipe (pode ser
+       atribuído às matérias delas). */
+    $sqlTurmas .= ' AND EXISTS (SELECT 1 FROM TB_TURMA_PROFESSORES tp
+                                WHERE tp.ID_TURMA = t.ID AND tp.ID_USUARIO = ?
+                                  AND tp.ATIVO = 1 AND tp.PAPEL <> \'SUBSTITUTO\')';
+    $params[] = $fProfessor;
 }
 $sqlTurmas .= ' ORDER BY t.SERIE, u.unidade, t.NOME, p.NOME';
 
@@ -85,6 +108,35 @@ if ($idsTurmas) {
     ) ?: [];
     foreach ($membros as $m) {
         $professoresPorTurma[(int)$m['ID_TURMA']][] = $m;
+    }
+}
+
+/* Turma COMPLETA = todas as matérias já têm professor atribuído. */
+$statusPorTurma = [];
+foreach ($turmas as $t) {
+    $idT = (int)$t['ID'];
+    $discsT = $disciplinasPorTurma[$idT] ?? [];
+    $comProfessor = 0;
+    foreach ($discsT as $d) {
+        if (!empty($d['ID_PROFESSOR'])) { $comProfessor++; }
+    }
+    $total = count($discsT);
+    $statusPorTurma[$idT] = [
+        'total'         => $total,
+        'com_professor' => $comProfessor,
+        'sem_professor' => $total - $comProfessor,
+        'completa'      => $total > 0 && $comProfessor === $total,
+    ];
+}
+
+/* Resumo do professor escolhido: quantas turmas dele estão completas. */
+$resumoProfessor = null;
+if ($fProfessor > 0) {
+    $resumoProfessor = ['turmas' => count($turmas), 'completas' => 0, 'incompletas' => 0, 'sem_materias' => 0];
+    foreach ($statusPorTurma as $s) {
+        if ($s['total'] === 0) { $resumoProfessor['sem_materias']++; }
+        elseif ($s['completa']) { $resumoProfessor['completas']++; }
+        else { $resumoProfessor['incompletas']++; }
     }
 }
 
@@ -143,7 +195,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($ok && sqlsrv_commit(ch_db())) {
             ch_flash('Atribuição da turma ' . $turma['NOME'] . ' salva.');
             header('Location: ' . ch_url('atribuicoes/index.php?ano=' . $fAno
-                . ($fUnidade ? '&unidade=' . $fUnidade : '')));
+                . ($fUnidade ? '&unidade=' . $fUnidade : '')
+                . ($fProfessor ? '&professor=' . $fProfessor : '')));
             exit;
         }
         sqlsrv_rollback(ch_db());
