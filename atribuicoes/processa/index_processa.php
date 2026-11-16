@@ -34,6 +34,11 @@ $fUnidade = (int)($_GET['unidade'] ?? $_POST['unidade'] ?? 0);
 $unidades = ch_unidades_opcoes();
 $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC') ?: [];
 
+/* Filtro por categoria da turma (PDI-Creche, PDI-Pré-escola, PEB I, PEB II). */
+$fCategoria = strtoupper(trim((string)($_GET['categoria'] ?? $_POST['categoria'] ?? '')));
+if (!isset(eq_categorias_concurso()[$fCategoria])) { $fCategoria = ''; }
+$categoriasTurma = eq_categorias_concurso();
+
 /* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
    turmas em que ele pode ser atribuído (equipe dele OU categoria do
    concurso compatível com a etapa). */
@@ -97,6 +102,16 @@ if ($fProfessor > 0) {
         if (isset($idsEquipeProf[(int)$t['ID']])) return true;
         $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
         return eq_professor_pode_turma($categoriaProfessor, $etapa);
+    }));
+}
+
+/* Categoria da turma escolhida: só as turmas daquela etapa. A etapa pode
+   vir da série, então o filtro é feito aqui, em PHP. */
+if ($fCategoria !== '') {
+    $etapasCategoria = eq_categoria_etapas($fCategoria) ?: [];
+    $turmas = array_values(array_filter($turmas, function ($t) use ($etapasCategoria, $series) {
+        $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
+        return in_array($etapa, $etapasCategoria, true);
     }));
 }
 
@@ -257,7 +272,8 @@ foreach ($grupos as $etapa => $porSerie) {
 $erros = [];
 $voltar = 'atribuicoes/index.php?ano=' . $fAno
     . ($fUnidade ? '&unidade=' . $fUnidade : '')
-    . ($fProfessor ? '&professor=' . $fProfessor : '');
+    . ($fProfessor ? '&professor=' . $fProfessor : '')
+    . ($fCategoria ? '&categoria=' . $fCategoria : '');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$ehGestao) {
         ch_flash('Somente a gestão pode atribuir professores.', 'danger');

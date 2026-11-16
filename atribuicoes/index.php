@@ -9,6 +9,8 @@
   atribuído — as turmas da equipe dele <b>e</b> as turmas compatíveis com a
   <b>categoria do concurso</b> dele (PDI / PEB I / PEB II, definida no cadastro
   do professor), agrupadas por <b>etapa</b> (da Creche ao Fundamental) e por série.
+  Use o filtro <b>Categoria da turma</b> para ver só as turmas de PDI-Creche,
+  PDI-Pré-escola, PEB I ou PEB II.
   No começo do ano ele ainda não tem equipe, e a categoria é o que permite
   atribuir. As <b>matérias e o total de aulas</b> de cada turma são definidos
   na área de <b>Turmas</b>; aqui as aulas são <b>divididas entre os professores</b>
@@ -32,7 +34,7 @@
     </select>
   </div>
   <?php endif; ?>
-  <div class="col-md-<?= $ehGestao ? '3' : '5' ?>">
+  <div class="col-md-<?= $ehGestao ? '2' : '4' ?>">
     <label class="fw-bold">Escola</label>
     <select name="unidade" class="form-select">
       <option value="0">Todas</option>
@@ -43,7 +45,18 @@
       <?php endforeach; ?>
     </select>
   </div>
-  <div class="col-md-3">
+  <div class="col-md-<?= $ehGestao ? '2' : '3' ?>">
+    <label class="fw-bold">Categoria da turma</label>
+    <select name="categoria" class="form-select">
+      <option value="">Todas as categorias</option>
+      <?php foreach ($categoriasTurma as $cod => $rotulo): ?>
+        <option value="<?= ch_h($cod) ?>" <?= $cod === $fCategoria ? 'selected' : '' ?>>
+          <?= ch_h($rotulo) ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+  <div class="col-md-<?= $ehGestao ? '2' : '3' ?>">
     <label class="fw-bold">Ano letivo</label>
     <select name="ano" class="form-select">
       <?php foreach ($anos as $a): ?>
@@ -160,6 +173,7 @@
                           <input type="hidden" name="ano" value="<?= $fAno ?>">
                           <?php if ($fUnidade): ?><input type="hidden" name="unidade" value="<?= $fUnidade ?>"><?php endif; ?>
                           <?php if ($fProfessor): ?><input type="hidden" name="professor" value="<?= $fProfessor ?>"><?php endif; ?>
+                          <?php if ($fCategoria): ?><input type="hidden" name="categoria" value="<?= ch_h($fCategoria) ?>"><?php endif; ?>
                           <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover atribuição"
                                   onclick="return confirm('Remover a atribuição de <?= ch_h(addslashes($a['PROFESSOR'])) ?>?')">
                             <i class="fas fa-times"></i>
@@ -178,6 +192,7 @@
                     <input type="hidden" name="ano" value="<?= $fAno ?>">
                     <?php if ($fUnidade): ?><input type="hidden" name="unidade" value="<?= $fUnidade ?>"><?php endif; ?>
                     <?php if ($fProfessor): ?><input type="hidden" name="professor" value="<?= $fProfessor ?>"><?php endif; ?>
+                          <?php if ($fCategoria): ?><input type="hidden" name="categoria" value="<?= ch_h($fCategoria) ?>"><?php endif; ?>
                     <div class="col-12 col-lg-5">
                       <label class="fw-bold small">Professor(a) — só quem tem <?= ch_h($d['NOME']) ?> no cadastro</label>
                       <select name="id_professor" class="form-select" required>
