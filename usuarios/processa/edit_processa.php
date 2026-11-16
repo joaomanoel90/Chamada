@@ -21,7 +21,7 @@ if ($id <= 0) {
    derrubava a página com "Object of class DateTime could not be converted to
    string". Converter no SELECT é a regra do projeto para datas. */
 $usuario = ch_row(
-    'SELECT ID, NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, USUARIO, TURNO,
+    'SELECT ID, NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, USUARIO, TURNO, CATEGORIA,
             CONVERT(varchar(10), CREATED, 23)  AS CREATED,
             CONVERT(varchar(10), MODIFIED, 23) AS MODIFIED
      FROM TB_USUARIOS WHERE ID = ?',
@@ -41,6 +41,8 @@ $d = [
     'nivel' => (int)$usuario['NIVEL'],
     'ativo' => (int)($usuario['ATIVO'] ?? 1),
     'turno' => $usuario['TURNO'] ?? '',
+    'categoria' => $usuario['CATEGORIA'] ?? '',
+    'materias'  => array_values(eq_professor_materias($id)),
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -70,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$erros) {
         $senha = trim($_POST['senha'] ?? '');
+        sqlsrv_begin_transaction(ch_db());
         if ($senha !== '') {
             $hash = ch_auth_password_hash($senha);
             if ($hash === false) {
@@ -78,20 +81,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $ok = ch_exec(
                     'UPDATE TB_USUARIOS
-                        SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
+                        SET NOME = ?, SENHA = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, CATEGORIA = ?, MODIFIED = GETDATE()
                       WHERE ID = ?',
                     [$d['nome'], $hash, $d['nivel'], $d['cpf'],
-                     $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
+                     $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $d['categoria'], $id]
                 );
             }
         } else {
             $ok = ch_exec(
                 'UPDATE TB_USUARIOS
-                    SET NOME = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, MODIFIED = GETDATE()
+                    SET NOME = ?, NIVEL = ?, CPF = ?, EMAIL = ?, ATIVO = ?, TURNO = ?, CATEGORIA = ?, MODIFIED = GETDATE()
                   WHERE ID = ?',
                 [$d['nome'], $d['nivel'], $d['cpf'],
-                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $id]
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $d['categoria'], $id]
             );
+        }
+        /* Matérias que o professor pode lecionar: sincroniza (só professor). */
+        if ($ok && $d['nivel'] === 3) {
+            $atuais = ch_rows('SELECT NOME FROM TB_PROFESSOR_MATERIAS WHERE ID_USUARIO = ?', [$id]) ?: [];
+            $novos = [];
+            foreach ($d['materias'] as $nome) {
+                $novos[mb_strtolower($nome, 'UTF-8')] = $nome;
+            }
+            foreach ($atuais as $a) {
+                $chave = mb_strtolower((string)$a['NOME'], 'UTF-8');
+                if (!isset($novos[$chave])) {
+                    if (!ch_exec('DELETE FROM TB_PROFESSOR_MATERIAS WHERE ID_USUARIO = ? AND NOME = ?', [$id, $a['NOME']])) {
+                        $ok = false;
+                        break;
+                    }
+                }
+            }
+            if ($ok) {
+                $jaTem = [];
+                foreach ($atuais as $a) {
+                    $jaTem[mb_strtolower((string)$a['NOME'], 'UTF-8')] = true;
+                }
+                foreach ($novos as $chave => $nome) {
+                    if (!isset($jaTem[$chave])) {
+                        if (!ch_exec('INSERT INTO TB_PROFESSOR_MATERIAS (ID_USUARIO, NOME) VALUES (?, ?)', [$id, $nome])) {
+                            $ok = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if ($ok) {
+            $ok = (bool)sqlsrv_commit(ch_db());
+        } else {
+            sqlsrv_rollback(ch_db());
         }
         if ($ok) {
             ch_flash('Usuário "' . $d['nome'] . '" atualizado.' . ($senha !== '' ? ' A senha foi alterada.' : ''));

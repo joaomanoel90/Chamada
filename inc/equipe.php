@@ -770,8 +770,14 @@ function eq_disciplinas_ler_post($post)
     return $lista;
 }
 
-/** Valida as matérias. $idsProfessores é o mapa id => nome da equipe. */
-function eq_disciplinas_validar($lista, $idsProfessores)
+/**
+ * Valida as matérias. $elegiveis é o mapa id => ['NOME' => ..., 'MATERIAS' =>
+ * mapa] dos professores que podem ser atribuídos à turma: quem está na
+ * equipe OU tem categoria do concurso compatível com a etapa (ver
+ * eq_elegiveis_mapa). Quem tem a lista de matérias vazia pode lecionar
+ * qualquer matéria.
+ */
+function eq_disciplinas_validar($lista, $elegiveis)
 {
     $erros = [];
     $vistos = [];
@@ -784,8 +790,12 @@ function eq_disciplinas_validar($lista, $idsProfessores)
         if ($d['AULAS'] < 1 || $d['AULAS'] > 40) {
             $erros[] = 'A matéria "' . $d['NOME'] . '" precisa de 1 a 40 aulas por semana.';
         }
-        if ($d['ID_PROFESSOR'] <= 0 || !isset($idsProfessores[$d['ID_PROFESSOR']])) {
-            $erros[] = 'Selecione um professor da equipe para a matéria "' . $d['NOME'] . '".';
+        $idProf = (int)$d['ID_PROFESSOR'];
+        if ($idProf <= 0 || !isset($elegiveis[$idProf])) {
+            $erros[] = 'Selecione um professor que pode ser atribuído a esta turma para a matéria "' . $d['NOME'] . '".';
+        } elseif (!eq_professor_pode_materia($elegiveis[$idProf]['MATERIAS'], $d['NOME'])) {
+            $erros[] = 'O professor ' . $elegiveis[$idProf]['NOME']
+                     . ' não está cadastrado para lecionar "' . $d['NOME'] . '".';
         }
     }
     return $erros;
@@ -830,6 +840,159 @@ function eq_disciplinas_salvar($idTurma, $lista)
             );
         }
         if (!$ok) return false;
+    }
+    /* Quem recebe matéria entra na equipe da turma (senão não consegue
+       lançar no diário). No começo do ano ele ainda não está na equipe:
+       a categoria do concurso é o que permite a atribuição. */
+    foreach ($novos as $d) {
+        if (!eq_professor_garantir_equipe($idTurma, $d['ID_PROFESSOR'])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* ==========================================================================
+   CATEGORIA DO CONCURSO E MATÉRIAS DO PROFESSOR
+   --------------------------------------------------------------------------
+   No começo do ano o professor ainda não tem turma nem equipe vinculada a
+   ele. Para o painel de atribuição saber em quais turmas ele pode ser
+   atribuído, o cadastro dele guarda a categoria do concurso (PEB I / PEB II)
+   e as matérias que ele pode lecionar. Sem categoria = todas as etapas;
+   sem matérias cadastradas = qualquer matéria.
+   ========================================================================== */
+
+/** Categorias do concurso e o que cada uma significa. */
+function eq_categorias_concurso()
+{
+    return [
+        'PEB_I'  => 'PEB I — Educação Infantil e Anos Iniciais',
+        'PEB_II' => 'PEB II — Anos Finais',
+    ];
+}
+
+/** Etapas de ensino que cada categoria pode lecionar. NULL = sem restrição. */
+function eq_categoria_etapas($categoria)
+{
+    return match ($categoria) {
+        'PEB_I'  => ['INFANTIL_CRECHE', 'INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5'],
+        'PEB_II' => ['FUNDAMENTAL_6_9'],
+        default  => null,
+    };
+}
+
+/** A categoria do professor (NULL = sem restrição). */
+function eq_professor_categoria($idUsuario)
+{
+    $cat = ch_val('SELECT CATEGORIA FROM TB_USUARIOS WHERE ID = ?', [(int)$idUsuario]);
+    return ($cat === null || $cat === '') ? null : (string)$cat;
+}
+
+/**
+ * Matérias que o professor pode lecionar, como mapa
+ * [nome em minúsculas => nome original]. Vazio = sem restrição.
+ */
+function eq_professor_materias($idUsuario)
+{
+    $linhas = ch_rows(
+        'SELECT NOME FROM TB_PROFESSOR_MATERIAS WHERE ID_USUARIO = ? ORDER BY NOME',
+        [(int)$idUsuario]
+    ) ?: [];
+    $mapa = [];
+    foreach ($linhas as $l) {
+        $mapa[mb_strtolower((string)$l['NOME'], 'UTF-8')] = (string)$l['NOME'];
+    }
+    return $mapa;
+}
+
+/** O professor pode ser atribuído a uma turma desta etapa? */
+function eq_professor_pode_turma($categoria, $etapa)
+{
+    $etapas = eq_categoria_etapas($categoria);
+    if ($etapas === null) return true;                       // sem restrição
+    if ($etapa === null || $etapa === '') return false;      // turma sem etapa: só pela equipe
+    return in_array($etapa, $etapas, true);
+}
+
+/** O professor pode lecionar esta matéria? (lista vazia = qualquer uma) */
+function eq_professor_pode_materia($materias, $nomeMateria)
+{
+    if (!$materias) return true;
+    return isset($materias[mb_strtolower((string)$nomeMateria, 'UTF-8')]);
+}
+
+/**
+ * Professores elegíveis para dar matéria numa turma: quem está na equipe
+ * ($idsEquipe, mapa id => true) OU tem categoria compatível com a etapa.
+ * Devolve mapa id => ['NOME' => ..., 'MATERIAS' => mapa de matérias].
+ */
+function eq_elegiveis_mapa($idsEquipe, $etapa)
+{
+    $idsEquipe = (array)$idsEquipe;
+    $profs = ch_rows(
+        'SELECT ID, NOME, CATEGORIA FROM TB_USUARIOS
+         WHERE NIVEL = 3 AND ISNULL(ATIVO, 1) = 1 ORDER BY NOME'
+    ) ?: [];
+    $elegiveis = [];
+    foreach ($profs as $p) {
+        $id = (int)$p['ID'];
+        if (!isset($idsEquipe[$id]) && !eq_professor_pode_turma($p['CATEGORIA'] ?? null, $etapa)) {
+            continue;
+        }
+        $elegiveis[$id] = ['NOME' => (string)$p['NOME'], 'MATERIAS' => []];
+    }
+    if ($elegiveis) {
+        $ph = implode(',', array_fill(0, count($elegiveis), '?'));
+        $linhas = ch_rows(
+            "SELECT ID_USUARIO, NOME FROM TB_PROFESSOR_MATERIAS WHERE ID_USUARIO IN ({$ph}) ORDER BY NOME",
+            array_keys($elegiveis)
+        ) ?: [];
+        foreach ($linhas as $l) {
+            $elegiveis[(int)$l['ID_USUARIO']]['MATERIAS'][mb_strtolower((string)$l['NOME'], 'UTF-8')] = (string)$l['NOME'];
+        }
+    }
+    return $elegiveis;
+}
+
+/** Elegíveis como lista (para os selects), na ordem alfabética. */
+function eq_professores_elegiveis($idTurma, $etapa)
+{
+    $idsEquipe = [];
+    foreach (eq_professores_disciplina($idTurma) as $m) {
+        $idsEquipe[(int)$m['ID']] = true;
+    }
+    $lista = [];
+    foreach (eq_elegiveis_mapa($idsEquipe, $etapa) as $id => $e) {
+        $lista[] = ['ID' => $id, 'NOME' => $e['NOME']];
+    }
+    return $lista;
+}
+
+/**
+ * Garante o professor na equipe da turma (para ele conseguir lançar no
+ * diário). Se ainda não tem linha, entra como AUXILIAR com o turno dele;
+ * se a linha existe mas está desativada (e não é substituto), reativa.
+ * Deve ser chamado DENTRO de uma transação.
+ */
+function eq_professor_garantir_equipe($idTurma, $idUsuario)
+{
+    $idTurma = (int)$idTurma;
+    $idUsuario = (int)$idUsuario;
+    $linha = ch_row(
+        'SELECT ID, PAPEL, ATIVO FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ?',
+        [$idTurma, $idUsuario]
+    );
+    if (!$linha) {
+        $turno = ch_val('SELECT TURNO FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
+        $turno = ($turno && isset(eq_turnos()[$turno])) ? $turno : 'INTEGRAL';
+        return ch_exec(
+            "INSERT INTO TB_TURMA_PROFESSORES (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ATIVO)
+             VALUES (?, ?, 'AUXILIAR', ?, 1)",
+            [$idTurma, $idUsuario, $turno]
+        );
+    }
+    if (!(int)$linha['ATIVO'] && $linha['PAPEL'] !== 'SUBSTITUTO') {
+        return ch_exec('UPDATE TB_TURMA_PROFESSORES SET ATIVO = 1 WHERE ID = ?', [(int)$linha['ID']]);
     }
     return true;
 }

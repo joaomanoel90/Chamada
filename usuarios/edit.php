@@ -65,6 +65,50 @@
         </select>
         <small class="text-muted">Só para professor. É o padrão ao montar a equipe da turma — pode ser mudado lá.</small>
       </div>
+      <div class="form-group col-md-4" id="grupoCategoria">
+        <label class="fw-bold">Categoria do concurso</label>
+        <select class="form-select" id="categoria" name="categoria">
+          <option value="">Sem restrição (todas as etapas)</option>
+<?php foreach (eq_categorias_concurso() as $sigla => $rotulo): ?>
+          <option value="<?= $sigla ?>" <?= strtoupper((string)$d['categoria']) === $sigla ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+<?php endforeach; ?>
+        </select>
+        <small class="text-muted">Só para professor. Diz em quais turmas ele pode ser atribuído no começo do ano, antes de ter equipe.</small>
+      </div>
+      <div class="col-12" id="grupoMaterias">
+        <label class="fw-bold">Matérias que pode lecionar</label>
+        <div id="lista-materias-prof">
+          <?php foreach ((array)$d['materias'] as $mat): ?>
+          <div class="row g-2 align-items-center mb-2" data-linha-mat>
+            <div class="col-md-6">
+              <input type="text" name="prof_mat_nome[]" class="form-control" maxlength="80"
+                     placeholder="Ex.: Matemática" value="<?= ch_h($mat) ?>">
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-outline-danger btn-sm" data-remover-mat title="Remover matéria">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <template id="modelo-materia-prof">
+          <div class="row g-2 align-items-center mb-2" data-linha-mat>
+            <div class="col-md-6">
+              <input type="text" name="prof_mat_nome[]" class="form-control" maxlength="80" placeholder="Ex.: Matemática">
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-outline-danger btn-sm" data-remover-mat title="Remover matéria">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </template>
+        <button type="button" class="btn btn-outline-success btn-sm" id="add-materia-prof">
+          <i class="fas fa-plus"></i> Adicionar matéria
+        </button>
+        <small class="text-muted d-block mt-1">Só para professor. Deixe vazio se ele pode lecionar qualquer matéria.</small>
+      </div>
       <div class="col-12">
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="ativo" id="ativo" value="1"
@@ -94,15 +138,35 @@
   document.addEventListener('DOMContentLoaded', function () {
     if (window.jQuery && $.fn.select2) { $('#nivel').select2({ theme: 'bootstrap-5' }); }
 
-    /* O turno só aparece para professor. Escondido, o campo continua no
-       formulário, mas a validação no servidor já descarta o valor. */
+    /* Turno, categoria e matérias só aparecem para professor. Escondidos, os
+       campos continuam no formulário, mas a validação no servidor já
+       descarta os valores. */
     function mostraTurno() {
       var ehProf = document.getElementById('nivel').value === '3';
       document.getElementById('grupoTurno').style.display = ehProf ? '' : 'none';
+      document.getElementById('grupoCategoria').style.display = ehProf ? '' : 'none';
+      document.getElementById('grupoMaterias').style.display = ehProf ? '' : 'none';
     }
     mostraTurno();
     document.getElementById('nivel').addEventListener('change', mostraTurno);
     if (window.jQuery) { $(document).on('select2:select select2:clear', '#nivel', mostraTurno); }
+
+    /* Linhas de matéria do professor: adicionar e remover. */
+    var listaMat = document.getElementById('lista-materias-prof');
+    var modeloMat = document.getElementById('modelo-materia-prof');
+    document.getElementById('add-materia-prof').addEventListener('click', function () {
+      var frag = document.createElement('template');
+      frag.innerHTML = modeloMat.innerHTML.trim();
+      listaMat.appendChild(frag.content.firstElementChild);
+      var campo = listaMat.lastElementChild.querySelector('input[name="prof_mat_nome[]"]');
+      if (campo) campo.focus();
+    });
+    listaMat.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('[data-remover-mat]');
+      if (!btn) return;
+      var linha = btn.closest('[data-linha-mat]');
+      if (linha) linha.remove();
+    });
 
     var form = document.getElementById('userForm');
     form.addEventListener('submit', function (e) {

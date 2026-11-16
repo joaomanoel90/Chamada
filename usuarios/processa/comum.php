@@ -34,6 +34,28 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $turno = strtoupper(trim((string)($post['turno'] ?? '')));
     $d['turno'] = ($d['nivel'] === 3 && isset(eq_turnos()[$turno])) ? $turno : null;
 
+    /* Categoria do concurso (PEB I / PEB II) e matérias que pode lecionar.
+       Só para professor. Sem categoria = todas as etapas; sem matérias
+       cadastradas = qualquer matéria. É o que permite atribuir o professor
+       no começo do ano, antes de existir equipe. */
+    $categoria = strtoupper(trim((string)($post['categoria'] ?? '')));
+    $d['categoria'] = ($d['nivel'] === 3 && isset(eq_categorias_concurso()[$categoria])) ? $categoria : null;
+    $d['materias'] = [];
+    if ($d['nivel'] === 3) {
+        $vistos = [];
+        foreach ((array)($post['prof_mat_nome'] ?? []) as $nome) {
+            $nome = mb_substr(strip_tags(trim((string)$nome)), 0, 80);
+            if ($nome === '') continue;
+            $chave = mb_strtolower($nome, 'UTF-8');
+            if (isset($vistos[$chave])) {
+                $erros[] = 'A matéria "' . $nome . '" aparece mais de uma vez.';
+                continue;
+            }
+            $vistos[$chave] = true;
+            $d['materias'][] = $nome;
+        }
+    }
+
     if ($d['nome'] === '' || mb_strlen($d['nome']) < 3) {
         $erros[] = 'Informe o nome completo (ao menos 3 letras).';
     } elseif (mb_strlen($d['nome']) > 255) {
@@ -60,6 +82,10 @@ function usuario_validar($post, &$d, $idAtual = 0)
        branco quem ainda não teve o turno definido, e a gestão escolhe na turma. */
     if ($d['nivel'] === 3 && $turno !== '' && !isset(eq_turnos()[$turno])) {
         $erros[] = 'Turno inválido. Escolha manhã, tarde ou integral.';
+    }
+
+    if ($d['nivel'] === 3 && $categoria !== '' && !isset(eq_categorias_concurso()[$categoria])) {
+        $erros[] = 'Categoria do concurso inválida. Escolha PEB I, PEB II ou deixe sem restrição.';
     }
 
     if ($idAtual === 0 && $senha === '') {

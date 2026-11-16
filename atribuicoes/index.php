@@ -6,12 +6,15 @@
 <div class="alert alert-info">
   <i class="fas fa-circle-info"></i>
   Primeiro escolha o <b>professor</b>: aparecem só as turmas em que ele pode ser
-  atribuído (as turmas da equipe dele), agrupadas por <b>etapa</b> (da Creche ao
-  Fundamental) e por série. As turmas <b>já completas</b> (todas as matérias com
-  professor) vêm marcadas. Em cada turma estão as <b>matérias</b>, com as
-  <b>aulas por semana</b> e o <b>professor</b> que as dá. A gestão pode trocar o
-  professor, ajustar as aulas e adicionar ou remover matérias; o professor vê
-  aqui as turmas e matérias dele.
+  atribuído — as turmas da equipe dele <b>e</b> as turmas compatíveis com a
+  <b>categoria do concurso</b> dele (PEB I / PEB II, definida no cadastro do
+  professor), agrupadas por <b>etapa</b> (da Creche ao Fundamental) e por série.
+  No começo do ano ele ainda não tem equipe, e a categoria é o que permite
+  atribuir. As turmas <b>já completas</b> (todas as matérias com professor) vêm
+  marcadas. Em cada turma estão as <b>matérias</b>, com as <b>aulas por semana</b>
+  e o <b>professor</b> que as dá. A gestão pode trocar o professor, ajustar as
+  aulas e adicionar ou remover matérias; quem recebe matéria entra na equipe
+  da turma automaticamente. O professor vê aqui as turmas e matérias dele.
 </div>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
@@ -59,6 +62,11 @@
     <span class="badge bg-success"><i class="fas fa-check"></i> <?= $resumoProfessor['completas'] ?> completa(s)</span>
     <span class="badge bg-warning text-dark"><?= $resumoProfessor['incompletas'] ?> incompleta(s)</span>
     <span class="badge bg-secondary"><?= $resumoProfessor['sem_materias'] ?> sem matérias definidas</span>
+  </div>
+  <div class="alert alert-light border py-2">
+    <i class="fas fa-id-card text-primary"></i>
+    Categoria do concurso: <b><?= ch_h($resumoProfessor['categoria']) ?></b>
+    · Pode lecionar: <b><?= $resumoProfessor['materias'] ? ch_h(implode(', ', $resumoProfessor['materias'])) : 'todas as matérias' ?></b>
   </div>
 <?php endif; ?>
 

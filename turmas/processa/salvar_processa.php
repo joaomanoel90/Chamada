@@ -86,14 +86,17 @@ function turma_validar($post, $idAtual = 0)
         $e[] = $msg;
     }
 
-    /* Matérias: o professor de cada uma precisa estar na equipe enviada. */
+    /* Matérias: o professor de cada uma precisa poder ser atribuído à
+       turma — estar na equipe enviada OU ter categoria do concurso
+       compatível com a etapa (no começo do ano ele ainda não tem equipe). */
     $idsEquipe = [];
     foreach ($equipe as $m) {
         if ($m['PAPEL'] !== 'SUBSTITUTO') {
             $idsEquipe[(int)$m['ID_USUARIO']] = true;
         }
     }
-    foreach (eq_disciplinas_validar($disciplinas, $idsEquipe) as $msg) {
+    $elegiveis = eq_elegiveis_mapa($idsEquipe, $d['ETAPA_ENSINO']);
+    foreach (eq_disciplinas_validar($disciplinas, $elegiveis) as $msg) {
         $e[] = $msg;
     }
 

@@ -13,7 +13,8 @@ $erros = [];
 /* 'turno' tem de existir aqui: o formulario le $d['turno'] no primeiro GET,
    antes de qualquer POST. Sem a chave, o PHP 8 emite "Undefined array key".
    O edit_processa.php ja trazia; o add tinha ficado sem. */
-$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1, 'turno' => ''];
+$d = ['nome' => '', 'email' => '', 'cpf' => '', 'nivel' => 0, 'ativo' => 1, 'turno' => '',
+      'categoria' => '', 'materias' => []];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -29,12 +30,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Falha ao gerar hash para novo usuário.');
             $ok = false;
         } else {
-            $ok = ch_exec(
-                'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, TURNO, CREATED, USUARIO)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)',
+            sqlsrv_begin_transaction(ch_db());
+            $novoId = ch_insert_id(
+                'INSERT INTO TB_USUARIOS (NOME, SENHA, NIVEL, CPF, EMAIL, ATIVO, TURNO, CATEGORIA, CREATED, USUARIO)
+                 OUTPUT INSERTED.ID
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?)',
                 [$d['nome'], $hash, $d['nivel'], $d['cpf'],
-                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], ch_uid()]
+                 $d['email'] !== '' ? $d['email'] : null, $d['ativo'], $d['turno'], $d['categoria'], ch_uid()]
             );
+            $ok = $novoId > 0;
+            /* Matérias que o professor pode lecionar (só professor). */
+            if ($ok && $d['materias']) {
+                foreach ($d['materias'] as $nome) {
+                    if (!ch_exec('INSERT INTO TB_PROFESSOR_MATERIAS (ID_USUARIO, NOME) VALUES (?, ?)',
+                                 [$novoId, $nome])) {
+                        $ok = false;
+                        break;
+                    }
+                }
+            }
+            if ($ok) {
+                $ok = (bool)sqlsrv_commit(ch_db());
+            } else {
+                sqlsrv_rollback(ch_db());
+            }
         }
         if ($ok) {
             ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');
@@ -43,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($d['nivel'] === 5) {
                 ch_flash('Agora libere as unidades deste Secretário Escolar em "Acesso Unidades".', 'info');
             } elseif ($d['nivel'] === 3) {
-                ch_flash('Agora inclua este professor na equipe de uma turma.', 'info');
+                ch_flash('No painel "Atribuição de Professores" ele já aparece nas turmas da categoria dele — atribua as matérias por lá.', 'info');
             }
             header('Location: index.php');
             exit;

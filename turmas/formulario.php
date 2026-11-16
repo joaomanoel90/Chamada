@@ -302,7 +302,10 @@ function turma_linha_disciplina($d, $op)
       <p class="text-muted mb-3">
         Defina <strong>quantas matérias</strong> esta turma terá, com o número de
         <strong>aulas por semana</strong> e o <strong>professor</strong> que dá cada uma.
-        O professor precisa estar na <strong>equipe da turma</strong> acima.
+        O professor precisa estar na <strong>equipe da turma</strong> acima ou ter
+        <strong>categoria do concurso</strong> compatível com a etapa (definida no
+        cadastro do professor) — quem recebe matéria entra na equipe
+        automaticamente.
         As matérias também podem ser ajustadas no painel
         <strong>Atribuição de Professores</strong>.
       </p>
