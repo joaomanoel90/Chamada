@@ -25,6 +25,7 @@ $ch_links_chamada = [
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
     ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
     ['faltas',      'Faltas de Professores', 'fas fa-user-clock', 'faltas/index.php',    ch_gestor()],
+    ['atribuicoes', 'Atribuição de Professores', 'fas fa-chalkboard-user', 'atribuicoes/index.php', ch_gestor() || ch_professor()],
 ];
 /* O contador de transferências só é consultado para quem pode tratá-las. */
 $ch_transf_aguardando = ch_gestao_alunos() ? tr_pendentes_recebidas() : 0;

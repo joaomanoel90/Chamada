@@ -21,7 +21,7 @@ if (!ch_pode_unidade((int)$atual['ID_UNIDADE'])) {
 
 $erros = [];
 $op = turma_opcoes();
-$d = array_merge($atual, turma_equipe_atual($id));
+$d = array_merge($atual, turma_equipe_atual($id), turma_disciplinas_atual($id));
 $d['ID_PROFESSOR'] = (int)($atual['ID_PROFESSOR'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($ok) {
             $ok = turma_equipe_salvar($id, $d['EQUIPE']);
+        }
+
+        if ($ok) {
+            $ok = eq_disciplinas_salvar($id, $d['DISCIPLINAS']);
         }
 
         if ($ok) {

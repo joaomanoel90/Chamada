@@ -411,10 +411,11 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'nome'   => 'Diário de classe e notas',
 				'script' => 'sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql',
 				'cols'   => array('TB_TURMAS.NOTAS_ATIVAS', 'TB_TURMAS.ETAPA_ENSINO',
-					'TB_TURMA_DISCIPLINAS.ID_PROFESSOR'),
+					'TB_TURMA_DISCIPLINAS.ID_PROFESSOR', 'TB_TURMA_DISCIPLINAS.AULAS'),
 				'objs'   => array('TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'UQ_TURMA_DISCIPLINA',
 					'FK_TURMA_DISC_PROFESSOR', 'IX_TURMA_DISC_PROFESSOR',
-					'CK_TURMAS_ETAPA_ENSINO', 'UQ_NOTA_ALUNO_DISC_BIM', 'IX_NOTAS_DISC_BIM'),
+					'CK_TURMAS_ETAPA_ENSINO', 'UQ_NOTA_ALUNO_DISC_BIM', 'IX_NOTAS_DISC_BIM',
+					'CK_TURMA_DISC_AULAS'),
 			),
 			array(
 				'nome'   => 'Perfis de acesso',

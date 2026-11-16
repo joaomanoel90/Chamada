@@ -13,6 +13,7 @@ function turma_validar($post, $idAtual = 0)
        ID_PROFESSOR continua gravado como legado: é o responsável que cobre o
        turno da própria turma (ver eq_regente_legado). */
     $equipe = eq_ler_post($post);
+    $disciplinas = eq_disciplinas_ler_post($post);
 
     $d = [
         'ID_UNIDADE'   => (int)($post['id_unidade'] ?? 0),
@@ -25,6 +26,7 @@ function turma_validar($post, $idAtual = 0)
         'CAPACIDADE'   => (int)($post['capacidade'] ?? 0),
         'NOTAS_ATIVAS' => !empty($post['notas_ativas']) ? 1 : 0,
         'EQUIPE'       => $equipe,
+        'DISCIPLINAS'  => $disciplinas,
     ];
     $e = [];
 
@@ -83,6 +85,18 @@ function turma_validar($post, $idAtual = 0)
     foreach (eq_validar_equipe($equipe) as $msg) {
         $e[] = $msg;
     }
+
+    /* Matérias: o professor de cada uma precisa estar na equipe enviada. */
+    $idsEquipe = [];
+    foreach ($equipe as $m) {
+        if ($m['PAPEL'] !== 'SUBSTITUTO') {
+            $idsEquipe[(int)$m['ID_USUARIO']] = true;
+        }
+    }
+    foreach (eq_disciplinas_validar($disciplinas, $idsEquipe) as $msg) {
+        $e[] = $msg;
+    }
+
     $d['ID_PROFESSOR'] = eq_regente_legado($equipe, $periodo ? $periodo['TURNO'] : 'INTEGRAL');
 
     if ($d['CAPACIDADE'] < 1 || $d['CAPACIDADE'] > 500) {
@@ -206,6 +220,20 @@ function turma_equipe_atual($idTurma)
         ];
     }
     return ['EQUIPE' => $equipe];
+}
+
+/** Matérias atuais, para preencher o formulário de edição. */
+function turma_disciplinas_atual($idTurma)
+{
+    $lista = [];
+    foreach (eq_disciplinas($idTurma) as $d) {
+        $lista[] = [
+            'NOME'         => (string)$d['NOME'],
+            'AULAS'        => (int)($d['AULAS'] ?? 0),
+            'ID_PROFESSOR' => (int)($d['ID_PROFESSOR'] ?? 0),
+        ];
+    }
+    return ['DISCIPLINAS' => $lista];
 }
 
 /** Opções dos selects do formulário. */

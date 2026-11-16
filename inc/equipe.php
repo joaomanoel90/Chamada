@@ -716,3 +716,120 @@ function eq_obs_aviso_bloqueio()
          . 'ficam visíveis para você; as registradas pelos outros professores só '
          . 'aparecem se a direção liberar a leitura.';
 }
+
+/* ==========================================================================
+   MATÉRIAS DA TURMA (TB_TURMA_DISCIPLINAS)
+   --------------------------------------------------------------------------
+   Cada turma tem as suas matérias, com o número de aulas semanais e o
+   professor que as dá. As matérias são definidas no formulário da turma e
+   ajustadas no painel de atribuição — os dois caminhos usam estas funções.
+   ========================================================================== */
+
+/** Matérias da turma, com o nome do professor responsável. */
+function eq_disciplinas($idTurma)
+{
+    return ch_rows(
+        'SELECT d.ID, d.NOME, d.AULAS, d.ID_PROFESSOR, u.NOME AS PROFESSOR
+         FROM TB_TURMA_DISCIPLINAS d
+         LEFT JOIN TB_USUARIOS u ON u.ID = d.ID_PROFESSOR
+         WHERE d.ID_TURMA = ? ORDER BY d.NOME',
+        [(int)$idTurma]
+    ) ?: [];
+}
+
+/** Quem pode dar matéria nesta turma: a equipe fixa (não o substituto). */
+function eq_professores_disciplina($idTurma)
+{
+    return ch_rows(
+        "SELECT DISTINCT u.ID, u.NOME
+         FROM TB_TURMA_PROFESSORES tp
+         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+         WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
+           AND u.NIVEL = 3 AND tp.PAPEL <> 'SUBSTITUTO'
+         ORDER BY u.NOME",
+        [(int)$idTurma]
+    ) ?: [];
+}
+
+/** Lê as linhas de matéria do POST (formulário da turma e painel). */
+function eq_disciplinas_ler_post($post)
+{
+    $nomes = (array)($post['disc_nome'] ?? []);
+    $aulas = (array)($post['disc_aulas'] ?? []);
+    $profs = (array)($post['disc_prof'] ?? []);
+    $lista = [];
+    foreach ($nomes as $i => $nome) {
+        $nome = mb_substr(strip_tags(trim((string)$nome)), 0, 80);
+        if ($nome === '') continue;
+        $lista[] = [
+            'NOME'         => $nome,
+            'AULAS'        => (int)($aulas[$i] ?? 0),
+            'ID_PROFESSOR' => (int)($profs[$i] ?? 0),
+        ];
+    }
+    return $lista;
+}
+
+/** Valida as matérias. $idsProfessores é o mapa id => nome da equipe. */
+function eq_disciplinas_validar($lista, $idsProfessores)
+{
+    $erros = [];
+    $vistos = [];
+    foreach ($lista as $d) {
+        $chave = mb_strtolower($d['NOME'], 'UTF-8');
+        if (isset($vistos[$chave])) {
+            $erros[] = 'A matéria "' . $d['NOME'] . '" aparece mais de uma vez.';
+        }
+        $vistos[$chave] = true;
+        if ($d['AULAS'] < 1 || $d['AULAS'] > 40) {
+            $erros[] = 'A matéria "' . $d['NOME'] . '" precisa de 1 a 40 aulas por semana.';
+        }
+        if ($d['ID_PROFESSOR'] <= 0 || !isset($idsProfessores[$d['ID_PROFESSOR']])) {
+            $erros[] = 'Selecione um professor da equipe para a matéria "' . $d['NOME'] . '".';
+        }
+    }
+    return $erros;
+}
+
+/**
+ * Sincroniza as matérias da turma com a lista. Deve ser chamado DENTRO de
+ * uma transação. Matéria que saiu da lista é apagada; as demais são
+ * atualizadas ou inseridas. O nome é a identidade (UQ_TURMA_DISCIPLINA).
+ */
+function eq_disciplinas_salvar($idTurma, $lista)
+{
+    $idTurma = (int)$idTurma;
+    $atuais = ch_rows('SELECT ID, NOME FROM TB_TURMA_DISCIPLINAS WHERE ID_TURMA = ?', [$idTurma]) ?: [];
+    $porNome = [];
+    foreach ($atuais as $a) {
+        $porNome[mb_strtolower((string)$a['NOME'], 'UTF-8')] = (int)$a['ID'];
+    }
+    $novos = [];
+    foreach ($lista as $d) {
+        $novos[mb_strtolower($d['NOME'], 'UTF-8')] = $d;
+    }
+    /* Quem saiu da lista é removido. */
+    foreach ($porNome as $chave => $idDisc) {
+        if (!isset($novos[$chave])) {
+            if (!ch_exec('DELETE FROM TB_TURMA_DISCIPLINAS WHERE ID = ? AND ID_TURMA = ?', [$idDisc, $idTurma])) {
+                return false;
+            }
+        }
+    }
+    /* Atualiza ou insere. */
+    foreach ($novos as $chave => $d) {
+        if (isset($porNome[$chave])) {
+            $ok = ch_exec(
+                'UPDATE TB_TURMA_DISCIPLINAS SET AULAS = ?, ID_PROFESSOR = ? WHERE ID = ? AND ID_TURMA = ?',
+                [$d['AULAS'], $d['ID_PROFESSOR'], $porNome[$chave], $idTurma]
+            );
+        } else {
+            $ok = ch_exec(
+                'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, AULAS, ID_PROFESSOR) VALUES (?, ?, ?, ?)',
+                [$idTurma, $d['NOME'], $d['AULAS'], $d['ID_PROFESSOR']]
+            );
+        }
+        if (!$ok) return false;
+    }
+    return true;
+}

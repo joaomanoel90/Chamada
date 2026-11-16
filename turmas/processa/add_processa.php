@@ -11,7 +11,7 @@ $op = turma_opcoes();
 $d = ['ID_UNIDADE' => 0, 'NOME' => '', 'SERIE' => '', 'ETAPA_ENSINO' => '', 'ANO_LETIVO' => (int)date('Y'),
       'ID_PERIODO' => 0, 'ID_PROFESSOR' => 0, 'CAPACIDADE' => 20,
       'NOTAS_ATIVAS' => 0,
-      'EQUIPE' => []];
+      'EQUIPE' => [], 'DISCIPLINAS' => []];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -36,6 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($ok && $novoId > 0) {
             $ok = turma_equipe_salvar($novoId, $d['EQUIPE']);
+        }
+
+        if ($ok && $novoId > 0) {
+            $ok = eq_disciplinas_salvar($novoId, $d['DISCIPLINAS']);
         }
 
         if ($ok && $novoId > 0) {

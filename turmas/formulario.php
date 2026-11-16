@@ -128,6 +128,48 @@ function turma_linha_equipe($m, $op)
     <?php
     return ob_get_clean();
 }
+
+/** Uma linha de matéria. Serve tanto para quem já está na turma quanto para
+ *  o modelo em branco que o JavaScript clona ao adicionar uma matéria. */
+function turma_linha_disciplina($d, $op)
+{
+    $d = array_merge(['NOME' => '', 'AULAS' => '', 'ID_PROFESSOR' => 0], (array)$d);
+    ob_start();
+    ?>
+    <div class="linha-disciplina" data-linha-disciplina>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-5">
+          <label class="fw-bold small">Matéria</label>
+          <input type="text" name="disc_nome[]" class="form-control" maxlength="80"
+                 value="<?= ch_h($d['NOME']) ?>" placeholder="Ex.: Matemática">
+        </div>
+        <div class="col-6 col-lg-2">
+          <label class="fw-bold small">Aulas/semana</label>
+          <input type="number" name="disc_aulas[]" class="form-control" min="1" max="40"
+                 value="<?= ch_h($d['AULAS']) ?>" placeholder="Ex.: 4">
+        </div>
+        <div class="col-6 col-lg-4">
+          <label class="fw-bold small">Professor(a)</label>
+          <select name="disc_prof[]" class="form-select">
+            <option value="">Selecione...</option>
+            <?php foreach ($op['professores'] as $pr): ?>
+              <option value="<?= (int)$pr['ID'] ?>"
+                      <?= (int)$d['ID_PROFESSOR'] === (int)$pr['ID'] ? 'selected' : '' ?>>
+                <?= ch_h($pr['NOME']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-12 col-lg-1">
+          <button type="button" class="btn btn-outline-danger btn-sm w-100" data-remover-disciplina title="Remover matéria">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
 ?>
 <form action="<?= $acao ?>" method="post" id="form-turma">
   <?= ch_csrf_campo() ?>
@@ -247,6 +289,45 @@ function turma_linha_equipe($m, $op)
       <div class="alert alert-warning mt-3 mb-0" id="aviso-equipe" hidden></div>
 
       <template id="modelo-linha-equipe"><?= turma_linha_equipe([], $op) ?></template>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <div class="card-escola mb-4">
+    <div class="card-escola-titulo">
+      <i class="fas fa-book"></i> Matérias da turma
+      <span class="ms-auto badge bg-light text-dark" id="contador-disciplinas">0 matérias</span>
+    </div>
+    <div class="card-escola-corpo">
+      <p class="text-muted mb-3">
+        Defina <strong>quantas matérias</strong> esta turma terá, com o número de
+        <strong>aulas por semana</strong> e o <strong>professor</strong> que dá cada uma.
+        O professor precisa estar na <strong>equipe da turma</strong> acima.
+        As matérias também podem ser ajustadas no painel
+        <strong>Atribuição de Professores</strong>.
+      </p>
+
+      <?php if (!$op['professores']): ?>
+        <div class="alert alert-warning mb-0">
+          Nenhum professor ativo. Cadastre professores em <strong>Usuários</strong> primeiro.
+        </div>
+      <?php else: ?>
+      <div id="lista-disciplinas">
+        <?php
+        $discAtual = (array)($d['DISCIPLINAS'] ?? []);
+        foreach ($discAtual as $disc) {
+            echo turma_linha_disciplina($disc, $op);
+        }
+        ?>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button" class="btn btn-outline-success" id="add-linha-disciplina">
+          <i class="fas fa-plus"></i> Adicionar matéria
+        </button>
+      </div>
+
+      <template id="modelo-linha-disciplina"><?= turma_linha_disciplina([], $op) ?></template>
       <?php endif; ?>
     </div>
   </div>
@@ -437,6 +518,40 @@ function turma_linha_equipe($m, $op)
 
   /* Turma nova já abre com uma linha em branco, para não parecer vazio. */
   if (!lista.querySelector('[data-linha-equipe]')) novaLinha('REGENTE');
+  atualizar();
+})();
+
+/* Linhas de matéria: adicionar e remover, com o contador. */
+(function () {
+  var lista = document.getElementById('lista-disciplinas');
+  if (!lista) return;
+  var modelo = document.getElementById('modelo-linha-disciplina');
+  var contador = document.getElementById('contador-disciplinas');
+
+  function atualizar() {
+    var n = lista.querySelectorAll('[data-linha-disciplina]').length;
+    if (contador) contador.textContent = n + (n === 1 ? ' matéria' : ' matérias');
+  }
+
+  function novaLinha() {
+    if (!modelo) return;
+    var frag = document.createElement('template');
+    frag.innerHTML = modelo.innerHTML.trim();
+    lista.appendChild(frag.content.firstElementChild);
+    atualizar();
+    var nome = lista.lastElementChild.querySelector('input[name="disc_nome[]"]');
+    if (nome) nome.focus();
+  }
+
+  document.getElementById('add-linha-disciplina').addEventListener('click', novaLinha);
+
+  lista.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-remover-disciplina]');
+    if (!btn) return;
+    var linha = btn.closest('[data-linha-disciplina]');
+    if (linha) { linha.remove(); atualizar(); }
+  });
+
   atualizar();
 })();
 </script>
