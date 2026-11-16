@@ -33,7 +33,6 @@ $fAno     = (int)($_GET['ano'] ?? $_POST['ano'] ?? (int)date('Y'));
 $fUnidade = (int)($_GET['unidade'] ?? $_POST['unidade'] ?? 0);
 $unidades = ch_unidades_opcoes();
 $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC') ?: [];
-$materiasOpcoes = eq_materias_opcoes();
 
 /* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
    turmas em que ele pode ser atribuído (equipe dele OU categoria do
@@ -318,52 +317,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         sqlsrv_rollback(ch_db());
         $erros[] = 'Não foi possível remover a atribuição.';
-    } elseif ($acao === 'salvar_materias') {
-        /* Salva as matérias da turma (nome + total de aulas). */
-        $idTurma = (int)($_POST['id_turma'] ?? 0);
-        $turma = null;
-        foreach ($turmas as $t) {
-            if ((int)$t['ID'] === $idTurma) { $turma = $t; break; }
-        }
-        if (!$turma) {
-            ch_flash('Turma não encontrada ou fora do seu alcance.', 'danger');
-            header('Location: ' . ch_url($voltar));
-            exit;
-        }
-        $lista = eq_disciplinas_ler_post($_POST);
-        $erros = eq_disciplinas_validar($lista, $idTurma);
-        if (!$erros) {
-            sqlsrv_begin_transaction(ch_db());
-            $ok = eq_disciplinas_salvar($idTurma, $lista);
-            if ($ok && sqlsrv_commit(ch_db())) {
-                ch_flash('Matérias da turma ' . $turma['NOME'] . ' salvas.');
-                header('Location: ' . ch_url($voltar));
-                exit;
-            }
-            sqlsrv_rollback(ch_db());
-            $erros[] = 'Não foi possível salvar as matérias.';
-            if (ch_admin()) { $erros[] = ch_erro_sql(); }
-        }
-    } elseif ($acao === 'remover_materia') {
-        $idDisc = (int)($_POST['id_disciplina'] ?? 0);
-        $disc = ch_row(
-            'SELECT d.ID, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?',
-            [$idDisc]
-        );
-        if (!$disc || !in_array((int)$disc['ID_TURMA'], $idsTurmas, true)) {
-            ch_flash('Matéria não encontrada ou fora do seu alcance.', 'danger');
-            header('Location: ' . ch_url($voltar));
-            exit;
-        }
-        sqlsrv_begin_transaction(ch_db());
-        $ok = ch_exec('DELETE FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ?', [$idDisc])
-           && ch_exec('DELETE FROM TB_TURMA_DISCIPLINAS WHERE ID = ?', [$idDisc]);
-        if ($ok && sqlsrv_commit(ch_db())) {
-            ch_flash('Matéria removida.');
-            header('Location: ' . ch_url($voltar));
-            exit;
-        }
-        sqlsrv_rollback(ch_db());
-        $erros[] = 'Não foi possível remover a matéria.';
     }
 }

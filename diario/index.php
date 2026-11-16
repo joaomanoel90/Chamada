@@ -73,43 +73,8 @@
           </div>
         </form>
 
-        <?php if (ch_gestor()): ?>
-        <?php if ($professoresDisciplina): ?>
-          <form method="post" action="index.php" class="row g-2 align-items-end no-print">
-            <?= ch_csrf_campo() ?>
-            <input type="hidden" name="acao" value="adicionar_disciplina">
-            <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
-            <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
-            <div class="col-md-5">
-              <label class="fw-bold" for="nome-disciplina">Nova disciplina</label>
-              <select class="form-select" id="nome-disciplina" name="nome_disciplina" required>
-                <option value="">Selecione...</option>
-                <?php foreach (eq_materias_opcoes() as $mat): ?>
-                  <option value="<?= ch_h($mat) ?>" <?= $mat === $nomeDisciplinaPost ? 'selected' : '' ?>>
-                    <?= ch_h($mat) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-5">
-              <label class="fw-bold" for="novo-professor">Professor — só quem tem a matéria no cadastro</label>
-              <select class="form-select" id="novo-professor" name="id_professor" required>
-                <option value="">Selecione...</option>
-                <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
-                  <option value="<?= $idProfessor ?>" <?= $idProfessor === $professorDisciplinaPost ? 'selected' : '' ?>
-                          data-materias="<?= ch_h(implode('|', array_keys($materiasPorProfessor[$idProfessor] ?? []))) ?>">
-                    <?= ch_h($nomeProfessor) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <button class="btn btn-outline-success w-100"><i class="fas fa-plus"></i> Cadastrar</button>
-            </div>
-          </form>
-        <?php else: ?>
-          <div class="alert alert-warning mb-0 no-print">Cadastre primeiro a equipe da turma para vincular os professores às disciplinas.</div>
-        <?php endif; ?>
+        <?php if (ch_gestor() && !$disciplinas): ?>
+          <div class="alert alert-warning mb-0 no-print">Esta turma ainda não tem matérias. Defina as matérias e o total de aulas na área de <strong>Turmas</strong>.</div>
         <?php endif; ?>
       </div>
     </div>
@@ -221,7 +186,7 @@
     <?php elseif ($disciplinas): ?>
       <div class="alert alert-info">Selecione uma disciplina para lançar ou consultar as notas.</div>
     <?php else: ?>
-      <div class="alert alert-info">Cadastre as disciplinas da turma para começar o lançamento de notas.</div>
+      <div class="alert alert-info">Defina as matérias da turma na área de <strong>Turmas</strong> para começar o lançamento de notas.</div>
     <?php endif; ?>
   <?php endif; ?>
 <?php endif; ?>
@@ -234,33 +199,5 @@
       .card-escola { break-inside: avoid; }
     }
 </style>
-
-<script>
-(function () {
-  /* Nova disciplina: mostra só os professores que têm a matéria escolhida
-     no cadastro deles. */
-  var selMat = document.getElementById('nome-disciplina');
-  var selProf = document.getElementById('novo-professor');
-  if (!selMat || !selProf) return;
-
-  function filtrar() {
-    var mat = (selMat.value || '').toLowerCase();
-    var visivel = 0;
-    Array.prototype.forEach.call(selProf.options, function (op) {
-      if (!op.value) return;
-      var mats = (op.getAttribute('data-materias') || '').split('|');
-      var ok = mat !== '' && mats.indexOf(mat) !== -1;
-      op.hidden = !ok;
-      if (ok) visivel++;
-    });
-    if (selProf.selectedOptions.length && selProf.selectedOptions[0].hidden) {
-      selProf.value = '';
-    }
-    selProf.disabled = visivel === 0;
-  }
-  selMat.addEventListener('change', filtrar);
-  filtrar();
-})();
-</script>
 
 <?php include(FOOTER_TEMPLATE); ?>

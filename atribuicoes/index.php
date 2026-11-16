@@ -10,12 +10,12 @@
   <b>categoria do concurso</b> dele (PDI / PEB I / PEB II, definida no cadastro
   do professor), agrupadas por <b>etapa</b> (da Creche ao Fundamental) e por série.
   No começo do ano ele ainda não tem equipe, e a categoria é o que permite
-  atribuir. A turma define o <b>total de aulas</b> de cada matéria; as aulas são
-  <b>divididas entre os professores</b> e o painel mostra <b>quantas aulas ainda
-  faltam</b>. Cada professor tem teto de <b>36 h/a</b> por semana. Só é possível
-  atribuir a ele uma matéria que esteja <b>no cadastro dele</b>. Quem recebe
-  aulas entra na equipe da turma automaticamente. O professor vê aqui as
-  turmas e matérias dele.
+  atribuir. As <b>matérias e o total de aulas</b> de cada turma são definidos
+  na área de <b>Turmas</b>; aqui as aulas são <b>divididas entre os professores</b>
+  e o painel mostra <b>quantas aulas ainda faltam</b>. Cada professor tem teto de
+  <b>36 h/a</b> por semana. Só é possível atribuir a ele uma matéria que esteja
+  <b>no cadastro dele</b>. Quem recebe aulas entra na equipe da turma
+  automaticamente. O professor vê aqui as turmas e matérias dele.
 </div>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
@@ -121,73 +121,11 @@
           </div>
 
           <?php if ($ehGestao): ?>
-            <?php /* Matérias da turma: nome (da lista) + total de aulas. */ ?>
-            <form method="post" action="index.php" class="form-materias mb-3">
-              <?= ch_csrf_campo() ?>
-              <input type="hidden" name="acao" value="salvar_materias">
-              <input type="hidden" name="id_turma" value="<?= $idTurma ?>">
-              <input type="hidden" name="ano" value="<?= $fAno ?>">
-              <?php if ($fUnidade): ?><input type="hidden" name="unidade" value="<?= $fUnidade ?>"><?php endif; ?>
-              <?php if ($fProfessor): ?><input type="hidden" name="professor" value="<?= $fProfessor ?>"><?php endif; ?>
-              <div class="lista-disc">
-                <?php foreach ($discs as $d): ?>
-                  <div class="row g-2 align-items-end mb-2" data-linha-disc>
-                    <div class="col-12 col-lg-5">
-                      <label class="fw-bold small">Matéria</label>
-                      <select name="disc_nome[]" class="form-select">
-                        <option value="">Selecione...</option>
-                        <?php foreach ($materiasOpcoes as $mat): ?>
-                          <option value="<?= ch_h($mat) ?>"
-                                  <?= mb_strtolower((string)$d['NOME'], 'UTF-8') === mb_strtolower($mat, 'UTF-8') ? 'selected' : '' ?>>
-                            <?= ch_h($mat) ?>
-                          </option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                    <div class="col-6 col-lg-3">
-                      <label class="fw-bold small">Aulas/semana (total)</label>
-                      <input type="number" name="disc_aulas[]" class="form-control" min="1" max="40"
-                             value="<?= ch_h($d['AULAS']) ?>">
-                    </div>
-                    <div class="col-6 col-lg-4">
-                      <button type="button" class="btn btn-outline-danger btn-sm w-100" data-remover-disc title="Remover matéria">
-                        <i class="fas fa-trash"></i> Remover matéria
-                      </button>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-              <template class="modelo-disc">
-                <div class="row g-2 align-items-end mb-2" data-linha-disc>
-                  <div class="col-12 col-lg-5">
-                    <label class="fw-bold small">Matéria</label>
-                    <select name="disc_nome[]" class="form-select">
-                      <option value="">Selecione...</option>
-                      <?php foreach ($materiasOpcoes as $mat): ?>
-                        <option value="<?= ch_h($mat) ?>"><?= ch_h($mat) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </div>
-                  <div class="col-6 col-lg-3">
-                    <label class="fw-bold small">Aulas/semana (total)</label>
-                    <input type="number" name="disc_aulas[]" class="form-control" min="1" max="40" placeholder="Ex.: 10">
-                  </div>
-                  <div class="col-6 col-lg-4">
-                    <button type="button" class="btn btn-outline-danger btn-sm w-100" data-remover-disc title="Remover matéria">
-                      <i class="fas fa-trash"></i> Remover matéria
-                    </button>
-                  </div>
-                </div>
-              </template>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button type="button" class="btn btn-outline-success btn-sm" data-add-disc>
-                  <i class="fas fa-plus"></i> Adicionar matéria
-                </button>
-                <button type="submit" class="btn btn-primary btn-sm">
-                  <i class="fas fa-save"></i> Salvar matérias
-                </button>
-              </div>
-            </form>
+            <?php /* As matérias e o total de aulas são definidos na área de
+                   Turmas. Aqui só se dividem as aulas entre os professores. */ ?>
+            <?php if (!$discs): ?>
+              <p class="text-muted mb-0">Nenhuma matéria definida para esta turma. Defina as matérias e o total de aulas na área de <strong>Turmas</strong>.</p>
+            <?php endif; ?>
 
             <?php /* Aulas atribuídas por matéria. */ ?>
             <?php foreach ($discs as $d): ?>
@@ -309,33 +247,5 @@
     <?php endforeach; ?>
   <?php endforeach; ?>
 <?php endforeach; ?>
-
-<script>
-(function () {
-  /* Linhas de matéria dentro de cada turma: adicionar e remover. */
-  document.querySelectorAll('.form-materias').forEach(function (form) {
-    var lista = form.querySelector('.lista-disc');
-    var modelo = form.querySelector('.modelo-disc');
-    if (!lista || !modelo) return;
-
-    function novaLinha() {
-      var frag = document.createElement('template');
-      frag.innerHTML = modelo.innerHTML.trim();
-      lista.appendChild(frag.content.firstElementChild);
-      var nome = lista.lastElementChild.querySelector('select[name="disc_nome[]"]');
-      if (nome) nome.focus();
-    }
-
-    form.querySelector('[data-add-disc]').addEventListener('click', novaLinha);
-
-    lista.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-remover-disc]');
-      if (!btn) return;
-      var linha = btn.closest('[data-linha-disc]');
-      if (linha) linha.remove();
-    });
-  });
-})();
-</script>
 
 <?php include(FOOTER_TEMPLATE); ?>

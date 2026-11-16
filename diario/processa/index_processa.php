@@ -50,9 +50,6 @@ $disciplinaId = $disciplinaId ?: 0;
 $alunos = [];
 $notaPorAluno = [];
 $notasPost = [];
-$nomeDisciplinaPost = '';
-$professorDisciplinaPost = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
-$professorDisciplinaPost = $professorDisciplinaPost ?: 0;
 $erros = [];
 
 if ($turmaId > 0) {
@@ -177,49 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $acao = is_string($_POST['acao'] ?? null) ? $_POST['acao'] : '';
-    if ($acao === 'adicionar_disciplina' && !ch_gestor()) {
-        $erros[] = 'Somente a gestão pode cadastrar disciplinas.';
-    } elseif ($acao === 'adicionar_disciplina') {
-        $nomeBruto = $_POST['nome_disciplina'] ?? '';
-        $nomeDisciplinaPost = is_scalar($nomeBruto) ? trim(strip_tags((string)$nomeBruto)) : '';
-        $nome = $nomeDisciplinaPost;
-        $professorId = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
-        if (!eq_materia_valida($nome)) {
-            $erros[] = 'Escolha a disciplina da lista de matérias.';
-        } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
-            $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
-        } elseif (!eq_professor_pode_materia($materiasPorProfessor[$professorId] ?? [], $nome)) {
-            $erros[] = 'O professor ' . $professoresDisciplina[$professorId]
-                     . ' não tem "' . $nome . '" no cadastro dele. Só é possível atribuir a matéria que ele pode lecionar.';
-        } elseif (ch_val('SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID_TURMA = ? AND NOME = ?', [$turmaId, $nome])) {
-            $erros[] = 'Essa disciplina já está cadastrada na turma.';
-        } else {
-            /* Cria a matéria e a primeira atribuição (1 aula; o total e a
-               divisão das aulas são ajustados no painel de atribuição). */
-            sqlsrv_begin_transaction(ch_db());
-            $novaDisc = ch_insert_id(
-                'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, ID_PROFESSOR)
-                 OUTPUT INSERTED.ID
-                 VALUES (?, ?, ?)',
-                [$turmaId, $nome, $professorId]
-            );
-            $ok = $novaDisc > 0
-               && ch_exec('INSERT INTO TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS) VALUES (?, ?, 1)',
-                          [$novaDisc, $professorId]);
-            if ($ok) {
-                $ok = (bool)sqlsrv_commit(ch_db());
-            } else {
-                sqlsrv_rollback(ch_db());
-            }
-            if (!$ok) {
-                $erros[] = 'Não foi possível cadastrar a disciplina.';
-            } else {
-                ch_flash('Disciplina cadastrada.');
-                header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId . '&bimestre=' . $bimestre));
-                exit;
-            }
-        }
-    } elseif ($acao === 'atribuir_professor' && !ch_gestor()) {
+    /* As matérias da turma são definidas na área de Turmas; aqui só se
+       atribui professor às matérias já cadastradas. */
+    if ($acao === 'atribuir_professor' && !ch_gestor()) {
         $erros[] = 'Somente a gestão pode atribuir professor à disciplina.';
     } elseif ($acao === 'atribuir_professor') {
         $professorId = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
