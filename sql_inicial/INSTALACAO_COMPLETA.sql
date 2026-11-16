@@ -1593,19 +1593,21 @@ END
 GO
 
 /* ============================================================================
-   21. CATEGORIA DO CONCURSO E MATÉRIAS DO PROFESSOR
+   21. CATEGORIA DO CONCURSO, MATÉRIAS DO PROFESSOR E ATRIBUIÇÕES POR AULAS
    ----------------------------------------------------------------------------
    No começo do ano o professor ainda não tem turma nem equipe vinculada a
    ele. Para o painel de atribuição saber em quais turmas ele pode ser
    atribuído, o cadastro do professor guarda:
-     - CATEGORIA (PEB_I / PEB_II / NULL): em quais etapas ele pode ensinar.
-       PEB I = Educação Infantil + Anos Iniciais; PEB II = Anos Finais.
-       NULL = sem restrição (todas as etapas).
+     - CATEGORIA (PDI_CRECHE / PDI / PEB_I / PEB_II / NULL): em qual etapa
+       ele pode ensinar. NULL = sem restrição (todas as etapas).
      - TB_PROFESSOR_MATERIAS: quais matérias ele pode lecionar.
        Sem linhas = sem restrição (qualquer matéria).
+   A turma define o TOTAL de aulas de cada matéria; a tabela
+   TB_ATRIBUICOES divide essas aulas entre os professores (cada professor
+   com teto de 36 h/a por semana, validado no sistema).
    ============================================================================ */
 PRINT '';
-PRINT '21. Categoria do concurso e matérias do professor';
+PRINT '21. Categoria do concurso, matérias do professor e atribuições';
 
 IF COL_LENGTH('dbo.TB_USUARIOS', 'CATEGORIA') IS NULL
 BEGIN
@@ -1616,14 +1618,19 @@ ELSE
     PRINT '  = TB_USUARIOS.CATEGORIA já existe';
 GO
 
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_USUARIOS_CATEGORIA')
+BEGIN
+    ALTER TABLE dbo.TB_USUARIOS DROP CONSTRAINT CK_USUARIOS_CATEGORIA;
+    PRINT '  - CK_USUARIOS_CATEGORIA antiga removida';
+END
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_USUARIOS_CATEGORIA')
 BEGIN
     ALTER TABLE dbo.TB_USUARIOS
-        ADD CONSTRAINT CK_USUARIOS_CATEGORIA CHECK (CATEGORIA IS NULL OR CATEGORIA IN ('PEB_I', 'PEB_II'));
-    PRINT '  + CK_USUARIOS_CATEGORIA criada';
+        ADD CONSTRAINT CK_USUARIOS_CATEGORIA CHECK (CATEGORIA IS NULL OR CATEGORIA IN ('PDI_CRECHE', 'PDI', 'PEB_I', 'PEB_II'));
+    PRINT '  + CK_USUARIOS_CATEGORIA criada (4 categorias)';
 END
-ELSE
-    PRINT '  = CK_USUARIOS_CATEGORIA já existe';
 GO
 
 IF OBJECT_ID(N'dbo.TB_PROFESSOR_MATERIAS', N'U') IS NULL
@@ -1661,6 +1668,49 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID(N'dbo.TB_ATRIBUICOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_ATRIBUICOES (
+        ID            int IDENTITY(1,1) NOT NULL,
+        ID_DISCIPLINA int           NOT NULL,
+        ID_PROFESSOR  int           NOT NULL,
+        AULAS         int           NOT NULL,
+        CREATED       datetime      NOT NULL CONSTRAINT DF_ATRIBUICOES_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_ATRIBUICOES PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_ATRIBUICAO UNIQUE (ID_DISCIPLINA, ID_PROFESSOR),
+        CONSTRAINT FK_ATRIBUICAO_DISCIPLINA FOREIGN KEY (ID_DISCIPLINA) REFERENCES dbo.TB_TURMA_DISCIPLINAS (ID),
+        CONSTRAINT FK_ATRIBUICAO_PROFESSOR  FOREIGN KEY (ID_PROFESSOR)  REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_ATRIBUICAO_AULAS CHECK (AULAS BETWEEN 1 AND 40)
+    );
+    PRINT '  + TB_ATRIBUICOES criada';
+END
+ELSE
+    PRINT '  = TB_ATRIBUICOES já existe';
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TB_ATRIBUICOES') AND name = 'UQ_ATRIBUICAO')
+BEGIN
+    CREATE UNIQUE INDEX UQ_ATRIBUICAO ON dbo.TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR);
+    PRINT '  + UQ_ATRIBUICAO criada';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.TB_ATRIBUICOES') AND name = 'IX_ATRIBUICAO_PROFESSOR')
+BEGIN
+    CREATE INDEX IX_ATRIBUICAO_PROFESSOR ON dbo.TB_ATRIBUICOES (ID_PROFESSOR);
+    PRINT '  + IX_ATRIBUICAO_PROFESSOR criado';
+END
+GO
+
+/* Migra os professores responsáveis antigos para atribuições. */
+INSERT INTO dbo.TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS)
+SELECT d.ID, d.ID_PROFESSOR, ISNULL(d.AULAS, 1)
+FROM dbo.TB_TURMA_DISCIPLINAS d
+WHERE d.ID_PROFESSOR IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM dbo.TB_ATRIBUICOES a WHERE a.ID_DISCIPLINA = d.ID);
+IF @@ROWCOUNT > 0 PRINT '  + ' + CAST(@@ROWCOUNT AS varchar(10)) + ' atribuição(ões) migrada(s)';
+GO
+
 /* ============================================================================
    22. VERIFICAÇÃO
    ============================================================================ */
@@ -1681,7 +1731,8 @@ WHERE t.name IN ('TB_UNIDADES','TB_USUARIOS','TB_ACESSO','TB_PERIODOS','TB_TURMA
                  'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
                  'TB_ALUNO_SAIDAS_EXTERNAS',
                  'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
-                 'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS','TB_PROFESSOR_MATERIAS')
+                 'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS','TB_PROFESSOR_MATERIAS',
+                 'TB_ATRIBUICOES')
 ORDER BY t.name;
 
 SELECT
@@ -1712,8 +1763,9 @@ IF (SELECT COUNT(*) FROM sys.tables WHERE name IN
        'TB_TURMA_PROFESSORES','TB_CHAMADA_RETIFICACOES','TB_TRANSFERENCIAS',
        'TB_ALUNO_SAIDAS_EXTERNAS',
        'TB_TURMA_DISCIPLINAS','TB_NOTAS','TB_SECRETARIO_RELATORIOS',
-       'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS','TB_PROFESSOR_MATERIAS')) = 23
-    PRINT 'As 23 tabelas estão presentes. Instalação concluída.';
+       'TB_SECRETARIO_OBSERVACOES','TB_LOGIN_TENTATIVAS','TB_PROFESSOR_MATERIAS',
+       'TB_ATRIBUICOES')) = 24
+    PRINT 'As 24 tabelas estão presentes. Instalação concluída.';
 ELSE
     PRINT 'ATENÇÃO: alguma tabela está faltando. Revise as mensagens acima.';
 GO

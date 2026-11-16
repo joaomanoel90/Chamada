@@ -77,37 +77,15 @@
       </div>
       <div class="col-12" id="grupoMaterias">
         <label class="fw-bold">Matérias que pode lecionar</label>
-        <div id="lista-materias-prof">
-          <?php foreach ((array)$d['materias'] as $mat): ?>
-          <div class="row g-2 align-items-center mb-2" data-linha-mat>
-            <div class="col-md-6">
-              <input type="text" name="prof_mat_nome[]" class="form-control" maxlength="80"
-                     placeholder="Ex.: Matemática" value="<?= ch_h($mat) ?>">
-            </div>
-            <div class="col-md-2">
-              <button type="button" class="btn btn-outline-danger btn-sm" data-remover-mat title="Remover matéria">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
+        <select class="form-select" id="materias-prof" name="prof_mat_nome[]" multiple>
+          <?php foreach (eq_materias_opcoes() as $mat): ?>
+            <option value="<?= ch_h($mat) ?>"
+                    <?= in_array($mat, (array)$d['materias'], true) ? 'selected' : '' ?>>
+              <?= ch_h($mat) ?>
+            </option>
           <?php endforeach; ?>
-        </div>
-        <template id="modelo-materia-prof">
-          <div class="row g-2 align-items-center mb-2" data-linha-mat>
-            <div class="col-md-6">
-              <input type="text" name="prof_mat_nome[]" class="form-control" maxlength="80" placeholder="Ex.: Matemática">
-            </div>
-            <div class="col-md-2">
-              <button type="button" class="btn btn-outline-danger btn-sm" data-remover-mat title="Remover matéria">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        </template>
-        <button type="button" class="btn btn-outline-success btn-sm" id="add-materia-prof">
-          <i class="fas fa-plus"></i> Adicionar matéria
-        </button>
-        <small class="text-muted d-block mt-1">Só para professor. Deixe vazio se ele pode lecionar qualquer matéria.</small>
+        </select>
+        <small class="text-muted d-block mt-1">Só para professor. Escolha da lista. Deixe vazio se ele pode lecionar qualquer matéria.</small>
       </div>
       <div class="col-12">
         <div class="form-check">
@@ -151,22 +129,10 @@
     document.getElementById('nivel').addEventListener('change', mostraTurno);
     if (window.jQuery) { $(document).on('select2:select select2:clear', '#nivel', mostraTurno); }
 
-    /* Linhas de matéria do professor: adicionar e remover. */
-    var listaMat = document.getElementById('lista-materias-prof');
-    var modeloMat = document.getElementById('modelo-materia-prof');
-    document.getElementById('add-materia-prof').addEventListener('click', function () {
-      var frag = document.createElement('template');
-      frag.innerHTML = modeloMat.innerHTML.trim();
-      listaMat.appendChild(frag.content.firstElementChild);
-      var campo = listaMat.lastElementChild.querySelector('input[name="prof_mat_nome[]"]');
-      if (campo) campo.focus();
-    });
-    listaMat.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-remover-mat]');
-      if (!btn) return;
-      var linha = btn.closest('[data-linha-mat]');
-      if (linha) linha.remove();
-    });
+    /* Matérias do professor: seleção múltipla da lista. */
+    if (window.jQuery && $.fn.select2) {
+      $('#materias-prof').select2({ theme: 'bootstrap-5', placeholder: 'Escolha as matérias...' });
+    }
 
     var form = document.getElementById('userForm');
     form.addEventListener('submit', function (e) {

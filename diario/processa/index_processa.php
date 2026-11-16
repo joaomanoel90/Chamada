@@ -82,12 +82,36 @@ if ($turmaId > 0) {
         $professoresDisciplina[(int)$membro['ID']] = $membro['NOME'];
     }
     $disciplinas = ch_rows(
-        'SELECT d.ID, d.NOME, d.ID_PROFESSOR, u.NOME AS PROFESSOR
+        'SELECT d.ID, d.NOME, d.ID_PROFESSOR, d.AULAS
          FROM TB_TURMA_DISCIPLINAS d
-         LEFT JOIN TB_USUARIOS u ON u.ID = d.ID_PROFESSOR
          WHERE d.ID_TURMA = ? ORDER BY d.NOME',
         [$turmaId]
     );
+    /* Professores com aulas em cada disciplina (as aulas são divididas). */
+    $atribuicoesPorDisc = [];
+    if ($disciplinas) {
+        $idsD = array_map(function ($d) { return (int)$d['ID']; }, $disciplinas);
+        $phD = implode(',', array_fill(0, count($idsD), '?'));
+        foreach (ch_rows(
+            "SELECT a.ID_DISCIPLINA, a.ID_PROFESSOR, a.AULAS, u.NOME
+             FROM TB_ATRIBUICOES a
+             INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
+             WHERE a.ID_DISCIPLINA IN ({$phD}) ORDER BY u.NOME",
+            $idsD
+        ) ?: [] as $a) {
+            $atribuicoesPorDisc[(int)$a['ID_DISCIPLINA']][] = $a;
+        }
+    }
+    foreach ($disciplinas as $i => $d) {
+        $nomes = [];
+        $minha = false;
+        foreach ($atribuicoesPorDisc[(int)$d['ID']] ?? [] as $a) {
+            $nomes[] = $a['NOME'] . ' (' . (int)$a['AULAS'] . ')';
+            if ((int)$a['ID_PROFESSOR'] === ch_uid()) { $minha = true; }
+        }
+        $disciplinas[$i]['PROFESSOR'] = implode(', ', $nomes);
+        $disciplinas[$i]['TEM_AULA_MINHA'] = $minha;
+    }
     if ($disciplinaId < 1 || !array_filter($disciplinas, function ($d) use ($disciplinaId) {
         return (int)$d['ID'] === $disciplinaId;
     })) {
@@ -106,7 +130,7 @@ if ($turmaId > 0) {
         }
     }
     $podeLancar = ch_professor() && $disciplinaSelecionada
-        && (int)($disciplinaSelecionada['ID_PROFESSOR'] ?? 0) === ch_uid();
+        && !empty($disciplinaSelecionada['TEM_AULA_MINHA']);
 
     if ($disciplinaId > 0) {
         $alunos = ch_rows(
@@ -147,24 +171,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nomeDisciplinaPost = is_scalar($nomeBruto) ? trim(strip_tags((string)$nomeBruto)) : '';
         $nome = $nomeDisciplinaPost;
         $professorId = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
-        if ($nome === '' || mb_strlen($nome) > 80) {
-            $erros[] = 'Informe o nome da disciplina (até 80 caracteres).';
+        if (!eq_materia_valida($nome)) {
+            $erros[] = 'Escolha a disciplina da lista de matérias.';
         } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
             $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
         } elseif (ch_val('SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID_TURMA = ? AND NOME = ?', [$turmaId, $nome])) {
             $erros[] = 'Essa disciplina já está cadastrada na turma.';
-        } elseif (!ch_exec(
-            'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, ID_PROFESSOR) VALUES (?, ?, ?)',
-            [$turmaId, $nome, $professorId]
-        )) {
-            $erros[] = 'Não foi possível cadastrar a disciplina.';
         } else {
-            ch_flash('Disciplina cadastrada.');
-            header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId . '&bimestre=' . $bimestre));
-            exit;
+            /* Cria a matéria e a primeira atribuição (1 aula; o total e a
+               divisão das aulas são ajustados no painel de atribuição). */
+            sqlsrv_begin_transaction(ch_db());
+            $novaDisc = ch_insert_id(
+                'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, ID_PROFESSOR)
+                 OUTPUT INSERTED.ID
+                 VALUES (?, ?, ?)',
+                [$turmaId, $nome, $professorId]
+            );
+            $ok = $novaDisc > 0
+               && ch_exec('INSERT INTO TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS) VALUES (?, ?, 1)',
+                          [$novaDisc, $professorId]);
+            if ($ok) {
+                $ok = (bool)sqlsrv_commit(ch_db());
+            } else {
+                sqlsrv_rollback(ch_db());
+            }
+            if (!$ok) {
+                $erros[] = 'Não foi possível cadastrar a disciplina.';
+            } else {
+                ch_flash('Disciplina cadastrada.');
+                header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId . '&bimestre=' . $bimestre));
+                exit;
+            }
         }
     } elseif ($acao === 'atribuir_professor' && !ch_gestor()) {
-        $erros[] = 'Somente a gestão pode atribuir o professor da disciplina.';
+        $erros[] = 'Somente a gestão pode atribuir professor à disciplina.';
     } elseif ($acao === 'atribuir_professor') {
         $professorId = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
         $disciplinaValida = $disciplinaId > 0
@@ -173,26 +213,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erros[] = 'Selecione uma disciplina válida.';
         } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
             $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
-        } elseif (!ch_exec(
-            'UPDATE TB_TURMA_DISCIPLINAS SET ID_PROFESSOR = ? WHERE ID = ? AND ID_TURMA = ?',
-            [$professorId, $disciplinaId, $turmaId]
-        )) {
-            $erros[] = 'Não foi possível atualizar o professor responsável.';
         } else {
-            ch_flash('Professor responsável atualizado.');
-            header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId
-                . '&disciplina_id=' . $disciplinaId . '&bimestre=' . $bimestre));
-            exit;
+            /* Adiciona o professor às aulas da disciplina (1 aula, se ele
+               ainda não tem atribuição; o ajuste fino é no painel). */
+            sqlsrv_begin_transaction(ch_db());
+            $jaTem = (int)ch_val(
+                'SELECT COUNT(*) FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ? AND ID_PROFESSOR = ?',
+                [$disciplinaId, $professorId]
+            );
+            $ok = $jaTem > 0
+               || ch_exec('INSERT INTO TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS) VALUES (?, ?, 1)',
+                          [$disciplinaId, $professorId]);
+            if ($ok) {
+                $ok = eq_disciplina_sincronizar_responsavel($disciplinaId);
+            }
+            if ($ok) {
+                $ok = (bool)sqlsrv_commit(ch_db());
+            } else {
+                sqlsrv_rollback(ch_db());
+            }
+            if (!$ok) {
+                $erros[] = 'Não foi possível atribuir o professor.';
+            } else {
+                ch_flash('Professor atribuído à disciplina.');
+                header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId
+                    . '&disciplina_id=' . $disciplinaId . '&bimestre=' . $bimestre));
+                exit;
+            }
         }
     } elseif ($acao === 'salvar_notas' && !$podeLancar) {
-        $erros[] = 'Somente o professor responsável pela disciplina pode lançar notas.';
+        $erros[] = 'Somente o professor com aulas atribuídas nesta disciplina pode lançar notas.';
     } elseif ($acao === 'salvar_notas') {
         if (!$bimestreValido) {
             $erros[] = 'Selecione um bimestre válido.';
         }
         $disciplinaValida = $disciplinaId > 0
             && (bool)ch_val(
-                'SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID = ? AND ID_TURMA = ? AND ID_PROFESSOR = ?',
+                'SELECT ID FROM TB_TURMA_DISCIPLINAS d
+                 WHERE d.ID = ? AND d.ID_TURMA = ?
+                   AND EXISTS (SELECT 1 FROM TB_ATRIBUICOES a
+                               WHERE a.ID_DISCIPLINA = d.ID AND a.ID_PROFESSOR = ?)',
                 [$disciplinaId, $turmaId, ch_uid()]
             );
         if (!$disciplinaValida) {

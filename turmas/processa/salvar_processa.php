@@ -86,17 +86,10 @@ function turma_validar($post, $idAtual = 0)
         $e[] = $msg;
     }
 
-    /* Matérias: o professor de cada uma precisa poder ser atribuído à
-       turma — estar na equipe enviada OU ter categoria do concurso
-       compatível com a etapa (no começo do ano ele ainda não tem equipe). */
-    $idsEquipe = [];
-    foreach ($equipe as $m) {
-        if ($m['PAPEL'] !== 'SUBSTITUTO') {
-            $idsEquipe[(int)$m['ID_USUARIO']] = true;
-        }
-    }
-    $elegiveis = eq_elegiveis_mapa($idsEquipe, $d['ETAPA_ENSINO']);
-    foreach (eq_disciplinas_validar($disciplinas, $elegiveis) as $msg) {
+    /* Matérias: nome da lista + total de aulas. Os professores são
+       atribuídos no painel, por aulas (a categoria do concurso é o que
+       permite atribuir no começo do ano, antes de existir equipe). */
+    foreach (eq_disciplinas_validar($disciplinas, $idAtual) as $msg) {
         $e[] = $msg;
     }
 
@@ -231,9 +224,8 @@ function turma_disciplinas_atual($idTurma)
     $lista = [];
     foreach (eq_disciplinas($idTurma) as $d) {
         $lista[] = [
-            'NOME'         => (string)$d['NOME'],
-            'AULAS'        => (int)($d['AULAS'] ?? 0),
-            'ID_PROFESSOR' => (int)($d['ID_PROFESSOR'] ?? 0),
+            'NOME'  => (string)$d['NOME'],
+            'AULAS' => (int)($d['AULAS'] ?? 0),
         ];
     }
     return ['DISCIPLINAS' => $lista];
@@ -246,5 +238,6 @@ function turma_opcoes()
         'unidades' => ch_unidades_opcoes(),
         'periodos' => ch_rows('SELECT ID, NOME, HORA_INICIO, HORA_FIM, TURNO FROM TB_PERIODOS WHERE ATIVO = 1 ORDER BY HORA_INICIO'),
         'professores' => eq_professores_opcoes(),
+        'materias' => eq_materias_opcoes(),
     ];
 }

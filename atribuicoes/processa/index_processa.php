@@ -2,17 +2,18 @@
 /* ============================================================================
    PAINEL DE ATRIBUIÇÃO DE PROFESSORES
    ----------------------------------------------------------------------------
-   Mostra as turmas agrupadas por etapa (da Creche ao Fundamental) e, dentro
-   de cada turma, as matérias com as aulas semanais e o professor que as dá.
+   A turma define as matérias e o TOTAL de aulas de cada uma (ex.: 10 de
+   Matemática). As aulas são divididas entre os professores (ex.: 4 + 6),
+   e o painel mostra quantas aulas ainda faltam ser atribuídas. Cada
+   professor tem teto de 36 h/a por semana.
 
    - A gestão escolhe primeiro o PROFESSOR: aparecem só as turmas em que ele
      pode ser atribuído — as turmas da equipe dele MAIS as turmas compatíveis
-     com a categoria do concurso dele (PEB I / PEB II, do cadastro). No
-     começo do ano ele ainda não tem equipe, e a categoria é o que permite
-     atribuir. As turmas já COMPLETAS (todas as matérias com professor) vêm
-     marcadas. A gestão atribui: troca o professor, ajusta as aulas e
-     adiciona ou remove matérias (a mesma tela que o formulário da turma
-     usa). Quem recebe matéria entra na equipe da turma automaticamente.
+     com a categoria do concurso dele (PDI / PEB I / PEB II, do cadastro).
+     No começo do ano ele ainda não tem equipe, e a categoria é o que
+     permite atribuir. As turmas já COMPLETAS (todas as aulas atribuídas)
+     vêm marcadas. Quem recebe aulas entra na equipe da turma
+     automaticamente.
    - O professor vê, em modo leitura, só as turmas e matérias dele.
    ============================================================================ */
 require_once(dirname(__DIR__, 2) . '/config.php');
@@ -32,6 +33,7 @@ $fAno     = (int)($_GET['ano'] ?? $_POST['ano'] ?? (int)date('Y'));
 $fUnidade = (int)($_GET['unidade'] ?? $_POST['unidade'] ?? 0);
 $unidades = ch_unidades_opcoes();
 $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC') ?: [];
+$materiasOpcoes = eq_materias_opcoes();
 
 /* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
    turmas em que ele pode ser atribuído (equipe dele OU categoria do
@@ -49,7 +51,7 @@ if ($fProfessor > 0) {
 }
 $series = ch_series_ensino();
 
-/* Turmas do painel, já com as matérias e o professor de cada uma. */
+/* Turmas do painel. */
 $sqlTurmas =
     'SELECT t.ID, t.NOME, t.SERIE, t.ETAPA_ENSINO, t.ANO_LETIVO, t.ID_UNIDADE,
             u.unidade AS ESCOLA, p.NOME AS PERIODO
@@ -60,9 +62,10 @@ $sqlTurmas =
 $params = [$fAno];
 
 if ($ehProfessor && !$ehGestao) {
-    /* O professor só vê as turmas em que dá alguma matéria. */
-    $sqlTurmas .= ' AND EXISTS (SELECT 1 FROM TB_TURMA_DISCIPLINAS d
-                                WHERE d.ID_TURMA = t.ID AND d.ID_PROFESSOR = ?)';
+    /* O professor só vê as turmas em que tem aulas atribuídas. */
+    $sqlTurmas .= ' AND EXISTS (SELECT 1 FROM TB_ATRIBUICOES a
+                                INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+                                WHERE d.ID_TURMA = t.ID AND a.ID_PROFESSOR = ?)';
     $params[] = ch_uid();
 } else {
     $filtro = ch_filtro_turma('t');
@@ -98,35 +101,34 @@ if ($fProfessor > 0) {
     }));
 }
 
-/* Matérias de todas as turmas do painel, de uma vez. */
+/* Matérias e atribuições de todas as turmas do painel, de uma vez. */
 $idsTurmas = array_map(function ($t) { return (int)$t['ID']; }, $turmas);
 $disciplinasPorTurma = [];
-$professoresPorTurma = [];
+$atribuicoesPorDisc = [];
 if ($idsTurmas) {
     $ph = implode(',', array_fill(0, count($idsTurmas), '?'));
     $discs = ch_rows(
-        "SELECT d.ID_TURMA, d.ID, d.NOME, d.AULAS, d.ID_PROFESSOR, u.NOME AS PROFESSOR
+        "SELECT d.ID_TURMA, d.ID, d.NOME, d.AULAS
          FROM TB_TURMA_DISCIPLINAS d
-         LEFT JOIN TB_USUARIOS u ON u.ID = d.ID_PROFESSOR
          WHERE d.ID_TURMA IN ({$ph}) ORDER BY d.NOME",
         $idsTurmas
     ) ?: [];
+    $idsDiscs = [];
     foreach ($discs as $d) {
         $disciplinasPorTurma[(int)$d['ID_TURMA']][] = $d;
+        $idsDiscs[] = (int)$d['ID'];
     }
-    /* Quem pode dar matéria em cada turma: a equipe fixa OU quem tem
-       categoria do concurso compatível com a etapa da turma. */
-    $membros = ch_rows(
-        "SELECT DISTINCT tp.ID_TURMA, u.ID, u.NOME
-         FROM TB_TURMA_PROFESSORES tp
-         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
-         WHERE tp.ID_TURMA IN ({$ph}) AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
-           AND u.NIVEL = 3 AND tp.PAPEL <> 'SUBSTITUTO'
-         ORDER BY u.NOME",
-        $idsTurmas
-    ) ?: [];
-    foreach ($membros as $m) {
-        $professoresPorTurma[(int)$m['ID_TURMA']][] = $m;
+    if ($idsDiscs) {
+        $phD = implode(',', array_fill(0, count($idsDiscs), '?'));
+        foreach (ch_rows(
+            "SELECT a.ID_DISCIPLINA, a.ID, a.ID_PROFESSOR, a.AULAS, u.NOME AS PROFESSOR
+             FROM TB_ATRIBUICOES a
+             INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
+             WHERE a.ID_DISCIPLINA IN ({$phD}) ORDER BY u.NOME",
+            $idsDiscs
+        ) ?: [] as $a) {
+            $atribuicoesPorDisc[(int)$a['ID_DISCIPLINA']][] = $a;
+        }
     }
 }
 
@@ -154,14 +156,20 @@ if ($ehGestao) {
     }
 }
 
-/* Elegíveis por turma: mapa id => ['NOME', 'MATERIAS'] (equipe + categoria).
-   É o que alimenta os selects e a validação do salvamento. */
+/* Elegíveis por turma: mapa id => ['NOME', 'MATERIAS'] (equipe + categoria). */
 $elegiveisPorTurma = [];
 foreach ($turmas as $t) {
     $idT = (int)$t['ID'];
     $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
     $mapa = [];
-    foreach ($professoresPorTurma[$idT] ?? [] as $m) {
+    foreach (ch_rows(
+        "SELECT DISTINCT u.ID, u.NOME
+         FROM TB_TURMA_PROFESSORES tp
+         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+         WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
+           AND u.NIVEL = 3 AND tp.PAPEL <> 'SUBSTITUTO'",
+        [$idT]
+    ) ?: [] as $m) {
         $idP = (int)$m['ID'];
         $mapa[$idP] = ['NOME' => (string)$m['NOME'], 'MATERIAS' => $materiasPorProf[$idP] ?? []];
     }
@@ -172,32 +180,43 @@ foreach ($turmas as $t) {
     }
     uasort($mapa, function ($a, $b) { return strcasecmp($a['NOME'], $b['NOME']); });
     $elegiveisPorTurma[$idT] = $mapa;
-    /* O select da turma lista os elegíveis. */
-    $professoresPorTurma[$idT] = [];
-    foreach ($mapa as $idP => $e) {
-        $professoresPorTurma[$idT][] = ['ID' => $idP, 'NOME' => $e['NOME']];
-    }
 }
 
-/* Turma COMPLETA = todas as matérias já têm professor atribuído. */
+/* Status por matéria e por turma: quantas aulas ainda faltam. */
 $statusPorTurma = [];
 foreach ($turmas as $t) {
     $idT = (int)$t['ID'];
     $discsT = $disciplinasPorTurma[$idT] ?? [];
-    $comProfessor = 0;
-    foreach ($discsT as $d) {
-        if (!empty($d['ID_PROFESSOR'])) { $comProfessor++; }
+    $totalAulas = 0;
+    $faltam = 0;
+    $completas = 0;
+    foreach ($discsT as $i => $d) {
+        $idD = (int)$d['ID'];
+        $atribuidas = 0;
+        foreach ($atribuicoesPorDisc[$idD] ?? [] as $a) {
+            $atribuidas += (int)$a['AULAS'];
+        }
+        $total = $d['AULAS'] === null ? null : (int)$d['AULAS'];
+        $restam = $total === null ? null : max(0, $total - $atribuidas);
+        $disciplinasPorTurma[$idT][$i]['ATRIBUIDAS'] = $atribuidas;
+        $disciplinasPorTurma[$idT][$i]['RESTAM'] = $restam;
+        if ($total !== null) {
+            $totalAulas += $total;
+            $faltam += $restam;
+            if ($restam === 0) { $completas++; }
+        }
     }
     $total = count($discsT);
     $statusPorTurma[$idT] = [
-        'total'         => $total,
-        'com_professor' => $comProfessor,
-        'sem_professor' => $total - $comProfessor,
-        'completa'      => $total > 0 && $comProfessor === $total,
+        'total'        => $total,
+        'total_aulas'  => $totalAulas,
+        'faltam'       => $faltam,
+        'completas'    => $completas,
+        'completa'     => $total > 0 && $completas === $total,
     ];
 }
 
-/* Resumo do professor escolhido: quantas turmas dele estão completas. */
+/* Resumo do professor escolhido: turmas completas + carga semanal. */
 $resumoProfessor = null;
 if ($fProfessor > 0) {
     $resumoProfessor = ['turmas' => count($turmas), 'completas' => 0, 'incompletas' => 0, 'sem_materias' => 0];
@@ -209,6 +228,8 @@ if ($fProfessor > 0) {
     $resumoProfessor['categoria'] = eq_categorias_concurso()[$categoriaProfessor]
         ?? 'Sem restrição (todas as etapas)';
     $resumoProfessor['materias'] = array_values($materiasPorProf[$fProfessor] ?? []);
+    $resumoProfessor['carga'] = eq_professor_carga($fProfessor, $fAno);
+    $resumoProfessor['carga_max'] = eq_carga_maxima();
 }
 
 /* Agrupa por etapa e série, na ordem de progressão. */
@@ -231,8 +252,13 @@ foreach ($grupos as $etapa => $porSerie) {
     $grupos[$etapa] = $porSerie;
 }
 
-/* Salvamento (só a gestão). Um formulário por turma. */
+/* ==========================================================================
+   SALVAMENTO (só a gestão)
+   ========================================================================== */
 $erros = [];
+$voltar = 'atribuicoes/index.php?ano=' . $fAno
+    . ($fUnidade ? '&unidade=' . $fUnidade : '')
+    . ($fProfessor ? '&professor=' . $fProfessor : '');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$ehGestao) {
         ch_flash('Somente a gestão pode atribuir professores.', 'danger');
@@ -243,30 +269,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . ch_url('atribuicoes/index.php'));
         exit;
     }
-    $idTurma = (int)($_POST['id_turma'] ?? 0);
-    $turma = null;
-    foreach ($turmas as $t) {
-        if ((int)$t['ID'] === $idTurma) { $turma = $t; break; }
-    }
-    if (!$turma) {
-        ch_flash('Turma não encontrada ou fora do seu alcance.', 'danger');
-        header('Location: ' . ch_url('atribuicoes/index.php'));
-        exit;
-    }
-    $lista = eq_disciplinas_ler_post($_POST);
-    $erros = eq_disciplinas_validar($lista, $elegiveisPorTurma[$idTurma] ?? []);
-    if (!$erros) {
+    $acao = is_string($_POST['acao'] ?? null) ? $_POST['acao'] : '';
+
+    if ($acao === 'atribuir') {
+        /* Atribui N aulas de uma matéria a um professor. */
+        $idDisc = (int)($_POST['id_disciplina'] ?? 0);
+        $idProf = (int)($_POST['id_professor'] ?? 0);
+        $aulas  = (int)($_POST['aulas'] ?? 0);
+        $disc = ch_row(
+            'SELECT d.ID, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?',
+            [$idDisc]
+        );
+        $turmaOk = $disc && in_array((int)$disc['ID_TURMA'], $idsTurmas, true);
+        if (!$turmaOk) {
+            ch_flash('Matéria não encontrada ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        $idTurma = (int)$disc['ID_TURMA'];
         sqlsrv_begin_transaction(ch_db());
-        $ok = eq_disciplinas_salvar($idTurma, $lista);
+        [$ok, $erros] = eq_atribuir($idDisc, $idProf, $aulas, $elegiveisPorTurma[$idTurma] ?? [], $fAno);
         if ($ok && sqlsrv_commit(ch_db())) {
-            ch_flash('Atribuição da turma ' . $turma['NOME'] . ' salva.');
-            header('Location: ' . ch_url('atribuicoes/index.php?ano=' . $fAno
-                . ($fUnidade ? '&unidade=' . $fUnidade : '')
-                . ($fProfessor ? '&professor=' . $fProfessor : '')));
+            ch_flash('Aulas atribuídas.');
+            header('Location: ' . ch_url($voltar));
             exit;
         }
         sqlsrv_rollback(ch_db());
-        $erros[] = 'Não foi possível salvar a atribuição.';
-        if (ch_admin()) { $erros[] = ch_erro_sql(); }
+        if (!$erros) { $erros[] = 'Não foi possível gravar a atribuição.'; }
+    } elseif ($acao === 'remover_atribuicao') {
+        $idAtribuicao = (int)($_POST['id_atribuicao'] ?? 0);
+        $linha = ch_row(
+            'SELECT a.ID, d.ID_TURMA FROM TB_ATRIBUICOES a
+             INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+             WHERE a.ID = ?',
+            [$idAtribuicao]
+        );
+        if (!$linha || !in_array((int)$linha['ID_TURMA'], $idsTurmas, true)) {
+            ch_flash('Atribuição não encontrada ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_begin_transaction(ch_db());
+        $ok = eq_atribuicao_remover($idAtribuicao);
+        if ($ok && sqlsrv_commit(ch_db())) {
+            ch_flash('Atribuição removida.');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_rollback(ch_db());
+        $erros[] = 'Não foi possível remover a atribuição.';
+    } elseif ($acao === 'salvar_materias') {
+        /* Salva as matérias da turma (nome + total de aulas). */
+        $idTurma = (int)($_POST['id_turma'] ?? 0);
+        $turma = null;
+        foreach ($turmas as $t) {
+            if ((int)$t['ID'] === $idTurma) { $turma = $t; break; }
+        }
+        if (!$turma) {
+            ch_flash('Turma não encontrada ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        $lista = eq_disciplinas_ler_post($_POST);
+        $erros = eq_disciplinas_validar($lista, $idTurma);
+        if (!$erros) {
+            sqlsrv_begin_transaction(ch_db());
+            $ok = eq_disciplinas_salvar($idTurma, $lista);
+            if ($ok && sqlsrv_commit(ch_db())) {
+                ch_flash('Matérias da turma ' . $turma['NOME'] . ' salvas.');
+                header('Location: ' . ch_url($voltar));
+                exit;
+            }
+            sqlsrv_rollback(ch_db());
+            $erros[] = 'Não foi possível salvar as matérias.';
+            if (ch_admin()) { $erros[] = ch_erro_sql(); }
+        }
+    } elseif ($acao === 'remover_materia') {
+        $idDisc = (int)($_POST['id_disciplina'] ?? 0);
+        $disc = ch_row(
+            'SELECT d.ID, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?',
+            [$idDisc]
+        );
+        if (!$disc || !in_array((int)$disc['ID_TURMA'], $idsTurmas, true)) {
+            ch_flash('Matéria não encontrada ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_begin_transaction(ch_db());
+        $ok = ch_exec('DELETE FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ?', [$idDisc])
+           && ch_exec('DELETE FROM TB_TURMA_DISCIPLINAS WHERE ID = ?', [$idDisc]);
+        if ($ok && sqlsrv_commit(ch_db())) {
+            ch_flash('Matéria removida.');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_rollback(ch_db());
+        $erros[] = 'Não foi possível remover a matéria.';
     }
 }

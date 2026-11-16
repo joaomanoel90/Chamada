@@ -130,39 +130,36 @@ function turma_linha_equipe($m, $op)
 }
 
 /** Uma linha de matéria. Serve tanto para quem já está na turma quanto para
- *  o modelo em branco que o JavaScript clona ao adicionar uma matéria. */
+ *  o modelo em branco que o JavaScript clona ao adicionar uma matéria.
+ *  A matéria vem da lista (para não digitar errado) e a turma define o
+ *  TOTAL de aulas; os professores são atribuídos no painel. */
 function turma_linha_disciplina($d, $op)
 {
-    $d = array_merge(['NOME' => '', 'AULAS' => '', 'ID_PROFESSOR' => 0], (array)$d);
+    $d = array_merge(['NOME' => '', 'AULAS' => ''], (array)$d);
     ob_start();
     ?>
     <div class="linha-disciplina" data-linha-disciplina>
       <div class="row g-2 align-items-end">
-        <div class="col-12 col-lg-5">
+        <div class="col-12 col-lg-6">
           <label class="fw-bold small">Matéria</label>
-          <input type="text" name="disc_nome[]" class="form-control" maxlength="80"
-                 value="<?= ch_h($d['NOME']) ?>" placeholder="Ex.: Matemática">
-        </div>
-        <div class="col-6 col-lg-2">
-          <label class="fw-bold small">Aulas/semana</label>
-          <input type="number" name="disc_aulas[]" class="form-control" min="1" max="40"
-                 value="<?= ch_h($d['AULAS']) ?>" placeholder="Ex.: 4">
-        </div>
-        <div class="col-6 col-lg-4">
-          <label class="fw-bold small">Professor(a)</label>
-          <select name="disc_prof[]" class="form-select">
+          <select name="disc_nome[]" class="form-select">
             <option value="">Selecione...</option>
-            <?php foreach ($op['professores'] as $pr): ?>
-              <option value="<?= (int)$pr['ID'] ?>"
-                      <?= (int)$d['ID_PROFESSOR'] === (int)$pr['ID'] ? 'selected' : '' ?>>
-                <?= ch_h($pr['NOME']) ?>
+            <?php foreach ($op['materias'] as $mat): ?>
+              <option value="<?= ch_h($mat) ?>"
+                      <?= mb_strtolower((string)$d['NOME'], 'UTF-8') === mb_strtolower($mat, 'UTF-8') ? 'selected' : '' ?>>
+                <?= ch_h($mat) ?>
               </option>
             <?php endforeach; ?>
           </select>
         </div>
-        <div class="col-12 col-lg-1">
+        <div class="col-6 col-lg-3">
+          <label class="fw-bold small">Aulas/semana (total)</label>
+          <input type="number" name="disc_aulas[]" class="form-control" min="1" max="40"
+                 value="<?= ch_h($d['AULAS']) ?>" placeholder="Ex.: 10">
+        </div>
+        <div class="col-6 col-lg-3">
           <button type="button" class="btn btn-outline-danger btn-sm w-100" data-remover-disciplina title="Remover matéria">
-            <i class="fas fa-trash"></i>
+            <i class="fas fa-trash"></i> Remover
           </button>
         </div>
       </div>
@@ -300,14 +297,11 @@ function turma_linha_disciplina($d, $op)
     </div>
     <div class="card-escola-corpo">
       <p class="text-muted mb-3">
-        Defina <strong>quantas matérias</strong> esta turma terá, com o número de
-        <strong>aulas por semana</strong> e o <strong>professor</strong> que dá cada uma.
-        O professor precisa estar na <strong>equipe da turma</strong> acima ou ter
-        <strong>categoria do concurso</strong> compatível com a etapa (definida no
-        cadastro do professor) — quem recebe matéria entra na equipe
-        automaticamente.
-        As matérias também podem ser ajustadas no painel
-        <strong>Atribuição de Professores</strong>.
+        Defina <strong>quantas matérias</strong> esta turma terá e o <strong>total de
+        aulas por semana</strong> de cada uma (escolha da lista, para não digitar
+        errado). Os <strong>professores</strong> são atribuídos no painel
+        <strong>Atribuição de Professores</strong>, por aulas — cada professor pode
+        pegar uma parte das aulas da matéria, com teto de 36 h/a por semana.
       </p>
 
       <?php if (!$op['professores']): ?>

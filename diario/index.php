@@ -82,11 +82,17 @@
             <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
             <div class="col-md-5">
               <label class="fw-bold" for="nome-disciplina">Nova disciplina</label>
-              <input class="form-control" id="nome-disciplina" name="nome_disciplina" maxlength="80"
-                     value="<?= ch_h($nomeDisciplinaPost) ?>" required>
+              <select class="form-select" id="nome-disciplina" name="nome_disciplina" required>
+                <option value="">Selecione...</option>
+                <?php foreach (eq_materias_opcoes() as $mat): ?>
+                  <option value="<?= ch_h($mat) ?>" <?= $mat === $nomeDisciplinaPost ? 'selected' : '' ?>>
+                    <?= ch_h($mat) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
             </div>
             <div class="col-md-5">
-              <label class="fw-bold" for="novo-professor">Professor responsável</label>
+              <label class="fw-bold" for="novo-professor">Professor</label>
               <select class="form-select" id="novo-professor" name="id_professor" required>
                 <option value="">Selecione...</option>
                 <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
@@ -124,7 +130,7 @@
       <div class="card-escola">
         <div class="card-escola-titulo">
           <i class="fas fa-list-ol"></i> <?= ch_h($nomeDisciplina) ?> — <?= $bimestre ?>º bimestre
-          <span class="ms-2 small">Responsável: <?= ch_h($responsavelDisciplina ?: 'não atribuído') ?></span>
+          <span class="ms-2 small">Professores: <?= ch_h($responsavelDisciplina ?: 'não atribuído') ?></span>
           <span class="ms-auto badge bg-light text-dark"><?= count($alunos) ?> aluno(s)</span>
         </div>
         <div class="card-escola-corpo">
@@ -137,7 +143,7 @@
                 <input type="hidden" name="disciplina_id" value="<?= $disciplinaId ?>">
                 <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
                 <div class="col-md-8">
-                  <label class="fw-bold" for="professor-disciplina">Professor responsável pela disciplina</label>
+                  <label class="fw-bold" for="professor-disciplina">Atribuir professor à disciplina</label>
                   <select class="form-select" id="professor-disciplina" name="id_professor" required>
                     <option value="">Selecione...</option>
                     <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
@@ -148,17 +154,18 @@
                   </select>
                 </div>
                 <div class="col-md-4">
-                  <button class="btn btn-outline-primary w-100">Atualizar responsável</button>
+                  <button class="btn btn-outline-primary w-100">Atribuir</button>
                 </div>
               </form>
+              <p class="text-muted small no-print">Para dividir as aulas entre professores e ver quantas faltam, use o painel <strong>Atribuição de Professores</strong>.</p>
             <?php else: ?>
-              <div class="alert alert-warning no-print">Adicione um professor à equipe da turma para atribuí-lo como responsável.</div>
+              <div class="alert alert-warning no-print">Adicione um professor à equipe da turma para atribuí-lo à disciplina.</div>
             <?php endif; ?>
           <?php endif; ?>
-          <?php if (!$professorAtualDisciplina): ?>
-            <div class="alert alert-warning">Esta disciplina ainda não tem professor responsável. A gestão deve atribuir um integrante da equipe antes do lançamento das notas.</div>
+          <?php if (!$responsavelDisciplina): ?>
+            <div class="alert alert-warning">Esta disciplina ainda não tem professor atribuído. A gestão deve atribuir um integrante da equipe antes do lançamento das notas.</div>
           <?php elseif (!$podeLancar && !ch_gestor()): ?>
-            <div class="alert alert-info no-print">As notas desta disciplina são lançadas pelo professor responsável. Você pode consultar os registros.</div>
+            <div class="alert alert-info no-print">As notas desta disciplina são lançadas pelos professores com aulas atribuídas. Você pode consultar os registros.</div>
           <?php endif; ?>
           <?php if ($alunos): ?>
             <form method="post" action="index.php">

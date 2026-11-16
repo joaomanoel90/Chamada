@@ -358,7 +358,7 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 			'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS', 'TB_PROMOCOES',
 			'TB_ALUNO_SAIDAS_EXTERNAS',
 			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
-			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS');
+			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS', 'TB_ATRIBUICOES');
 
 		$falta = array_values(array_diff($tabelas, $tem_tabela));
 		if ($falta) {
@@ -444,6 +444,13 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'cols'   => array('TB_USUARIOS.CATEGORIA'),
 				'objs'   => array('TB_PROFESSOR_MATERIAS', 'UQ_PROFMATERIA',
 					'FK_PROFMATERIA_USUARIO', 'CK_USUARIOS_CATEGORIA', 'CK_PROFMATERIA_NOME'),
+			),
+			array(
+				'nome'   => 'Atribuições por aulas (divisão entre professores)',
+				'script' => 'sql_inicial/ATUALIZAR_ATRIBUICOES_AULAS.sql',
+				'cols'   => array(),
+				'objs'   => array('TB_ATRIBUICOES', 'UQ_ATRIBUICAO',
+					'FK_ATRIBUICAO_DISCIPLINA', 'FK_ATRIBUICAO_PROFESSOR', 'CK_ATRIBUICAO_AULAS'),
 			),
 		);
 

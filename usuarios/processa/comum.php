@@ -42,17 +42,22 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $d['categoria'] = ($d['nivel'] === 3 && isset(eq_categorias_concurso()[$categoria])) ? $categoria : null;
     $d['materias'] = [];
     if ($d['nivel'] === 3) {
+        $opcoes = [];
+        foreach (eq_materias_opcoes() as $op) {
+            $opcoes[mb_strtolower($op, 'UTF-8')] = $op;
+        }
         $vistos = [];
         foreach ((array)($post['prof_mat_nome'] ?? []) as $nome) {
             $nome = mb_substr(strip_tags(trim((string)$nome)), 0, 80);
             if ($nome === '') continue;
             $chave = mb_strtolower($nome, 'UTF-8');
-            if (isset($vistos[$chave])) {
-                $erros[] = 'A matéria "' . $nome . '" aparece mais de uma vez.';
+            if (isset($vistos[$chave])) continue;
+            $vistos[$chave] = true;
+            if (!isset($opcoes[$chave])) {
+                $erros[] = 'A matéria "' . $nome . '" não está na lista de matérias.';
                 continue;
             }
-            $vistos[$chave] = true;
-            $d['materias'][] = $nome;
+            $d['materias'][] = $opcoes[$chave];
         }
     }
 

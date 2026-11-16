@@ -756,55 +756,62 @@ function eq_disciplinas_ler_post($post)
 {
     $nomes = (array)($post['disc_nome'] ?? []);
     $aulas = (array)($post['disc_aulas'] ?? []);
-    $profs = (array)($post['disc_prof'] ?? []);
     $lista = [];
     foreach ($nomes as $i => $nome) {
         $nome = mb_substr(strip_tags(trim((string)$nome)), 0, 80);
         if ($nome === '') continue;
         $lista[] = [
-            'NOME'         => $nome,
-            'AULAS'        => (int)($aulas[$i] ?? 0),
-            'ID_PROFESSOR' => (int)($profs[$i] ?? 0),
+            'NOME'  => $nome,
+            'AULAS' => (int)($aulas[$i] ?? 0),
         ];
     }
     return $lista;
 }
 
 /**
- * Valida as matérias. $elegiveis é o mapa id => ['NOME' => ..., 'MATERIAS' =>
- * mapa] dos professores que podem ser atribuídos à turma: quem está na
- * equipe OU tem categoria do concurso compatível com a etapa (ver
- * eq_elegiveis_mapa). Quem tem a lista de matérias vazia pode lecionar
- * qualquer matéria.
+ * Valida as matérias da turma (nome da lista + total de aulas). O total não
+ * pode ficar menor que as aulas já atribuídas aos professores.
+ * $idTurma = 0 para turma nova (sem atribuições ainda).
  */
-function eq_disciplinas_validar($lista, $elegiveis)
+function eq_disciplinas_validar($lista, $idTurma = 0)
 {
     $erros = [];
     $vistos = [];
+    $idTurma = (int)$idTurma;
     foreach ($lista as $d) {
         $chave = mb_strtolower($d['NOME'], 'UTF-8');
         if (isset($vistos[$chave])) {
             $erros[] = 'A matéria "' . $d['NOME'] . '" aparece mais de uma vez.';
         }
         $vistos[$chave] = true;
+        if (!eq_materia_valida($d['NOME'])) {
+            $erros[] = 'A matéria "' . $d['NOME'] . '" não está na lista de matérias. Escolha da lista.';
+        }
         if ($d['AULAS'] < 1 || $d['AULAS'] > 40) {
             $erros[] = 'A matéria "' . $d['NOME'] . '" precisa de 1 a 40 aulas por semana.';
-        }
-        $idProf = (int)$d['ID_PROFESSOR'];
-        if ($idProf <= 0 || !isset($elegiveis[$idProf])) {
-            $erros[] = 'Selecione um professor que pode ser atribuído a esta turma para a matéria "' . $d['NOME'] . '".';
-        } elseif (!eq_professor_pode_materia($elegiveis[$idProf]['MATERIAS'], $d['NOME'])) {
-            $erros[] = 'O professor ' . $elegiveis[$idProf]['NOME']
-                     . ' não está cadastrado para lecionar "' . $d['NOME'] . '".';
+        } elseif ($idTurma > 0) {
+            $idDisc = (int)ch_val(
+                'SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID_TURMA = ? AND NOME = ?',
+                [$idTurma, $d['NOME']]
+            );
+            if ($idDisc > 0) {
+                $atribuidas = eq_disciplina_atribuidas($idDisc);
+                if ($d['AULAS'] < $atribuidas) {
+                    $erros[] = 'A matéria "' . $d['NOME'] . '" já tem ' . $atribuidas
+                             . ' aula(s) atribuída(s). O total não pode ficar menor que isso.';
+                }
+            }
         }
     }
     return $erros;
 }
 
 /**
- * Sincroniza as matérias da turma com a lista. Deve ser chamado DENTRO de
- * uma transação. Matéria que saiu da lista é apagada; as demais são
- * atualizadas ou inseridas. O nome é a identidade (UQ_TURMA_DISCIPLINA).
+ * Sincroniza as matérias da turma com a lista (nome + total de aulas).
+ * Deve ser chamado DENTRO de uma transação. Matéria que saiu da lista é
+ * apagada (com as atribuições dela); as demais são atualizadas ou
+ * inseridas. O nome é a identidade (UQ_TURMA_DISCIPLINA). Os professores
+ * são atribuídos no painel, por aulas.
  */
 function eq_disciplinas_salvar($idTurma, $lista)
 {
@@ -818,9 +825,12 @@ function eq_disciplinas_salvar($idTurma, $lista)
     foreach ($lista as $d) {
         $novos[mb_strtolower($d['NOME'], 'UTF-8')] = $d;
     }
-    /* Quem saiu da lista é removido. */
+    /* Quem saiu da lista é removido (com as atribuições dela). */
     foreach ($porNome as $chave => $idDisc) {
         if (!isset($novos[$chave])) {
+            if (!ch_exec('DELETE FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ?', [$idDisc])) {
+                return false;
+            }
             if (!ch_exec('DELETE FROM TB_TURMA_DISCIPLINAS WHERE ID = ? AND ID_TURMA = ?', [$idDisc, $idTurma])) {
                 return false;
             }
@@ -830,24 +840,16 @@ function eq_disciplinas_salvar($idTurma, $lista)
     foreach ($novos as $chave => $d) {
         if (isset($porNome[$chave])) {
             $ok = ch_exec(
-                'UPDATE TB_TURMA_DISCIPLINAS SET AULAS = ?, ID_PROFESSOR = ? WHERE ID = ? AND ID_TURMA = ?',
-                [$d['AULAS'], $d['ID_PROFESSOR'], $porNome[$chave], $idTurma]
+                'UPDATE TB_TURMA_DISCIPLINAS SET AULAS = ? WHERE ID = ? AND ID_TURMA = ?',
+                [$d['AULAS'], $porNome[$chave], $idTurma]
             );
         } else {
             $ok = ch_exec(
-                'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, AULAS, ID_PROFESSOR) VALUES (?, ?, ?, ?)',
-                [$idTurma, $d['NOME'], $d['AULAS'], $d['ID_PROFESSOR']]
+                'INSERT INTO TB_TURMA_DISCIPLINAS (ID_TURMA, NOME, AULAS) VALUES (?, ?, ?)',
+                [$idTurma, $d['NOME'], $d['AULAS']]
             );
         }
         if (!$ok) return false;
-    }
-    /* Quem recebe matéria entra na equipe da turma (senão não consegue
-       lançar no diário). No começo do ano ele ainda não está na equipe:
-       a categoria do concurso é o que permite a atribuição. */
-    foreach ($novos as $d) {
-        if (!eq_professor_garantir_equipe($idTurma, $d['ID_PROFESSOR'])) {
-            return false;
-        }
     }
     return true;
 }
@@ -866,8 +868,10 @@ function eq_disciplinas_salvar($idTurma, $lista)
 function eq_categorias_concurso()
 {
     return [
-        'PEB_I'  => 'PEB I — Educação Infantil e Anos Iniciais',
-        'PEB_II' => 'PEB II — Anos Finais',
+        'PDI_CRECHE' => 'PDI — Creche',
+        'PDI'        => 'PDI — Pré-escola',
+        'PEB_I'      => 'PEB I — Anos Iniciais',
+        'PEB_II'     => 'PEB II — Anos Finais',
     ];
 }
 
@@ -875,9 +879,11 @@ function eq_categorias_concurso()
 function eq_categoria_etapas($categoria)
 {
     return match ($categoria) {
-        'PEB_I'  => ['INFANTIL_CRECHE', 'INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5'],
-        'PEB_II' => ['FUNDAMENTAL_6_9'],
-        default  => null,
+        'PDI_CRECHE' => ['INFANTIL_CRECHE'],
+        'PDI'        => ['INFANTIL_PRE_ESCOLA'],
+        'PEB_I'      => ['FUNDAMENTAL_1_5'],
+        'PEB_II'     => ['FUNDAMENTAL_6_9'],
+        default      => null,
     };
 }
 
@@ -995,4 +1001,213 @@ function eq_professor_garantir_equipe($idTurma, $idUsuario)
         return ch_exec('UPDATE TB_TURMA_PROFESSORES SET ATIVO = 1 WHERE ID = ?', [(int)$linha['ID']]);
     }
     return true;
+}
+
+/* ==========================================================================
+   LISTA DE MATÉRIAS E ATRIBUIÇÕES POR AULAS
+   --------------------------------------------------------------------------
+   As matérias vêm de uma lista fixa (para não digitar errado). A turma
+   define o TOTAL de aulas de cada matéria; a tabela TB_ATRIBUICOES divide
+   essas aulas entre os professores. O painel mostra quantas aulas ainda
+   faltam ser atribuídas, e cada professor tem teto de 36 h/a por semana.
+   ========================================================================== */
+
+/** Lista de matérias oferecida nos selects (cadastro, turma e painel). */
+function eq_materias_lista()
+{
+    return [
+        'Língua Portuguesa', 'Matemática', 'Ciências', 'História', 'Geografia',
+        'Artes', 'Educação Física', 'Inglês', 'Espanhol', 'Ensino Religioso',
+        'Informática', 'Filosofia', 'Sociologia', 'Projeto de Vida',
+        'Linguagem e Comunicação', 'Motricidade', 'Socialização', 'Música',
+        'Recreação', 'Higiene e Saúde', 'Alimentação', 'Psicomotricidade',
+        'Expressão Corporal', 'Natureza e Sociedade', 'Identidade e Autonomia',
+        'Leitura e Escrita',
+    ];
+}
+
+/**
+ * Opções dos selects de matéria: a lista fixa MAIS os nomes que já estão
+ * em uso no banco (para não quebrar turmas/professores antigos).
+ */
+function eq_materias_opcoes()
+{
+    $opcoes = eq_materias_lista();
+    $vistos = [];
+    foreach ($opcoes as $n) { $vistos[mb_strtolower($n, 'UTF-8')] = true; }
+    $extras = ch_rows(
+        'SELECT DISTINCT NOME FROM TB_TURMA_DISCIPLINAS
+         UNION
+         SELECT DISTINCT NOME FROM TB_PROFESSOR_MATERIAS'
+    ) ?: [];
+    foreach ($extras as $e) {
+        $nome = (string)$e['NOME'];
+        if (!isset($vistos[mb_strtolower($nome, 'UTF-8')])) {
+            $opcoes[] = $nome;
+            $vistos[mb_strtolower($nome, 'UTF-8')] = true;
+        }
+    }
+    sort($opcoes, SORT_STRING | SORT_FLAG_CASE);
+    return $opcoes;
+}
+
+/** O nome de matéria é válido? (lista fixa ou já em uso no banco) */
+function eq_materia_valida($nome)
+{
+    $nome = trim((string)$nome);
+    if ($nome === '') return false;
+    foreach (eq_materias_opcoes() as $op) {
+        if (mb_strtolower($op, 'UTF-8') === mb_strtolower($nome, 'UTF-8')) return true;
+    }
+    return false;
+}
+
+/** Teto de aulas semanais por professor (h/a). */
+function eq_carga_maxima()
+{
+    return 36;
+}
+
+/** Atribuições de uma matéria: quem dá quantas aulas. */
+function eq_atribuicoes($idDisciplina)
+{
+    return ch_rows(
+        'SELECT a.ID, a.ID_PROFESSOR, a.AULAS, u.NOME AS PROFESSOR
+         FROM TB_ATRIBUICOES a
+         INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
+         WHERE a.ID_DISCIPLINA = ? ORDER BY u.NOME',
+        [(int)$idDisciplina]
+    ) ?: [];
+}
+
+/** Quantas aulas da matéria já foram atribuídas (soma dos professores). */
+function eq_disciplina_atribuidas($idDisciplina)
+{
+    return (int)ch_val(
+        'SELECT ISNULL(SUM(AULAS), 0) FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ?',
+        [(int)$idDisciplina]
+    );
+}
+
+/** Quantas aulas ainda faltam ser atribuídas na matéria (NULL = total indefinido). */
+function eq_disciplina_restam($idDisciplina, $total)
+{
+    if ($total === null || $total === '') return null;
+    return max(0, (int)$total - eq_disciplina_atribuidas($idDisciplina));
+}
+
+/** Carga semanal do professor no ano letivo (soma de todas as atribuições). */
+function eq_professor_carga($idProfessor, $anoLetivo)
+{
+    return (int)ch_val(
+        'SELECT ISNULL(SUM(a.AULAS), 0)
+         FROM TB_ATRIBUICOES a
+         INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+         INNER JOIN TB_TURMAS t ON t.ID = d.ID_TURMA
+         WHERE a.ID_PROFESSOR = ? AND t.ANO_LETIVO = ? AND t.ATIVO = 1',
+        [(int)$idProfessor, (int)$anoLetivo]
+    );
+}
+
+/**
+ * Mantém TB_TURMA_DISCIPLINAS.ID_PROFESSOR como o professor com mais aulas
+ * na matéria (legado, para telas antigas). Deve ser chamado DENTRO de
+ * transação, depois de mexer nas atribuições.
+ */
+function eq_disciplina_sincronizar_responsavel($idDisciplina)
+{
+    $idDisciplina = (int)$idDisciplina;
+    $topo = ch_row(
+        'SELECT TOP 1 ID_PROFESSOR FROM TB_ATRIBUICOES
+         WHERE ID_DISCIPLINA = ? ORDER BY AULAS DESC, ID_PROFESSOR',
+        [$idDisciplina]
+    );
+    return ch_exec(
+        'UPDATE TB_TURMA_DISCIPLINAS SET ID_PROFESSOR = ? WHERE ID = ?',
+        [$topo ? (int)$topo['ID_PROFESSOR'] : null, $idDisciplina]
+    );
+}
+
+/**
+ * Atribui $aulas aulas de uma matéria a um professor (cria ou soma).
+ * $elegiveis é o mapa de eq_elegiveis_mapa() para a turma (equipe ou
+ * categoria compatível). Valida: elegível, matéria cadastrada para ele,
+ * aulas dentro do que falta e teto de 36 h/a no ano.
+ * Deve ser chamado DENTRO de uma transação. Devolve [ok, erros].
+ */
+function eq_atribuir($idDisciplina, $idProfessor, $aulas, $elegiveis, $anoLetivo)
+{
+    $erros = [];
+    $idDisciplina = (int)$idDisciplina;
+    $idProfessor = (int)$idProfessor;
+    $aulas = (int)$aulas;
+    $disc = ch_row(
+        'SELECT d.ID, d.NOME, d.AULAS, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?',
+        [$idDisciplina]
+    );
+    if (!$disc) {
+        return [false, ['Matéria não encontrada.']];
+    }
+    if ($aulas < 1 || $aulas > 40) {
+        $erros[] = 'Informe de 1 a 40 aulas para atribuir.';
+    }
+    if (!isset($elegiveis[$idProfessor])) {
+        $erros[] = 'Este professor não pode ser atribuído a esta turma (equipe ou categoria do concurso).';
+    } elseif (!eq_professor_pode_materia($elegiveis[$idProfessor]['MATERIAS'], $disc['NOME'])) {
+        $erros[] = 'O professor ' . $elegiveis[$idProfessor]['NOME']
+                 . ' não está cadastrado para lecionar "' . $disc['NOME'] . '".';
+    }
+    /* O que já está atribuído a ele nesta matéria (para somar, não duplicar). */
+    $jaTem = (int)ch_val(
+        'SELECT ISNULL(AULAS, 0) FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ? AND ID_PROFESSOR = ?',
+        [$idDisciplina, $idProfessor]
+    );
+    /* Não pode passar do total da matéria. */
+    if (!$erros && $disc['AULAS'] !== null && $disc['AULAS'] !== '') {
+        $restam = (int)$disc['AULAS'] - eq_disciplina_atribuidas($idDisciplina) + $jaTem;
+        if ($aulas > $restam) {
+            $erros[] = 'A matéria "' . $disc['NOME'] . '" tem ' . $restam . ' aula(s) ainda não atribuída(s).';
+        }
+    }
+    /* Teto de 36 h/a no ano letivo. */
+    if (!$erros) {
+        $carga = eq_professor_carga($idProfessor, $anoLetivo) - $jaTem;
+        if ($carga + $aulas > eq_carga_maxima()) {
+            $erros[] = 'O professor ' . ($elegiveis[$idProfessor]['NOME'] ?? '')
+                     . ' já tem ' . $carga . ' h/a neste ano. O máximo é ' . eq_carga_maxima() . ' h/a.';
+        }
+    }
+    if ($erros) {
+        return [false, $erros];
+    }
+    $ok = $jaTem > 0
+        ? ch_exec('UPDATE TB_ATRIBUICOES SET AULAS = ? WHERE ID_DISCIPLINA = ? AND ID_PROFESSOR = ?',
+                  [$aulas, $idDisciplina, $idProfessor])
+        : ch_exec('INSERT INTO TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS) VALUES (?, ?, ?)',
+                  [$idDisciplina, $idProfessor, $aulas]);
+    if (!$ok) {
+        return [false, ['Não foi possível gravar a atribuição.']];
+    }
+    /* Quem recebe aulas entra na equipe (senão não lança no diário). */
+    if (!eq_professor_garantir_equipe((int)$disc['ID_TURMA'], $idProfessor)) {
+        return [false, ['Não foi possível incluir o professor na equipe da turma.']];
+    }
+    if (!eq_disciplina_sincronizar_responsavel($idDisciplina)) {
+        return [false, ['Não foi possível atualizar o professor responsável.']];
+    }
+    return [true, []];
+}
+
+/** Remove uma atribuição. Deve ser chamado DENTRO de uma transação. */
+function eq_atribuicao_remover($idAtribuicao)
+{
+    $idAtribuicao = (int)$idAtribuicao;
+    $linha = ch_row('SELECT ID_DISCIPLINA FROM TB_ATRIBUICOES WHERE ID = ?', [$idAtribuicao]);
+    if (!$linha) {
+        return false;
+    }
+    if (!ch_exec('DELETE FROM TB_ATRIBUICOES WHERE ID = ?', [$idAtribuicao])) {
+        return false;
+    }
+    return eq_disciplina_sincronizar_responsavel((int)$linha['ID_DISCIPLINA']);
 }
