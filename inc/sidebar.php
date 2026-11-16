@@ -24,6 +24,7 @@ $ch_links_chamada = [
     ['diario',      'Diário de Classe', 'fas fa-book-open',      'diario/index.php',      true],
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
     ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
+    ['faltas',      'Faltas de Professores', 'fas fa-user-clock', 'faltas/index.php',    ch_gestor()],
 ];
 /* O contador de transferências só é consultado para quem pode tratá-las. */
 $ch_transf_aguardando = ch_gestao_alunos() ? tr_pendentes_recebidas() : 0;
