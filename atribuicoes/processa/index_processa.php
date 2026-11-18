@@ -36,14 +36,19 @@ $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETI
 
 /* Filtro por categoria da turma (PDI-Creche, PDI-Pré-escola, PEB I, PEB II). */
 $fCategoria = strtoupper(trim((string)($_GET['categoria'] ?? $_POST['categoria'] ?? '')));
-if (!isset(eq_categorias_concurso()[$fCategoria])) { $fCategoria = ''; }
-$categoriasTurma = eq_categorias_concurso();
+if (!isset(eq_categorias_turma()[$fCategoria])) { $fCategoria = ''; }
+$categoriasTurma = eq_categorias_turma();
 
 /* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
    turmas em que ele pode ser atribuído (equipe dele OU categoria do
-   concurso compatível com a etapa). */
+   concurso compatível com a etapa). Professores de AEE são vinculados na
+   ficha do aluno, não em matérias regulares de turma. */
 $fProfessor = $ehGestao ? (int)($_GET['professor'] ?? $_POST['professor'] ?? 0) : 0;
-$professores = $ehGestao ? eq_professores_opcoes() : [];
+$professores = $ehGestao
+    ? (ch_rows("SELECT ID, NOME, TURNO FROM TB_USUARIOS
+                 WHERE NIVEL = 3 AND ISNULL(ATIVO, 1) = 1 AND ISNULL(CATEGORIA, '') <> 'AEE'
+                 ORDER BY NOME") ?: [])
+    : [];
 $nomeProfessor = '';
 $categoriaProfessor = null;
 if ($fProfessor > 0) {

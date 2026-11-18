@@ -28,12 +28,14 @@ $ultimas = ch_rows(
 /* Substituto sem liberação vê só as próprias observações nesta ficha. */
 $fObsAluno = eq_obs_filtro_aluno($id, 'o');
 $fObsPermissaoAluno = ch_filtro_observacao_aluno('a');
+$fObsAeeAluno = ch_obs_restrita_aee_filtro('o', 'a');
 $observacoes = ch_rows(
-    'SELECT TOP 10 o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, u.NOME AS AUTOR
+    'SELECT TOP 10 o.ID, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO,
+            ISNULL(o.RESTRITA_AEE, 0) AS RESTRITA_AEE, u.NOME AS AUTOR
      FROM TB_OBSERVACOES o INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-     WHERE o.ID_ALUNO = ?' . $fObsAluno['sql'] . $fObsPermissaoAluno['sql'] . ' ORDER BY o.DATA DESC, o.ID DESC',
-    array_merge([$id], $fObsAluno['params'], $fObsPermissaoAluno['params'])
+     WHERE o.ID_ALUNO = ?' . $fObsAluno['sql'] . $fObsPermissaoAluno['sql'] . $fObsAeeAluno['sql'] . ' ORDER BY o.DATA DESC, o.ID DESC',
+    array_merge([$id], $fObsAluno['params'], $fObsPermissaoAluno['params'], $fObsAeeAluno['params'])
 );
 $obsLeituraPermitida = ch_pode_ler_observacao_aluno($id);
 $obsOcultas = $fObsAluno['sql'] !== '' || !$obsLeituraPermitida;

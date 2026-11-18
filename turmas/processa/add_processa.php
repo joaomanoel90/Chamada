@@ -28,15 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $novoId = ch_insert_id(
             'INSERT INTO TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ETAPA_ENSINO, SERIE, ID_PERIODO, ID_PROFESSOR, CAPACIDADE, NOTAS_ATIVAS)
              OUTPUT INSERTED.ID
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
             [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['SERIE'] ?: null, $d['ID_PERIODO'],
-             $d['ID_PROFESSOR'] > 0 ? $d['ID_PROFESSOR'] : null, $d['CAPACIDADE'], $d['NOTAS_ATIVAS']]
+             $d['CAPACIDADE'], $d['NOTAS_ATIVAS']]
         );
         $ok = $novoId > 0;
-
-        if ($ok && $novoId > 0) {
-            $ok = turma_equipe_salvar($novoId, $d['EQUIPE']);
-        }
 
         if ($ok && $novoId > 0) {
             $ok = eq_disciplinas_salvar($novoId, $d['DISCIPLINAS']);
@@ -44,9 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($ok && $novoId > 0) {
             sqlsrv_commit(ch_db());
-            $qtde = count($d['EQUIPE']);
-            ch_flash('Turma cadastrada com sucesso' .
-                     ($qtde ? ' com ' . $qtde . ' professor(a/es) na equipe.' : '.'));
+            ch_flash('Turma cadastrada com sucesso. Atribua os professores no menu Atribuição.');
             header('Location: index.php');
             exit;
         }

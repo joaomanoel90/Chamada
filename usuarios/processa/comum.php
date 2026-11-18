@@ -42,7 +42,7 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $categoria = strtoupper(trim((string)($post['categoria'] ?? '')));
     $d['categoria'] = ($d['nivel'] === 3 && isset(eq_categorias_concurso()[$categoria])) ? $categoria : null;
     $d['materias'] = [];
-    if ($d['nivel'] === 3) {
+    if ($d['nivel'] === 3 && $d['categoria'] !== 'AEE') {
         $opcoes = [];
         foreach (eq_materias_opcoes() as $op) {
             $opcoes[mb_strtolower($op, 'UTF-8')] = $op;
@@ -91,7 +91,7 @@ function usuario_validar($post, &$d, $idAtual = 0)
     }
 
     if ($d['nivel'] === 3 && $categoria !== '' && !isset(eq_categorias_concurso()[$categoria])) {
-        $erros[] = 'Categoria do concurso inválida. Escolha PEB I, PEB II ou deixe sem restrição.';
+        $erros[] = 'Categoria do concurso inválida. Escolha PDI, PEB I, PEB II, Professor de AEE ou deixe sem restrição.';
     }
 
     if ($idAtual === 0 && $senha === '') {

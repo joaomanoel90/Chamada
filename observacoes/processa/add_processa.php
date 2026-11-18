@@ -18,7 +18,9 @@ if (($alunoInicial > 0 && !ch_pode_escrever_observacao_aluno($alunoInicial))
 $alunosDisponiveis = observacao_alunos();
 $d = ['ID_ALUNO' => (int)($_GET['aluno_id'] ?? 0),
       'DATA' => ch_data_iso($_GET['data'] ?? '', ch_hoje()),
-      'CATEGORIA' => 'Desenvolvimento geral', 'TEXTO' => ''];
+      'CATEGORIA' => ch_usuario_eh_professor_aee() ? 'Atendimento AEE' : 'Desenvolvimento geral',
+      'TEXTO' => '',
+      'RESTRITA_AEE' => 0];
 $voltar = trim($_GET['voltar'] ?? $_POST['voltar'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -29,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     [$d, $erros] = observacao_validar($_POST);
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
-        $ok = ch_exec('INSERT INTO TB_OBSERVACOES (ID_ALUNO, DATA, CATEGORIA, TEXTO, ID_USUARIO) VALUES (?, ?, ?, ?, ?)',
-                      [$d['ID_ALUNO'], $d['DATA'], $d['CATEGORIA'], $d['TEXTO'], ch_uid()]);
+        $ok = ch_exec('INSERT INTO TB_OBSERVACOES (ID_ALUNO, DATA, CATEGORIA, TEXTO, ID_USUARIO, RESTRITA_AEE) VALUES (?, ?, ?, ?, ?, ?)',
+                      [$d['ID_ALUNO'], $d['DATA'], $d['CATEGORIA'], $d['TEXTO'], ch_uid(), (int)$d['RESTRITA_AEE']]);
         if ($ok) {
             sqlsrv_commit(ch_db());
             ch_flash('Observação registrada com sucesso.');

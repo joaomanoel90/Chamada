@@ -14,6 +14,7 @@ $filtroObsAlcance = ch_filtro_turma_ou_aee('t', 'a');
 /* Substituto sem liberação lê só o que ele mesmo escreveu. */
 $fObs = eq_obs_filtro('o', 'a');
 $fObsPermissao = ch_filtro_observacao_aluno('a');
+$fObsAee = ch_obs_restrita_aee_filtro('o', 'a');
 $avisoObs = eq_obs_aviso_bloqueio();
 $obsOcultas = $fObs['sql'] !== '';
 $podeLerObservacoes = !ch_secretario_escolar() || count(ch_unidades_observacoes_ids(1)) > 0;
@@ -28,6 +29,7 @@ $turmas = ch_rows(
 );
 
 $sql = 'SELECT o.ID, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
+               ISNULL(o.RESTRITA_AEE, 0) AS RESTRITA_AEE,
                CONVERT(varchar(16), o.MODIFIED, 120) AS MODIFIED,
                (SELECT COUNT(*) FROM TB_HISTORICO_OBSERVACOES h WHERE h.ID_OBSERVACAO = o.ID) AS ALTERACOES,
                CONVERT(varchar(10), o.DATA, 23) AS DATA,
@@ -38,8 +40,8 @@ $sql = 'SELECT o.ID, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
         INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-        WHERE o.DATA >= ? AND o.DATA <= ?' . $filtroObsAlcance['sql'] . $fObs['sql'] . $fObsPermissao['sql'];
-$params = array_merge([$fInicio, $fFim], $filtroObsAlcance['params'], $fObs['params'], $fObsPermissao['params']);
+        WHERE o.DATA >= ? AND o.DATA <= ?' . $filtroObsAlcance['sql'] . $fObs['sql'] . $fObsPermissao['sql'] . $fObsAee['sql'];
+$params = array_merge([$fInicio, $fFim], $filtroObsAlcance['params'], $fObs['params'], $fObsPermissao['params'], $fObsAee['params']);
 
 if ($fAluno > 0) { $sql .= ' AND o.ID_ALUNO = ?'; $params[] = $fAluno; }
 if ($fTurma > 0) { $sql .= ' AND a.ID_TURMA = ?'; $params[] = $fTurma; }

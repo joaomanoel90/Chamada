@@ -1200,12 +1200,70 @@ function ch_tem_acompanhamento_especial($aluno)
         || (int)($aluno['PASSA_AEE'] ?? 0) === 1;
 }
 
-/** Lista de professores ativos do sistema para vincular como Professor de AEE. */
-function ch_professores_aee_opcoes()
+/** Lista de professores ativos cadastrados na categoria AEE. */
+function ch_professores_aee_opcoes($idIncluir = 0)
 {
+    $idIncluir = (int)$idIncluir;
+    if ($idIncluir > 0) {
+        return ch_rows(
+            "SELECT ID, NOME, CATEGORIA FROM TB_USUARIOS
+              WHERE NIVEL = 3 AND ATIVO = 1 AND (CATEGORIA = 'AEE' OR ID = ?)
+              ORDER BY NOME",
+            [$idIncluir]
+        ) ?: [];
+    }
     return ch_rows(
-        'SELECT ID, NOME FROM TB_USUARIOS WHERE NIVEL = 3 AND ATIVO = 1 ORDER BY NOME'
+        "SELECT ID, NOME, CATEGORIA FROM TB_USUARIOS
+          WHERE NIVEL = 3 AND ATIVO = 1 AND CATEGORIA = 'AEE'
+          ORDER BY NOME"
     ) ?: [];
+}
+
+/** O usuário é professor da categoria AEE (ou atende algum aluno no AEE)? */
+function ch_usuario_eh_professor_aee($idUsuario = null)
+{
+    $uid = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($uid <= 0) return false;
+    $cat = eq_professor_categoria($uid);
+    if ($cat === 'AEE') return true;
+    return ch_professor_qtd_alunos_aee($uid) > 0;
+}
+
+/** O usuário logado pode marcar observação como restrita ao AEE? */
+function ch_pode_marcar_obs_restrita_aee($idAluno = 0)
+{
+    if (!ch_professor()) return false;
+    if ((int)$idAluno > 0) {
+        return ch_eh_professor_aee_aluno((int)$idAluno) || eq_professor_categoria(ch_uid()) === 'AEE';
+    }
+    return ch_usuario_eh_professor_aee(ch_uid());
+}
+
+/** O usuário logado pode ler esta linha de observação (considerando RESTRITA_AEE)? */
+function ch_pode_ler_obs_restrita_aee($obs)
+{
+    if (!$obs) return false;
+    if ((int)($obs['RESTRITA_AEE'] ?? 0) === 0) return true;
+    if (!ch_professor()) return false;
+    $uid = ch_uid();
+    if ((int)($obs['ID_USUARIO'] ?? 0) === $uid) return true;
+    return !empty($obs['ID_ALUNO']) && ch_eh_professor_aee_aluno((int)$obs['ID_ALUNO'], $uid);
+}
+
+/** Filtro SQL para observações restritas ao AEE.
+ *  Quando $apenasCompartilhadas = true (relatórios e chamada), oculta todas as
+ *  restritas inclusive do próprio autor; caso contrário, só o professor de AEE
+ *  autor (ou professor de AEE atual do aluno) enxerga as restritas. */
+function ch_obs_restrita_aee_filtro($aliasObs = 'o', $aliasAluno = 'a', $apenasCompartilhadas = false)
+{
+    if ($apenasCompartilhadas || !ch_professor()) {
+        return ['sql' => " AND ISNULL({$aliasObs}.RESTRITA_AEE, 0) = 0", 'params' => []];
+    }
+    $uid = ch_uid();
+    return [
+        'sql'    => " AND (ISNULL({$aliasObs}.RESTRITA_AEE, 0) = 0 OR {$aliasObs}.ID_USUARIO = ? OR ({$aliasAluno}.PASSA_AEE = 1 AND {$aliasAluno}.ID_PROFESSOR_AEE = ?))",
+        'params' => [$uid, $uid],
+    ];
 }
 
 /** Ano letivo de referência para os alunos de AEE de um professor. */

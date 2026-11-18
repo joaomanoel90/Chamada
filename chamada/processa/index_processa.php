@@ -78,13 +78,14 @@ if ($turmaId > 0) {
        revelaria que existe registro que ele não pode ler. */
     $fObsDia = eq_obs_filtro('o', 'a');
     $fObsPermissaoDia = ch_filtro_observacao_aluno('a');
+    $fObsAeeDia = ch_obs_restrita_aee_filtro('o', 'a');
     $observacoesDoDia = ch_rows(
         'SELECT o.ID_ALUNO, COUNT(*) AS QTDE
          FROM TB_OBSERVACOES o
          INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-         WHERE o.DATA = ?' . $naData['sql'] . $fObsDia['sql'] . $fObsPermissaoDia['sql'] . '
+         WHERE o.DATA = ?' . $naData['sql'] . $fObsDia['sql'] . $fObsPermissaoDia['sql'] . $fObsAeeDia['sql'] . '
          GROUP BY o.ID_ALUNO',
-        array_merge([$data], $naData['params'], $fObsDia['params'], $fObsPermissaoDia['params'])
+        array_merge([$data], $naData['params'], $fObsDia['params'], $fObsPermissaoDia['params'], $fObsAeeDia['params'])
     );
 }
 $obsPorAluno = [];

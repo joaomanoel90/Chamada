@@ -81,19 +81,11 @@ function turma_validar($post, $idAtual = 0)
         $e[] = 'Selecione um período ativo.';
     }
 
-    /* Quem está na equipe, com que papel, em que turno e por quanto tempo. */
-    foreach (eq_validar_equipe($equipe) as $msg) {
-        $e[] = $msg;
-    }
-
     /* Matérias: nome da lista + total de aulas. Os professores são
-       atribuídos no painel, por aulas (a categoria do concurso é o que
-       permite atribuir no começo do ano, antes de existir equipe). */
+       atribuídos no painel de Atribuição e os substitutos em Substituições. */
     foreach (eq_disciplinas_validar($disciplinas, $idAtual) as $msg) {
         $e[] = $msg;
     }
-
-    $d['ID_PROFESSOR'] = eq_regente_legado($equipe, $periodo ? $periodo['TURNO'] : 'INTEGRAL');
 
     if ($d['CAPACIDADE'] < 1 || $d['CAPACIDADE'] > 500) {
         $e[] = 'A capacidade deve ficar entre 1 e 500.';

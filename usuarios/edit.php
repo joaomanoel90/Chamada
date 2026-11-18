@@ -75,6 +75,12 @@
         </select>
         <small class="text-muted">Só para professor. Diz em quais turmas ele pode ser atribuído no começo do ano, antes de ter equipe.</small>
       </div>
+      <div class="col-12" id="avisoAee" style="display:none">
+        <div class="alert alert-light border py-2 mb-0 small">
+          <i class="fas fa-puzzle-piece text-primary"></i>
+          <strong>Professor de AEE:</strong> atua no Atendimento Educacional Especializado e é vinculado diretamente na ficha dos alunos (não recebe matérias regulares de turma).
+        </div>
+      </div>
       <div class="col-12" id="grupoMaterias">
         <label class="fw-bold">Matérias que pode lecionar</label>
         <select class="form-select" id="materias-prof" name="prof_mat_nome[]" multiple>
@@ -121,12 +127,15 @@
        descarta os valores. */
     function mostraTurno() {
       var ehProf = document.getElementById('nivel').value === '3';
+      var ehAee = ehProf && document.getElementById('categoria').value === 'AEE';
       document.getElementById('grupoTurno').style.display = ehProf ? '' : 'none';
       document.getElementById('grupoCategoria').style.display = ehProf ? '' : 'none';
-      document.getElementById('grupoMaterias').style.display = ehProf ? '' : 'none';
+      document.getElementById('grupoMaterias').style.display = (ehProf && !ehAee) ? '' : 'none';
+      document.getElementById('avisoAee').style.display = ehAee ? '' : 'none';
     }
     mostraTurno();
     document.getElementById('nivel').addEventListener('change', mostraTurno);
+    document.getElementById('categoria').addEventListener('change', mostraTurno);
     if (window.jQuery) { $(document).on('select2:select select2:clear', '#nivel', mostraTurno); }
 
     /* Matérias do professor: seleção múltipla da lista. */

@@ -35,14 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ok = ch_exec(
             'UPDATE TB_TURMAS SET ID_UNIDADE = ?, NOME = ?, ANO_LETIVO = ?, ETAPA_ENSINO = ?, SERIE = ?, ID_PERIODO = ?,
-                    ID_PROFESSOR = ?, CAPACIDADE = ?, NOTAS_ATIVAS = ? WHERE ID = ?',
+                    CAPACIDADE = ?, NOTAS_ATIVAS = ? WHERE ID = ?',
             [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['SERIE'] ?: null, $d['ID_PERIODO'],
-             $d['ID_PROFESSOR'] > 0 ? $d['ID_PROFESSOR'] : null, $d['CAPACIDADE'], $d['NOTAS_ATIVAS'], $id]
+             $d['CAPACIDADE'], $d['NOTAS_ATIVAS'], $id]
         );
-
-        if ($ok) {
-            $ok = turma_equipe_salvar($id, $d['EQUIPE']);
-        }
 
         if ($ok) {
             $ok = eq_disciplinas_salvar($id, $d['DISCIPLINAS']);
@@ -50,9 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($ok) {
             sqlsrv_commit(ch_db());
-            $qtde = count($d['EQUIPE']);
-            ch_flash('Turma atualizada com sucesso' .
-                     ($qtde ? ' — equipe com ' . $qtde . ' professor(a/es).' : ' — sem equipe definida.'));
+            ch_flash('Turma atualizada com sucesso.');
             header('Location: index.php');
             exit;
         }

@@ -7,11 +7,13 @@ require_once(ABSPATH . 'inc/chamada_categorias.php');
 
 function observacao_validar($post)
 {
+    $idAluno = (int)($post['aluno_id'] ?? 0);
     $d = [
-        'ID_ALUNO'  => (int)($post['aluno_id'] ?? 0),
-        'DATA'      => ch_data_iso($post['data'] ?? '', ch_hoje()),
-        'CATEGORIA' => trim($post['categoria'] ?? ''),
-        'TEXTO'     => trim(strip_tags($post['texto'] ?? '')),
+        'ID_ALUNO'     => $idAluno,
+        'DATA'         => ch_data_iso($post['data'] ?? '', ch_hoje()),
+        'CATEGORIA'    => trim($post['categoria'] ?? ''),
+        'TEXTO'        => trim(strip_tags($post['texto'] ?? '')),
+        'RESTRITA_AEE' => (!empty($post['restrita_aee']) && ch_pode_marcar_obs_restrita_aee($idAluno)) ? 1 : 0,
     ];
     $e = [];
 

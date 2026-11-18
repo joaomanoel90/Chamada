@@ -174,53 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $acao = is_string($_POST['acao'] ?? null) ? $_POST['acao'] : '';
-    /* As matérias da turma são definidas na área de Turmas; aqui só se
-       atribui professor às matérias já cadastradas. */
-    if ($acao === 'atribuir_professor' && !ch_gestor()) {
-        $erros[] = 'Somente a gestão pode atribuir professor à disciplina.';
-    } elseif ($acao === 'atribuir_professor') {
-        $professorId = filter_var($_POST['id_professor'] ?? 0, FILTER_VALIDATE_INT);
-        $disciplinaValida = $disciplinaId > 0
-            && (bool)ch_val('SELECT ID FROM TB_TURMA_DISCIPLINAS WHERE ID = ? AND ID_TURMA = ?', [$disciplinaId, $turmaId]);
-        if (!$disciplinaValida) {
-            $erros[] = 'Selecione uma disciplina válida.';
-        } elseif (!$professorId || !isset($professoresDisciplina[$professorId])) {
-            $erros[] = 'Selecione um professor ativo da equipe da turma para esta disciplina.';
-        } elseif (!eq_professor_pode_materia(
-            $materiasPorProfessor[$professorId] ?? [],
-            $disciplinaSelecionada['NOME'] ?? ''
-        )) {
-            $erros[] = 'O professor ' . $professoresDisciplina[$professorId]
-                     . ' não tem "' . ($disciplinaSelecionada['NOME'] ?? '') . '" no cadastro dele. Só é possível atribuir a matéria que ele pode lecionar.';
-        } else {
-            /* Adiciona o professor às aulas da disciplina (1 aula, se ele
-               ainda não tem atribuição; o ajuste fino é no painel). */
-            sqlsrv_begin_transaction(ch_db());
-            $jaTem = (int)ch_val(
-                'SELECT COUNT(*) FROM TB_ATRIBUICOES WHERE ID_DISCIPLINA = ? AND ID_PROFESSOR = ?',
-                [$disciplinaId, $professorId]
-            );
-            $ok = $jaTem > 0
-               || ch_exec('INSERT INTO TB_ATRIBUICOES (ID_DISCIPLINA, ID_PROFESSOR, AULAS) VALUES (?, ?, 1)',
-                          [$disciplinaId, $professorId]);
-            if ($ok) {
-                $ok = eq_disciplina_sincronizar_responsavel($disciplinaId);
-            }
-            if ($ok) {
-                $ok = (bool)sqlsrv_commit(ch_db());
-            } else {
-                sqlsrv_rollback(ch_db());
-            }
-            if (!$ok) {
-                $erros[] = 'Não foi possível atribuir o professor.';
-            } else {
-                ch_flash('Professor atribuído à disciplina.');
-                header('Location: ' . ch_url('diario/index.php?turma_id=' . $turmaId
-                    . '&disciplina_id=' . $disciplinaId . '&bimestre=' . $bimestre));
-                exit;
-            }
-        }
-    } elseif ($acao === 'salvar_notas' && !$podeLancar) {
+    if ($acao === 'salvar_notas' && !$podeLancar) {
         $erros[] = 'Somente o professor com aulas atribuídas nesta disciplina pode lançar notas.';
     } elseif ($acao === 'salvar_notas') {
         if (!$bimestreValido) {

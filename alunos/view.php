@@ -261,9 +261,14 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
         <?php else: ?>
           <?php foreach ($observacoes as $o): ?>
             <div class="border-bottom pb-2 mb-2">
-              <div class="d-flex justify-content-between">
+              <div class="d-flex justify-content-between align-items-center">
                 <strong><?= ch_data_br($o['DATA']) ?></strong>
-                <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
+                <span class="d-flex gap-1 align-items-center">
+                  <?php if (!empty($o['RESTRITA_AEE'])): ?>
+                    <span class="badge bg-dark" title="Visível somente para o(a) professor(a) de AEE"><i class="fas fa-lock"></i> Só AEE</span>
+                  <?php endif; ?>
+                  <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
+                </span>
               </div>
               <div><?= nl2br(ch_h($o['TEXTO'])) ?></div>
               <small class="text-muted">por <?= ch_h($o['AUTOR']) ?></small>

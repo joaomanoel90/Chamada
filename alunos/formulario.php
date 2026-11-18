@@ -170,7 +170,7 @@ if (!defined('ABSPATH')) {
               </option>
             <?php endforeach; ?>
           </select>
-          <small class="text-muted">O professor selecionado poderá consultar esta ficha e registrar observações do aluno.</small>
+          <small class="text-muted">Aparecem aqui os professores cadastrados na categoria <b>Professor de AEE</b> em <i>Usuários</i>. O professor selecionado poderá consultar esta ficha e registrar observações do aluno.</small>
         </div>
 
         <div class="form-group col-md-6" id="bloco-obs-aee">

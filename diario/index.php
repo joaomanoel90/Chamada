@@ -100,37 +100,15 @@
           <span class="ms-auto badge bg-light text-dark"><?= count($alunos) ?> aluno(s)</span>
         </div>
         <div class="card-escola-corpo">
-          <?php if (ch_gestor()): ?>
-            <?php if ($professoresDisciplina): ?>
-              <form method="post" action="index.php" class="row g-2 align-items-end mb-3 no-print">
-                <?= ch_csrf_campo() ?>
-                <input type="hidden" name="acao" value="atribuir_professor">
-                <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
-                <input type="hidden" name="disciplina_id" value="<?= $disciplinaId ?>">
-                <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
-                <div class="col-md-8">
-                  <label class="fw-bold" for="professor-disciplina">Atribuir professor à disciplina — só quem tem <?= ch_h($nomeDisciplina) ?> no cadastro</label>
-                  <select class="form-select" id="professor-disciplina" name="id_professor" required>
-                    <option value="">Selecione...</option>
-                    <?php foreach ($professoresDisciplina as $idProfessor => $nomeProfessor): ?>
-                      <?php if (!eq_professor_pode_materia($materiasPorProfessor[$idProfessor] ?? [], $nomeDisciplina)) continue; ?>
-                      <option value="<?= $idProfessor ?>" <?= $idProfessor === $professorAtualDisciplina ? 'selected' : '' ?>>
-                        <?= ch_h($nomeProfessor) ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <button class="btn btn-outline-primary w-100">Atribuir</button>
-                </div>
-              </form>
-              <p class="text-muted small no-print">Para dividir as aulas entre professores e ver quantas faltam, use o painel <strong>Atribuição de Professores</strong>.</p>
-            <?php else: ?>
-              <div class="alert alert-warning no-print">Adicione um professor à equipe da turma para atribuí-lo à disciplina.</div>
-            <?php endif; ?>
-          <?php endif; ?>
           <?php if (!$responsavelDisciplina): ?>
-            <div class="alert alert-warning">Esta disciplina ainda não tem professor atribuído. A gestão deve atribuir um integrante da equipe antes do lançamento das notas.</div>
+            <div class="alert alert-warning no-print">
+              Esta disciplina ainda não tem professor atribuído.
+              <?php if (ch_gestor()): ?>
+                Faça a atribuição no menu <a href="<?= ch_url('atribuicoes/index.php?ano=' . (int)$turma['ANO_LETIVO'] . '&unidade=' . (int)$turma['ID_UNIDADE']) ?>"><strong>Atribuição</strong></a> antes do lançamento das notas.
+              <?php else: ?>
+                A gestão deve atribuir um professor antes do lançamento das notas.
+              <?php endif; ?>
+            </div>
           <?php elseif (!$podeLancar && !ch_gestor()): ?>
             <div class="alert alert-info no-print">As notas desta disciplina são lançadas pelos professores com aulas atribuídas. Você pode consultar os registros.</div>
           <?php endif; ?>

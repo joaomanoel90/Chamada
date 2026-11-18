@@ -79,11 +79,11 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
 
     if ($d['ID_PROFESSOR_AEE'] > 0) {
         $okProfAee = ch_val(
-            'SELECT ID FROM TB_USUARIOS WHERE ID = ? AND NIVEL = 3 AND ATIVO = 1',
+            "SELECT ID FROM TB_USUARIOS WHERE ID = ? AND NIVEL = 3 AND ATIVO = 1 AND CATEGORIA = 'AEE'",
             [$d['ID_PROFESSOR_AEE']]
         );
         if (!$okProfAee) {
-            $e[] = 'Selecione um professor ativo válido para o atendimento de AEE.';
+            $e[] = 'Selecione um professor ativo cadastrado na categoria "Professor de AEE".';
         }
     }
 

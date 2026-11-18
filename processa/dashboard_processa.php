@@ -70,12 +70,13 @@ $freqMes      = $diasMes > 0 ? round($presencasMes * 100 / $diasMes, 1) : null;
 
 $fObsDash = eq_obs_filtro('o', 'a');
 $fObsPermissaoDash = ch_filtro_observacao_aluno('a');
+$fObsAeeDash = ch_obs_restrita_aee_filtro('o', 'a');
 $obsMes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_OBSERVACOES o
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'],
-    array_merge([$inicioMes, $hoje], $filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'])
+     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . $fObsAeeDash['sql'],
+    array_merge([$inicioMes, $hoje], $filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'], $fObsAeeDash['params'])
 );
 
 /* ------------------------------------------- série mensal do gráfico */
@@ -123,9 +124,9 @@ $obsRecentes = ch_rows(
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
      INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-     WHERE 1 = 1' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . '
+     WHERE 1 = 1' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . $fObsAeeDash['sql'] . '
      ORDER BY o.DATA DESC, o.ID DESC',
-    array_merge($filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'])
+    array_merge($filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'], $fObsAeeDash['params'])
 );
 
 /* ------------------------------------------------ relatórios pendentes */

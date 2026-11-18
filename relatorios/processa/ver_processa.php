@@ -66,7 +66,7 @@ $observacoes = ch_rows(
      FROM TB_OBSERVACOES o
      INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
-     WHERE o.ID_ALUNO = ? AND o.DATA >= ? AND o.DATA <= ?' . $fObsRel['sql'] . $fObsPermissaoRel['sql'] . '
+     WHERE o.ID_ALUNO = ? AND ISNULL(o.RESTRITA_AEE, 0) = 0 AND o.DATA >= ? AND o.DATA <= ?' . $fObsRel['sql'] . $fObsPermissaoRel['sql'] . '
      ORDER BY o.DATA, o.ID',
     array_merge([$alunoId, $inicio, $fim], $fObsRel['params'], $fObsPermissaoRel['params'])
 );

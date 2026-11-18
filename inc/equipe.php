@@ -873,6 +873,18 @@ function eq_categorias_concurso()
         'PDI'        => 'PDI — Pré-escola',
         'PEB_I'      => 'PEB I — Anos Iniciais',
         'PEB_II'     => 'PEB II — Anos Finais',
+        'AEE'        => 'Professor de AEE — Educação Especial',
+    ];
+}
+
+/** Categorias de turma regular para o filtro da tela de Atribuição. */
+function eq_categorias_turma()
+{
+    return [
+        'PDI_CRECHE' => 'PDI — Creche',
+        'PDI'        => 'PDI — Pré-escola',
+        'PEB_I'      => 'PEB I — Anos Iniciais',
+        'PEB_II'     => 'PEB II — Anos Finais',
     ];
 }
 
@@ -884,6 +896,7 @@ function eq_categoria_etapas($categoria)
         'PDI'        => ['INFANTIL_PRE_ESCOLA'],
         'PEB_I'      => ['FUNDAMENTAL_1_5'],
         'PEB_II'     => ['FUNDAMENTAL_6_9'],
+        'AEE'        => [],
         default      => null,
     };
 }
@@ -989,21 +1002,28 @@ function eq_professor_garantir_equipe($idTurma, $idUsuario)
 {
     $idTurma = (int)$idTurma;
     $idUsuario = (int)$idUsuario;
+    $turno = ch_val('SELECT TURNO FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
+    $turno = ($turno && isset(eq_turnos()[$turno])) ? $turno : 'INTEGRAL';
     $linha = ch_row(
         'SELECT ID, PAPEL, ATIVO FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ?',
         [$idTurma, $idUsuario]
     );
     if (!$linha) {
-        $turno = ch_val('SELECT TURNO FROM TB_USUARIOS WHERE ID = ?', [$idUsuario]);
-        $turno = ($turno && isset(eq_turnos()[$turno])) ? $turno : 'INTEGRAL';
         return ch_exec(
             "INSERT INTO TB_TURMA_PROFESSORES (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ATIVO)
              VALUES (?, ?, 'AUXILIAR', ?, 1)",
             [$idTurma, $idUsuario, $turno]
         );
     }
-    if (!(int)$linha['ATIVO'] && $linha['PAPEL'] !== 'SUBSTITUTO') {
-        return ch_exec('UPDATE TB_TURMA_PROFESSORES SET ATIVO = 1 WHERE ID = ?', [(int)$linha['ID']]);
+    if (!(int)$linha['ATIVO']) {
+        return ch_exec(
+            "UPDATE TB_TURMA_PROFESSORES
+                SET PAPEL = 'AUXILIAR', TURNO = ?, ATIVO = 1,
+                    ID_SUBSTITUIDO = NULL, DATA_INICIO = NULL, DATA_FIM = NULL, MOTIVO = NULL,
+                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL
+              WHERE ID = ?",
+            [$turno, (int)$linha['ID']]
+        );
     }
     return true;
 }
@@ -1207,12 +1227,37 @@ function eq_atribuir($idDisciplina, $idProfessor, $aulas, $elegiveis, $anoLetivo
 function eq_atribuicao_remover($idAtribuicao)
 {
     $idAtribuicao = (int)$idAtribuicao;
-    $linha = ch_row('SELECT ID_DISCIPLINA FROM TB_ATRIBUICOES WHERE ID = ?', [$idAtribuicao]);
+    $linha = ch_row(
+        'SELECT a.ID_DISCIPLINA, a.ID_PROFESSOR, d.ID_TURMA
+           FROM TB_ATRIBUICOES a
+           INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+          WHERE a.ID = ?',
+        [$idAtribuicao]
+    );
     if (!$linha) {
         return false;
     }
     if (!ch_exec('DELETE FROM TB_ATRIBUICOES WHERE ID = ?', [$idAtribuicao])) {
         return false;
     }
-    return eq_disciplina_sincronizar_responsavel((int)$linha['ID_DISCIPLINA']);
+    if (!eq_disciplina_sincronizar_responsavel((int)$linha['ID_DISCIPLINA'])) {
+        return false;
+    }
+
+    /* Se o professor não tem mais nenhuma atribuição nesta turma, retira-o da
+       equipe titular (exceto se for substituto ativo). */
+    $aindaTem = (int)ch_val(
+        'SELECT COUNT(*) FROM TB_ATRIBUICOES a
+          INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+          WHERE d.ID_TURMA = ? AND a.ID_PROFESSOR = ?',
+        [(int)$linha['ID_TURMA'], (int)$linha['ID_PROFESSOR']]
+    );
+    if ($aindaTem === 0) {
+        ch_exec(
+            "UPDATE TB_TURMA_PROFESSORES SET ATIVO = 0
+              WHERE ID_TURMA = ? AND ID_USUARIO = ? AND PAPEL <> 'SUBSTITUTO'",
+            [(int)$linha['ID_TURMA'], (int)$linha['ID_PROFESSOR']]
+        );
+    }
+    return true;
 }

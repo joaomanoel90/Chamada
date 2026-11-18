@@ -7,16 +7,18 @@ ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $fObs = eq_obs_filtro('o', 'a');
 $fPermissao = ch_filtro_observacao_aluno('a');
+$fObsAee = ch_obs_restrita_aee_filtro('o', 'a');
 $observacao = ch_row(
     'SELECT o.ID, o.ID_ALUNO, CONVERT(varchar(10), o.DATA, 23) AS DATA, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
+            ISNULL(o.RESTRITA_AEE, 0) AS RESTRITA_AEE,
             CONVERT(varchar(16), o.CREATED, 120) AS CRIADO_EM,
             CONVERT(varchar(16), o.MODIFIED, 120) AS MODIFIED,
             u.NOME AS AUTOR
      FROM TB_OBSERVACOES o
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_USUARIOS u ON u.ID = o.ID_USUARIO
-     WHERE o.ID = ?' . $fObs['sql'] . $fPermissao['sql'],
-    array_merge([$id], $fObs['params'], $fPermissao['params'])
+     WHERE o.ID = ?' . $fObs['sql'] . $fPermissao['sql'] . $fObsAee['sql'],
+    array_merge([$id], $fObs['params'], $fPermissao['params'], $fObsAee['params'])
 );
 
 if (!$observacao || !ch_pode_ler_observacao_aluno((int)$observacao['ID_ALUNO'])) {

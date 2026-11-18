@@ -84,7 +84,12 @@
               <strong><?= ch_h($o['ALUNO']) ?></strong><br>
               <small class="text-muted"><?= ch_h($o['TURMA']) ?> &middot; <?= ch_h($o['UNIDADE']) ?></small>
             </div>
-            <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
+            <div class="d-flex gap-1 align-items-center">
+              <?php if (!empty($o['RESTRITA_AEE'])): ?>
+                <span class="badge bg-dark" title="Visível somente para o(a) professor(a) de AEE"><i class="fas fa-lock"></i> Só AEE</span>
+              <?php endif; ?>
+              <span class="badge bg-light text-dark"><?= ch_h($o['CATEGORIA']) ?></span>
+            </div>
           </div>
           <p class="mb-2"><?= nl2br(ch_h($o['TEXTO'])) ?></p>
           <div class="d-flex justify-content-between align-items-center">
@@ -101,8 +106,8 @@
                 </a>
               <?php endif; ?>
               <?php if (!ch_secretario_escolar()
-                    && ch_pode_escrever_observacao_turma($o['ID_TURMA'], $o['ID_UNIDADE'])
-                    && (ch_gestor() || (int)$o['ID_USUARIO'] === ch_uid())): ?>
+                    && ch_pode_escrever_observacao_aluno((int)$o['ID_ALUNO'])
+                    && ((int)($o['RESTRITA_AEE'] ?? 0) === 1 ? (int)$o['ID_USUARIO'] === ch_uid() : (ch_gestor() || (int)$o['ID_USUARIO'] === ch_uid()))): ?>
                 <a class="btn btn-sm btn-outline-success" href="edit.php?id=<?= (int)$o['ID'] ?>"><i class="far fa-edit"></i></a>
               <?php endif; ?>
             </div>
