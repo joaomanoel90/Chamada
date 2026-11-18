@@ -4,6 +4,7 @@ function ch_categorias()
 {
     return [
         'Desenvolvimento geral',
+        'Atendimento AEE',
         'Linguagem e comunicação',
         'Coordenação motora',
         'Convívio social',

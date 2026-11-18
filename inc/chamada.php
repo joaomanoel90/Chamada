@@ -336,7 +336,13 @@ function ch_pode_escrever_observacao_turma($idTurma, $idUnidade)
 function ch_pode_escrever_observacao_aluno($idAluno)
 {
     $aluno = ch_aluno($idAluno);
-    return $aluno && ch_pode_escrever_observacao_turma($aluno['ID_TURMA'], $aluno['ID_UNIDADE']);
+    if (!$aluno) {
+        return false;
+    }
+    if (ch_eh_professor_aee_aluno($aluno)) {
+        return true;
+    }
+    return ch_pode_escrever_observacao_turma($aluno['ID_TURMA'], $aluno['ID_UNIDADE']);
 }
 
 function ch_pode_escrever_observacoes()
@@ -680,13 +686,16 @@ function ch_pode_lancar_chamada($idTurma)
     return !ch_secretario_escolar() && ch_pode_turma($idTurma);
 }
 
-/** Aluno completo, com turma/unidade/período. */
+/** Aluno completo, com turma/unidade/período e dados internos de AEE. */
 function ch_aluno($idAluno)
 {
     return ch_row(
         'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.CPF, a.NOME, a.RESPONSAVEL, a.TELEFONE, a.EMAIL,
                 CASE WHEN a.FOTO_DADOS IS NULL THEN 0 ELSE 1 END AS TEM_FOTO, a.FOTO_MIME, a.ATIVO,
                 a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
+                a.CONDICAO_ESPECIFICA, a.OUTROS_ACOMPANHAMENTOS,
+                ISNULL(a.PASSA_AEE, 0) AS PASSA_AEE, a.ID_PROFESSOR_AEE, a.AEE_OBSERVACOES,
+                paee.NOME AS PROFESSOR_AEE_NOME,
                 CONVERT(varchar(10), a.NASCIMENTO, 23)     AS NASCIMENTO,
                 CONVERT(varchar(10), a.DATA_MATRICULA, 23) AS DATA_MATRICULA,
                 t.NOME AS TURMA, t.SERIE, t.ANO_LETIVO, t.ID_UNIDADE, t.ID_PERIODO,
@@ -699,6 +708,7 @@ function ch_aluno($idAluno)
             INNER JOIN TB_PERIODOS p ON p.ID = tt.ID_PERIODO
             INNER JOIN TB_UNIDADES u ON u.id = tt.ID_UNIDADE
          ) t ON t.ID = a.ID_TURMA
+         LEFT JOIN TB_USUARIOS paee ON paee.ID = a.ID_PROFESSOR_AEE
          WHERE a.ID = ?',
         [(int)$idAluno]
     );
@@ -709,6 +719,7 @@ function ch_pode_aluno($idAluno)
     $a = ch_aluno($idAluno);
     if (!$a) return false;
     if (ch_pode_turma($a['ID_TURMA'])) return true;
+    if (ch_eh_professor_aee_aluno($a)) return true;
 
     /* Transferido: a escola de origem continua podendo CONSULTAR o histórico
        de quem já foi seu aluno. Isto só amplia leitura — editar aluno, lançar
@@ -1169,6 +1180,123 @@ function ch_periodo_atual()
 {
     $mes = (int)date('n');
     return 'B' . (int)ceil($mes / 2);
+}
+
+/* ============================================================================
+   EDUCAÇÃO ESPECIAL, AEE E OUTROS ACOMPANHAMENTOS DO ALUNO
+   ----------------------------------------------------------------------------
+   Os dados (condição/diagnóstico, outros acompanhamentos e AEE) são exibidos
+   apenas na ficha interna do aluno. Quando um professor do sistema é vinculado
+   como Professor de AEE do aluno, ele passa a enxergar a ficha e a registrar
+   observações desse aluno no ano letivo de referência.
+   ============================================================================ */
+
+/** O aluno possui algum registro de condição específica, AEE ou acompanhamento? */
+function ch_tem_acompanhamento_especial($aluno)
+{
+    if (!$aluno) return false;
+    return trim((string)($aluno['CONDICAO_ESPECIFICA'] ?? '')) !== ''
+        || trim((string)($aluno['OUTROS_ACOMPANHAMENTOS'] ?? '')) !== ''
+        || (int)($aluno['PASSA_AEE'] ?? 0) === 1;
+}
+
+/** Lista de professores ativos do sistema para vincular como Professor de AEE. */
+function ch_professores_aee_opcoes()
+{
+    return ch_rows(
+        'SELECT ID, NOME FROM TB_USUARIOS WHERE NIVEL = 3 AND ATIVO = 1 ORDER BY NOME'
+    ) ?: [];
+}
+
+/** Ano letivo de referência para os alunos de AEE de um professor. */
+function ch_ano_professor_aee($idUsuario = null)
+{
+    static $cache = [];
+    $uid = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($uid <= 0) return (int)date('Y');
+    if (isset($cache[$uid])) return $cache[$uid];
+
+    if ($uid === ch_uid() && ch_professor()) {
+        $ctx = ch_contexto();
+        if (!empty($ctx['turma']) && !empty($ctx['ano'])) {
+            return $cache[$uid] = (int)$ctx['ano'];
+        }
+    }
+
+    $anoAtual = (int)date('Y');
+    $temAtual = (int)ch_val(
+        'SELECT COUNT(*) FROM TB_ALUNOS a
+         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
+         WHERE a.ATIVO = 1 AND a.PASSA_AEE = 1 AND a.ID_PROFESSOR_AEE = ?
+           AND t.ATIVO = 1 AND t.ANO_LETIVO = ?',
+        [$uid, $anoAtual]
+    );
+    if ($temAtual > 0) {
+        return $cache[$uid] = $anoAtual;
+    }
+
+    $ultimo = (int)ch_val(
+        'SELECT ISNULL(MAX(t.ANO_LETIVO), 0) FROM TB_ALUNOS a
+         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
+         WHERE a.ATIVO = 1 AND a.PASSA_AEE = 1 AND a.ID_PROFESSOR_AEE = ?
+           AND t.ATIVO = 1',
+        [$uid]
+    );
+    return $cache[$uid] = ($ultimo > 0 ? $ultimo : $anoAtual);
+}
+
+/** Quantos alunos ativos o professor atende hoje no AEE (no ano de referência)? */
+function ch_professor_qtd_alunos_aee($idUsuario = null)
+{
+    $uid = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($uid <= 0) return 0;
+    return (int)ch_val(
+        'SELECT COUNT(*) FROM TB_ALUNOS a
+         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
+         WHERE a.ATIVO = 1 AND a.PASSA_AEE = 1 AND a.ID_PROFESSOR_AEE = ?
+           AND t.ATIVO = 1 AND t.ANO_LETIVO = ?',
+        [$uid, ch_ano_professor_aee($uid)]
+    );
+}
+
+/** O professor logado (ou informado) é o Professor de AEE atual deste aluno? */
+function ch_eh_professor_aee_aluno($alunoOuId, $idUsuario = null)
+{
+    $uid = $idUsuario === null ? ch_uid() : (int)$idUsuario;
+    if ($uid <= 0) return false;
+    if ($idUsuario === null && !ch_professor()) return false;
+
+    $a = is_array($alunoOuId) ? $alunoOuId : ch_aluno((int)$alunoOuId);
+    if (!$a) return false;
+
+    return (int)($a['ATIVO'] ?? 0) === 1
+        && (int)($a['PASSA_AEE'] ?? 0) === 1
+        && (int)($a['ID_PROFESSOR_AEE'] ?? 0) === $uid
+        && (int)($a['ANO_LETIVO'] ?? 0) === ch_ano_professor_aee($uid);
+}
+
+/** Filtro SQL para consultas de ALUNOS/OBSERVAÇÕES: combina turmas do alcance
+ *  com os alunos em que o professor logado é Professor de AEE no ano atual. */
+function ch_filtro_turma_ou_aee($aliasTurma = 't', $aliasAluno = 'a')
+{
+    if (!ch_professor()) {
+        return ch_filtro_turma($aliasTurma);
+    }
+
+    $uid = ch_uid();
+    $anoRef = ch_ano_professor_aee($uid);
+    $ids = ch_turmas_ids();
+
+    $condAee = "({$aliasAluno}.ATIVO = 1 AND {$aliasAluno}.PASSA_AEE = 1 AND {$aliasAluno}.ID_PROFESSOR_AEE = ? AND {$aliasTurma}.ATIVO = 1 AND {$aliasTurma}.ANO_LETIVO = ?)";
+    if (!$ids) {
+        return ['sql' => " AND {$condAee}", 'params' => [$uid, $anoRef]];
+    }
+
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    return [
+        'sql'    => " AND ({$aliasTurma}.ID IN ({$ph}) OR {$condAee})",
+        'params' => array_merge($ids, [$uid, $anoRef]),
+    ];
 }
 
 /* ============================================================================

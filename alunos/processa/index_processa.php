@@ -9,6 +9,7 @@ $fBusca    = trim($_GET['busca'] ?? '');
 $fSituacao = $_GET['situacao'] ?? 'ativos';
 
 $filtro = ch_filtro_turma('t');
+$filtroAlunos = ch_filtro_turma_ou_aee('t', 'a');
 
 $turmas = ch_rows(
     'SELECT t.ID, t.NOME, t.SERIE, t.ANO_LETIVO, u.unidade AS UNIDADE, p.NOME AS PERIODO
@@ -31,8 +32,8 @@ $sql = 'SELECT a.ID, a.ID_TURMA, a.MATRICULA, a.NOME, a.RESPONSAVEL, a.TELEFONE,
         FROM TB_ALUNOS a
         INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
         INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
-        WHERE 1 = 1' . $filtro['sql'];
-$params = $filtro['params'];
+        WHERE 1 = 1' . $filtroAlunos['sql'];
+$params = $filtroAlunos['params'];
 
 if ($fTurma > 0) { $sql .= ' AND a.ID_TURMA = ?'; $params[] = $fTurma; }
 if ($fBusca !== '') {

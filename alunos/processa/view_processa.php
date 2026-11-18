@@ -50,7 +50,7 @@ $saidaExternaAberta       = tr_saida_externa_aberta($id);
 $transferenciaPendente   = tr_pendente($id);
 $podeTransferir          = tr_pode_solicitar($aluno);
 /* quem vê esta ficha só porque o aluno já foi da sua escola */
-$apenasHistorico         = !ch_pode_turma($aluno['ID_TURMA']);
+$apenasHistorico         = !ch_pode_turma($aluno['ID_TURMA']) && !ch_eh_professor_aee_aluno($aluno);
 
 $dias = (int)($resumo['DIAS'] ?? 0);
 $presencas = (int)($resumo['P'] ?? 0) + (int)($resumo['A'] ?? 0);

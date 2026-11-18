@@ -126,6 +126,87 @@ if (!defined('ABSPATH')) {
     </div>
   </div>
 
+  <?php $professoresAee = $professoresAee ?? ch_professores_aee_opcoes(); ?>
+  <div class="card-escola mt-4">
+    <div class="card-escola-titulo"><i class="fas fa-puzzle-piece"></i> Educação Especial, AEE e outros acompanhamentos</div>
+    <div class="card-escola-corpo">
+      <p class="text-muted mb-3">
+        <i class="fas fa-lock me-1"></i>
+        <strong>Informação restrita à ficha interna do aluno</strong> — não aparece na tela de chamada nem sai impressa no relatório de desenvolvimento.
+        Se você vincular um professor de AEE do sistema, ele passará a enxergar a ficha e poderá registrar observações deste aluno.
+      </p>
+      <div class="row g-3">
+        <div class="form-group col-md-6">
+          <label class="fw-bold"><i class="fas fa-notes-medical text-primary"></i> Condição, diagnóstico ou necessidade específica</label>
+          <textarea class="form-control" name="condicao_especifica" rows="3" maxlength="1000"
+                    placeholder="Ex.: TEA (Transtorno do Espectro Autista), TDAH, Deficiência Intelectual, baixa visão, em investigação diagnóstica..."><?= ch_h($d['CONDICAO_ESPECIFICA'] ?? '') ?></textarea>
+          <small class="text-muted">Deixe em branco quando não houver condição específica informada.</small>
+        </div>
+        <div class="form-group col-md-6">
+          <label class="fw-bold"><i class="fas fa-user-doctor text-info"></i> Outros acompanhamentos</label>
+          <textarea class="form-control" name="outros_acompanhamentos" rows="3" maxlength="1000"
+                    placeholder="Ex.: fonoaudiologia semanal, psicologia, terapia ocupacional, neuropediatra, APAE/CAPS..."><?= ch_h($d['OUTROS_ACOMPANHAMENTOS'] ?? '') ?></textarea>
+          <small class="text-muted">Atendimentos clínicos, terapêuticos ou da rede de apoio externa.</small>
+        </div>
+
+        <div class="col-12">
+          <hr class="my-1">
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="chk-passa-aee" name="passa_aee" value="1"
+                   <?= !empty($d['PASSA_AEE']) ? 'checked' : '' ?>>
+            <label class="form-check-label fw-bold" for="chk-passa-aee">
+              Aluno passa pelo Atendimento Educacional Especializado (AEE)
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group col-md-6" id="bloco-prof-aee">
+          <label class="fw-bold" for="sel-prof-aee"><i class="fas fa-chalkboard-user text-success"></i> Professor(a) de AEE <small class="text-muted">(opcional — dá acesso às observações)</small></label>
+          <select class="form-select" id="sel-prof-aee" name="id_professor_aee">
+            <option value="0">Nenhum professor vinculado no sistema</option>
+            <?php foreach ($professoresAee as $pa): ?>
+              <option value="<?= (int)$pa['ID'] ?>" <?= (int)($d['ID_PROFESSOR_AEE'] ?? 0) === (int)$pa['ID'] ? 'selected' : '' ?>>
+                <?= ch_h($pa['NOME']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <small class="text-muted">O professor selecionado poderá consultar esta ficha e registrar observações do aluno.</small>
+        </div>
+
+        <div class="form-group col-md-6" id="bloco-obs-aee">
+          <label class="fw-bold" for="inp-obs-aee"><i class="fas fa-clock text-secondary"></i> Dias / horário / observações do AEE <small class="text-muted">(opcional)</small></label>
+          <input type="text" class="form-control" id="inp-obs-aee" name="aee_observacoes" maxlength="500"
+                 value="<?= ch_h($d['AEE_OBSERVACOES'] ?? '') ?>"
+                 placeholder="Ex.: Sala de recursos no contraturno — 3ª e 5ª das 14h às 15h">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var chk = document.getElementById('chk-passa-aee');
+    var sel = document.getElementById('sel-prof-aee');
+    var obs = document.getElementById('inp-obs-aee');
+    if (!chk || !sel || !obs) return;
+    function syncAee() {
+      var ativo = chk.checked;
+      sel.disabled = !ativo;
+      obs.disabled = !ativo;
+      if (!ativo) {
+        sel.value = '0';
+      }
+    }
+    sel.addEventListener('change', function () {
+      if (parseInt(sel.value, 10) > 0) {
+        chk.checked = true;
+      }
+    });
+    chk.addEventListener('change', syncAee);
+    syncAee();
+  })();
+  </script>
+
   <div class="col-auto my-4">
     <a href="index.php" class="btn btn-outline-success">Cancelar</a>
     <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> <?= $rotuloBotao ?></button>

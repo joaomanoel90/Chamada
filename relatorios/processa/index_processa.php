@@ -15,6 +15,26 @@ $fimPeriodo = $intervalo[1];
 $rotuloPeriodo = ch_periodo_rotulo($fPeriodo);
 $periodos = ch_periodos_relatorio();
 $filtro = ch_filtro_turma_relatorios('tv');
+$filtroRelAlunos = $filtro;
+if (ch_professor()) {
+    $idsProf = ch_turmas_ids();
+    $anoAee = ch_ano_professor_aee();
+    if ($fAno === $anoAee) {
+        $condAee = '(a.PASSA_AEE = 1 AND a.ID_PROFESSOR_AEE = ?)';
+        if ($idsProf) {
+            $ph = implode(',', array_fill(0, count($idsProf), '?'));
+            $filtroRelAlunos = [
+                'sql'    => " AND (tv.ID IN ({$ph}) OR {$condAee})",
+                'params' => array_merge($idsProf, [ch_uid()]),
+            ];
+        } else {
+            $filtroRelAlunos = [
+                'sql'    => " AND {$condAee}",
+                'params' => [ch_uid()],
+            ];
+        }
+    }
+}
 $semUnidadesVinculadas = ch_secretario_escolar() && !ch_unidades_relatorios_ids();
 
 $turmas = ch_rows(
@@ -43,14 +63,14 @@ $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, tv.NOME AS TURMA, tv.ANO_LETIVO, u.uni
         ) tv
         INNER JOIN TB_UNIDADES u ON u.id = tv.ID_UNIDADE
         LEFT JOIN TB_RELATORIOS_ANUAIS r ON r.ID_ALUNO = a.ID AND r.ANO = ? AND r.PERIODO = ?
-        WHERE a.ATIVO = 1' . $filtro['sql'];
+        WHERE a.ATIVO = 1' . $filtroRelAlunos['sql'];
 /* A ordem importa: os ? do filtro de observação ficam no SELECT, entre as
    datas das observações e o ano do LEFT JOIN. São três datas, o ano do
    vínculo, o ano e o período do parecer, e por fim o filtro de turma. */
 $params = array_merge(
     [$inicioPeriodo, $fimPeriodo, $inicioPeriodo, $fimPeriodo],
     $fObsIdx['params'], $fObsPermissaoIdx['params'],
-    [$fAno, $fAno, $fPeriodo], $filtro['params']
+    [$fAno, $fAno, $fPeriodo], $filtroRelAlunos['params']
 );
 
 if ($fTurma > 0) { $sql .= ' AND tv.ID = ?'; $params[] = $fTurma; }

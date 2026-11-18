@@ -63,7 +63,29 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         $nomeCampo = strtolower($campo);
         $d[$campo] = mb_substr(strip_tags(trim((string)($post[$nomeCampo] ?? ''))), 0, 1000);
     }
+
+    /* Educação Especial, AEE e outros acompanhamentos (uso interno na ficha). */
+    $d['CONDICAO_ESPECIFICA']    = mb_substr(strip_tags(trim((string)($post['condicao_especifica'] ?? ''))), 0, 1000);
+    $d['OUTROS_ACOMPANHAMENTOS'] = mb_substr(strip_tags(trim((string)($post['outros_acompanhamentos'] ?? ''))), 0, 1000);
+    $profAee = (int)($post['id_professor_aee'] ?? 0);
+    $passaAee = !empty($post['passa_aee']) || $profAee > 0 ? 1 : 0;
+    $d['PASSA_AEE']        = $passaAee;
+    $d['ID_PROFESSOR_AEE'] = $passaAee ? $profAee : 0;
+    $d['AEE_OBSERVACOES']  = $passaAee
+        ? mb_substr(strip_tags(trim((string)($post['aee_observacoes'] ?? ''))), 0, 500)
+        : '';
+
     $e = [];
+
+    if ($d['ID_PROFESSOR_AEE'] > 0) {
+        $okProfAee = ch_val(
+            'SELECT ID FROM TB_USUARIOS WHERE ID = ? AND NIVEL = 3 AND ATIVO = 1',
+            [$d['ID_PROFESSOR_AEE']]
+        );
+        if (!$okProfAee) {
+            $e[] = 'Selecione um professor ativo válido para o atendimento de AEE.';
+        }
+    }
 
     $turma = $d['ID_TURMA'] ? ch_turma($d['ID_TURMA']) : null;
     if (!$turma || (int)$turma['ATIVO'] !== 1) {

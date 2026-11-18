@@ -151,6 +151,56 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
   </div>
 </div>
 
+<?php if (ch_tem_acompanhamento_especial($aluno)): ?>
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h5 class="mb-0"><i class="fas fa-puzzle-piece text-primary"></i> Educação Especial, AEE e acompanhamentos</h5>
+          <span class="badge bg-light text-secondary border"><i class="fas fa-lock me-1"></i> Uso interno na ficha</span>
+        </div>
+        <div class="row g-3">
+          <?php if (trim((string)($aluno['CONDICAO_ESPECIFICA'] ?? '')) !== ''): ?>
+            <div class="col-md-4">
+              <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+                <div class="small fw-bold text-primary mb-1"><i class="fas fa-notes-medical me-1"></i> Condição / necessidade específica</div>
+                <div><?= nl2br(ch_h($aluno['CONDICAO_ESPECIFICA'])) ?></div>
+              </div>
+            </div>
+          <?php endif; ?>
+          <?php if ((int)($aluno['PASSA_AEE'] ?? 0) === 1): ?>
+            <div class="col-md-4">
+              <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+                <div class="small fw-bold text-success mb-1"><i class="fas fa-chalkboard-user me-1"></i> Atendimento Educacional Especializado (AEE)</div>
+                <div><span class="badge bg-success mb-1">Em atendimento no AEE</span></div>
+                <div class="small mt-1">
+                  <strong>Professor(a):</strong>
+                  <?= !empty($aluno['PROFESSOR_AEE_NOME'])
+                        ? ch_h($aluno['PROFESSOR_AEE_NOME'])
+                        : '<span class="text-muted">Não vinculado no sistema</span>' ?>
+                </div>
+                <?php if (trim((string)($aluno['AEE_OBSERVACOES'] ?? '')) !== ''): ?>
+                  <div class="small text-muted mt-1"><i class="fas fa-clock me-1"></i><?= ch_h($aluno['AEE_OBSERVACOES']) ?></div>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+          <?php if (trim((string)($aluno['OUTROS_ACOMPANHAMENTOS'] ?? '')) !== ''): ?>
+            <div class="col-md-4">
+              <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+                <div class="small fw-bold text-info mb-1"><i class="fas fa-user-doctor me-1"></i> Outros acompanhamentos</div>
+                <div><?= nl2br(ch_h($aluno['OUTROS_ACOMPANHAMENTOS'])) ?></div>
+              </div>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if (eq_tem_saude($aluno)): ?>
 <div class="row g-3 mt-1">
   <div class="col-12">

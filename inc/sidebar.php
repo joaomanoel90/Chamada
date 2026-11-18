@@ -67,12 +67,18 @@ function ch_menu_item($item)
 
       <a class="nav-link text-white" id="dashboard" href="<?php echo BASEURL; ?>index.php" title="Dashboard"><i class="fas fa-gauge-high"></i> <span>Dashboard</span></a>
 
-      <?php if (ch_professor()): $ch_ctx_turma = ch_contexto_turma(); ?>
+      <?php if (ch_professor()): $ch_ctx_turma = ch_contexto_turma(); $ch_qtd_aee = ch_professor_qtd_alunos_aee(); ?>
         <div class="contexto-professor">
           <div class="ctx-rotulo">Trabalhando em</div>
           <?php if ($ch_ctx_turma): ?>
             <div class="ctx-escola"><?= ch_h($ch_ctx_turma['UNIDADE']) ?></div>
-            <div class="ctx-turma"><?= ch_h(ch_series_ensino()[$ch_ctx_turma['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · Sala <?= ch_h($ch_ctx_turma['NOME']) ?> · <?= (int)$ch_ctx_turma['ANO_LETIVO'] ?></div>
+            <div class="ctx-turma">
+              <?= ch_h(ch_series_ensino()[$ch_ctx_turma['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · Sala <?= ch_h($ch_ctx_turma['NOME']) ?> · <?= (int)$ch_ctx_turma['ANO_LETIVO'] ?>
+              <?php if ($ch_qtd_aee > 0): ?> · +<?= (int)$ch_qtd_aee ?> no AEE<?php endif; ?>
+            </div>
+          <?php elseif ($ch_qtd_aee > 0): ?>
+            <div class="ctx-escola">Atendimento AEE</div>
+            <div class="ctx-turma"><?= (int)$ch_qtd_aee ?> aluno(s) em acompanhamento</div>
           <?php else: ?>
             <div class="ctx-escola">Nenhuma turma escolhida</div>
           <?php endif; ?>

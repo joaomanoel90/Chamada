@@ -12,6 +12,7 @@ $mes       = (int)date('n');
 $inicioMes = sprintf('%04d-%02d-01', $ano, $mes);
 $filtro    = ch_filtro_turma('t');
 $p         = $filtro['params'];
+$filtroAlunosDash = ch_filtro_turma_ou_aee('t', 'a');
 
 /* ------------------------------------------------------------- totais */
 $turmasAtivas = (int)ch_val(
@@ -21,7 +22,7 @@ $turmasAtivas = (int)ch_val(
 $alunosAtivos = (int)ch_val(
     'SELECT COUNT(*) FROM TB_ALUNOS a
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     WHERE a.ATIVO = 1' . $filtro['sql'], $p
+     WHERE a.ATIVO = 1' . $filtroAlunosDash['sql'], $filtroAlunosDash['params']
 );
 
 $unidadesAtivas = count(ch_unidades_ids());
@@ -73,8 +74,8 @@ $obsMes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_OBSERVACOES o
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtro['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'],
-    array_merge([$inicioMes, $hoje], $p, $fObsDash['params'], $fObsPermissaoDash['params'])
+     WHERE o.DATA >= ? AND o.DATA <= ?' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'],
+    array_merge([$inicioMes, $hoje], $filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'])
 );
 
 /* ------------------------------------------- série mensal do gráfico */
@@ -122,19 +123,20 @@ $obsRecentes = ch_rows(
      INNER JOIN TB_ALUNOS a ON a.ID = o.ID_ALUNO
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
      INNER JOIN TB_USUARIOS us ON us.ID = o.ID_USUARIO
-     WHERE 1 = 1' . $filtro['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . '
+     WHERE 1 = 1' . $filtroAlunosDash['sql'] . $fObsDash['sql'] . $fObsPermissaoDash['sql'] . '
      ORDER BY o.DATA DESC, o.ID DESC',
-    array_merge($p, $fObsDash['params'], $fObsPermissaoDash['params'])
+    array_merge($filtroAlunosDash['params'], $fObsDash['params'], $fObsPermissaoDash['params'])
 );
 
 /* ------------------------------------------------ relatórios pendentes */
 $filtroRelatorios = ch_filtro_turma_relatorios('t');
+$periodoAtualDash = ch_periodo_atual();
 $relatoriosPendentes = (int)ch_val(
     'SELECT COUNT(*) FROM TB_ALUNOS a
      INNER JOIN TB_TURMAS t ON t.ID = a.ID_TURMA
-     LEFT  JOIN TB_RELATORIOS_ANUAIS r ON r.ID_ALUNO = a.ID AND r.ANO = ?
+     LEFT  JOIN TB_RELATORIOS_ANUAIS r ON r.ID_ALUNO = a.ID AND r.ANO = ? AND r.PERIODO = ?
      WHERE a.ATIVO = 1 AND t.ANO_LETIVO = ? AND r.ID IS NULL' . $filtroRelatorios['sql'],
-    array_merge([$ano, $ano], $filtroRelatorios['params'])
+    array_merge([$ano, $periodoAtualDash, $ano], $filtroRelatorios['params'])
 );
 
 /* Transferências aguardando esta escola: é a primeira tela depois do login,

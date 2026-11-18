@@ -15,7 +15,7 @@ $fim    = $intervalo[1];
 $rotuloPeriodo = ch_periodo_rotulo($periodo);
 
 $aluno = ch_exige_relatorio_aluno($alunoId);
-$podeEditarParecer = !ch_secretario_escolar() && (int)$aluno['ATIVO'] === 1;
+$podeEditarParecer = !ch_secretario_escolar() && (int)$aluno['ATIVO'] === 1 && ch_pode_aluno_atual($alunoId);
 
 /* Transferências: o relatório é do PERÍODO do aluno, mesmo que ele tenha
    mudado de escola no meio dele. A chamada, as observações e o parecer já são

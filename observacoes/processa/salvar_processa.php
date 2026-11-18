@@ -34,7 +34,7 @@ function observacao_validar($post)
 /** Alunos que o usuário pode observar. */
 function observacao_alunos()
 {
-    $f = ch_filtro_turma('t');
+    $f = ch_filtro_turma_ou_aee('t', 'a');
     if (ch_secretario_escolar()) {
         $ids = ch_unidades_observacoes_ids();
         if (!$ids) {

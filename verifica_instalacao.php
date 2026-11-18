@@ -458,6 +458,13 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'cols'   => array('TB_RELATORIOS_ANUAIS.PERIODO'),
 				'objs'   => array('UQ_REL_ALUNO_ANO_PERIODO', 'CK_REL_PERIODO'),
 			),
+			array(
+				'nome'   => 'Educação Especial, AEE e outros acompanhamentos do aluno',
+				'script' => 'sql_inicial/ATUALIZAR_ACOMPANHAMENTO_AEE.sql',
+				'cols'   => array('TB_ALUNOS.CONDICAO_ESPECIFICA', 'TB_ALUNOS.OUTROS_ACOMPANHAMENTOS',
+					'TB_ALUNOS.PASSA_AEE', 'TB_ALUNOS.ID_PROFESSOR_AEE', 'TB_ALUNOS.AEE_OBSERVACOES'),
+				'objs'   => array('FK_ALUNOS_PROF_AEE', 'CK_ALUNOS_PROF_AEE', 'IX_ALUNOS_PROF_AEE'),
+			),
 		);
 
 		foreach ($rodadas as $rodada) {
