@@ -89,7 +89,7 @@
               <?php if (ch_pode_escrever_observacao_turma($row['ID_TURMA'], $row['ID_UNIDADE'])): ?>
                 <li><a class="dropdown-item" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$row['ID']) ?>"><i class="far fa-comment-dots"></i> Nova observação</a></li>
               <?php endif; ?>
-              <li><a class="dropdown-item" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$row['ID'] . '&ano=' . (int)$row['ANO_LETIVO']) ?>"><i class="fas fa-file-lines"></i> Relatório anual</a></li>
+              <li><a class="dropdown-item" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$row['ID'] . '&ano=' . (int)$row['ANO_LETIVO'] . '&periodo=' . ch_periodo_atual()) ?>"><i class="fas fa-file-lines"></i> Relatório de desenvolvimento</a></li>
               <?php if (tr_pode_solicitar($row)): ?>
                 <li><a class="dropdown-item" href="<?= ch_url('transferencias/solicitar.php?aluno_id=' . (int)$row['ID']) ?>"><i class="fas fa-right-left"></i> Transferir de escola</a></li>
               <?php endif; ?>

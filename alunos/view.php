@@ -98,7 +98,7 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
           <?php if (ch_pode_escrever_observacao_aluno($id)): ?>
             <a class="btn btn-primary" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$id) ?>"><i class="far fa-comment-dots"></i> Registrar observação</a>
           <?php endif; ?>
-          <a class="btn btn-outline-primary" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO']) ?>"><i class="fas fa-file-lines"></i> Relatório anual</a>
+          <a class="btn btn-outline-primary" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO'] . '&periodo=' . ch_periodo_atual()) ?>"><i class="fas fa-file-lines"></i> Relatório de desenvolvimento</a>
         </div>
       </div>
     </div>
