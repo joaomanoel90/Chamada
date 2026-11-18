@@ -34,7 +34,7 @@ return array(
 	'alunos/processa/view_processa.php' => array('4c687906826a680ebd1822a2f926358899446d9206f017368be4c0128030fad6', 2576, 1),
 	'alunos/retorno.php' => array('9b7027f37a6049df8bab786b56393944a96f60b62b720105c1d0c998c0a9ab31', 4155, 1),
 	'alunos/saida.php' => array('7b5ad3f5925fb9845059d4742d870bc66028b25aacdf40e11efa933f14d97b88', 2820, 1),
-	'alunos/view.php' => array('3a11d06bc191cc14fb315f4278f0cafeb1c6cc4ad3698a3d9f61371237779346', 13098, 1),
+	'alunos/view.php' => array('ebeaa16fb95151f1fd1f0304c56ab1810d8ad3faa7822a6cbc4dc33e8b856128', 15270, 1),
 	'atribuicoes/index.php' => array('abc79fed5a5a64f5a64972acd0b5f571086c5307ce76f871e1c87c60634ce48d', 14102, 1),
 	'atribuicoes/processa/index_processa.php' => array('716dbb4c1adeed4064b440aa39523a0fd547abb4c21ad09d3472c879c3560e58', 13990, 1),
 	'chamada/exportar.php' => array('e8b535d8bc07fde10248343802858b4fdfd4ea26779f81ec45cfadff646ff12a', 1631, 1),

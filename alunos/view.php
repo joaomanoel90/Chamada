@@ -2,23 +2,26 @@
 <?php include(ch_gestao_alunos() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
 <?php
-$botoesAluno = '<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a> ';
+$botoesTopo = ['<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a>'];
+$botoesTopo[] = '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Gerar crachá</a>';
 if (ch_gestao_alunos() && !$apenasHistorico) {
-    $botoesAluno .= '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a> ';
+    $botoesTopo[] = '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a>';
 }
-$botoesAluno .= '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Gerar crachá</a> ';
-if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$transferenciaPendente) {
-    $botoesAluno .= '<a class="btn btn-outline-warning" href="' . ch_url('alunos/saida.php?id=' . (int)$id) . '"><i class="fas fa-right-from-bracket"></i> Registrar saída</a> ';
-}
+$botoesAluno = '<div class="d-inline-flex flex-wrap justify-content-sm-end gap-2">' . implode('', $botoesTopo) . '</div>';
+ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
+
+$acoesMovimentacao = [];
 if ($podeTransferir) {
-    $botoesAluno .= '<a class="btn btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir</a> ';
-    $botoesAluno .= '<a class="btn btn-outline-success" href="' . ch_url('transferencias/trocar_turma.php?aluno_id=' . (int)$id) . '"><i class="fas fa-people-arrows"></i> Trocar de turma</a>';
+    $acoesMovimentacao[] = '<a class="btn btn-sm btn-outline-success" href="' . ch_url('transferencias/trocar_turma.php?aluno_id=' . (int)$id) . '"><i class="fas fa-people-arrows"></i> Trocar de turma</a>';
+    $acoesMovimentacao[] = '<a class="btn btn-sm btn-outline-primary" href="' . ch_url('transferencias/solicitar.php?aluno_id=' . (int)$id) . '"><i class="fas fa-right-left"></i> Transferir de escola</a>';
 }
 if (ch_gestor() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1
     && !$transferenciaPendente && !$saidaExternaAberta) {
-    $botoesAluno .= ' <a class="btn btn-outline-success" href="' . ch_url('promocoes/aluno.php?aluno_id=' . (int)$id) . '"><i class="fas fa-arrow-up"></i> Promover ou reter</a>';
+    $acoesMovimentacao[] = '<a class="btn btn-sm btn-outline-success" href="' . ch_url('promocoes/aluno.php?aluno_id=' . (int)$id) . '"><i class="fas fa-arrow-up"></i> Promover ou reter</a>';
 }
-ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
+if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$transferenciaPendente) {
+    $acoesMovimentacao[] = '<a class="btn btn-sm btn-outline-warning" href="' . ch_url('alunos/saida.php?id=' . (int)$id) . '"><i class="fas fa-right-from-bracket"></i> Registrar saída</a>';
+}
 ?>
 
 <?php if ($apenasHistorico): ?>
@@ -50,6 +53,42 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
   </div>
 <?php endif; ?>
 
+<style>
+  @media (min-width: 992px) {
+    .acoes-divisor-lg { border-left: 1px solid var(--borda, #dee2e6); padding-left: 1.5rem; }
+  }
+  @media (max-width: 991.98px) {
+    .acoes-divisor-lg { border-top: 1px solid var(--borda, #dee2e6); padding-top: .75rem; }
+  }
+</style>
+<div class="card border-0 shadow-sm rounded-4 mb-3">
+  <div class="card-body py-3">
+    <div class="row g-3 align-items-start">
+      <div class="<?= $acoesMovimentacao ? 'col-lg-5' : 'col-12' ?>">
+        <div class="text-uppercase text-muted fw-bold mb-2" style="font-size:.72rem;letter-spacing:.04em">
+          <i class="fas fa-book-open-reader me-1"></i> Acompanhamento pedagógico
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <?php if (ch_pode_escrever_observacao_aluno($id)): ?>
+            <a class="btn btn-sm btn-primary" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$id) ?>"><i class="far fa-comment-dots"></i> Registrar observação</a>
+          <?php endif; ?>
+          <a class="btn btn-sm btn-outline-primary" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO'] . '&periodo=' . ch_periodo_atual()) ?>"><i class="fas fa-file-lines"></i> Relatório de desenvolvimento</a>
+        </div>
+      </div>
+      <?php if ($acoesMovimentacao): ?>
+        <div class="col-lg-7 acoes-divisor-lg">
+          <div class="text-uppercase text-muted fw-bold mb-2" style="font-size:.72rem;letter-spacing:.04em">
+            <i class="fas fa-route me-1"></i> Movimentação escolar
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <?= implode('', $acoesMovimentacao) ?>
+          </div>
+        </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
 <div class="row g-3">
   <div class="col-md-7">
     <div class="card border-0 shadow-sm rounded-4">
@@ -80,26 +119,33 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
 
   <div class="col-md-5">
     <div class="card border-0 shadow-sm rounded-4 h-100">
-      <div class="card-body">
-        <h5 class="mb-3"><i class="fas fa-chart-pie"></i> Frequência em <?= (int)$aluno['ANO_LETIVO'] ?></h5>
-        <?php if ($frequencia === null): ?>
-          <p class="text-muted">Ainda não há chamada lançada para este aluno no ano letivo.</p>
-        <?php else: ?>
-          <h2 class="mb-0"><?= number_format($frequencia, 1, ',', '.') ?>%</h2>
-          <p class="text-muted mb-3"><?= $presencas ?> presenças em <?= $dias ?> dias com chamada lançada.</p>
-          <div class="d-flex gap-2 flex-wrap">
-            <span class="badge bg-success">Presente: <?= (int)$resumo['P'] ?></span>
-            <span class="badge bg-info">Atraso: <?= (int)$resumo['A'] ?></span>
-            <span class="badge bg-danger">Falta: <?= (int)$resumo['F'] ?></span>
-            <span class="badge bg-warning text-dark">Justificada: <?= (int)$resumo['J'] ?></span>
-          </div>
-        <?php endif; ?>
-        <div class="mt-3 d-grid gap-2">
-          <?php if (ch_pode_escrever_observacao_aluno($id)): ?>
-            <a class="btn btn-primary" href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$id) ?>"><i class="far fa-comment-dots"></i> Registrar observação</a>
+      <div class="card-body d-flex flex-column justify-content-between">
+        <div>
+          <h5 class="mb-3"><i class="fas fa-chart-pie"></i> Frequência em <?= (int)$aluno['ANO_LETIVO'] ?></h5>
+          <?php if ($frequencia === null): ?>
+            <p class="text-muted mb-0">Ainda não há chamada lançada para este aluno no ano letivo.</p>
+          <?php else: ?>
+            <div class="d-flex align-items-baseline gap-2 mb-1">
+              <h2 class="mb-0"><?= number_format($frequencia, 1, ',', '.') ?>%</h2>
+              <span class="text-muted small">(<?= $presencas ?> presenças em <?= $dias ?> dias)</span>
+            </div>
+            <div class="progress rounded-pill mb-3" style="height: 10px;">
+              <div class="progress-bar bg-<?= $frequencia >= 75 ? 'success' : 'warning' ?>" role="progressbar"
+                   style="width: <?= max(0, min(100, (float)$frequencia)) ?>%"
+                   aria-valuenow="<?= (int)round($frequencia) ?>" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <span class="badge bg-success">Presente: <?= (int)$resumo['P'] ?></span>
+              <span class="badge bg-info">Atraso: <?= (int)$resumo['A'] ?></span>
+              <span class="badge bg-danger">Falta: <?= (int)$resumo['F'] ?></span>
+              <span class="badge bg-warning text-dark">Justificada: <?= (int)$resumo['J'] ?></span>
+            </div>
           <?php endif; ?>
-          <a class="btn btn-outline-primary" href="<?= ch_url('relatorios/ver.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO'] . '&periodo=' . ch_periodo_atual()) ?>"><i class="fas fa-file-lines"></i> Relatório de desenvolvimento</a>
         </div>
+        <p class="text-muted small mb-0 mt-3">
+          <i class="fas fa-circle-info me-1"></i>
+          Para frequência detalhada por bimestre ou semestre, abra o <b>Relatório de desenvolvimento</b>.
+        </p>
       </div>
     </div>
   </div>
