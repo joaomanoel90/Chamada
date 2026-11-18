@@ -12,14 +12,17 @@ if (!ch_csrf_ok()) {
     header('Location: index.php');
     exit;
 }
+$alunoId = (int)($_POST['aluno_id'] ?? 0);
+$ano     = (int)($_POST['ano'] ?? 0);
+$periodo = strtoupper(trim((string)($_POST['periodo'] ?? '')));
+if (!ch_periodo_valido($periodo)) { $periodo = ch_periodo_atual(); }
+$voltar = 'ver.php?aluno_id=' . $alunoId . '&ano=' . $ano . '&periodo=' . $periodo;
 if (ch_secretario_escolar()) {
     ch_flash('O Secretário Escolar pode consultar o relatório, mas não editar o parecer pedagógico.', 'danger');
-    header('Location: ver.php?aluno_id=' . (int)($_POST['aluno_id'] ?? 0) . '&ano=' . (int)($_POST['ano'] ?? date('Y')));
+    header('Location: ' . $voltar);
     exit;
 }
 
-$alunoId = (int)($_POST['aluno_id'] ?? 0);
-$ano     = (int)($_POST['ano'] ?? 0);
 $parecer = trim(strip_tags($_POST['parecer'] ?? ''));
 $encam   = trim(strip_tags($_POST['encaminhamentos'] ?? ''));
 
@@ -31,7 +34,7 @@ if (!ch_pode_aluno_atual($alunoId)) {
 $aluno = ch_aluno($alunoId);
 if (!$aluno || (int)$aluno['ATIVO'] !== 1) {
     ch_flash('O aluno está inativo após a saída da rede. O relatório pode ser consultado, mas não criado ou alterado.', 'warning');
-    header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
+    header('Location: ' . $voltar);
     exit;
 }
 if ($ano < 2000 || $ano > 2100) {
@@ -41,18 +44,18 @@ if ($ano < 2000 || $ano > 2100) {
 }
 if (mb_strlen($parecer) > 10000 || mb_strlen($encam) > 5000) {
     ch_flash('Texto acima do limite permitido.', 'danger');
-    header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
+    header('Location: ' . $voltar);
     exit;
 }
 
 $conn = ch_db();
 if (!sqlsrv_begin_transaction($conn)) {
     ch_flash('Não foi possível iniciar a gravação do relatório.', 'danger');
-    header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
+    header('Location: ' . $voltar);
     exit;
 }
 try {
-    $existente = ch_val('SELECT ID FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ?', [$alunoId, $ano]);
+    $existente = ch_val('SELECT ID FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ? AND PERIODO = ?', [$alunoId, $ano, $periodo]);
 
     if ($existente) {
         $ok = ch_exec(
@@ -67,17 +70,17 @@ try {
                           [$parecer, $encam, ch_uid(), (int)$existente]);
         }
     } else {
-        $ok = ch_exec('INSERT INTO TB_RELATORIOS_ANUAIS (ID_ALUNO, ANO, PARECER, ENCAMINHAMENTOS, ID_USUARIO) VALUES (?, ?, ?, ?, ?)',
-                      [$alunoId, $ano, $parecer, $encam, ch_uid()]);
+        $ok = ch_exec('INSERT INTO TB_RELATORIOS_ANUAIS (ID_ALUNO, ANO, PERIODO, PARECER, ENCAMINHAMENTOS, ID_USUARIO) VALUES (?, ?, ?, ?, ?, ?)',
+                      [$alunoId, $ano, $periodo, $parecer, $encam, ch_uid()]);
     }
     if (!$ok) { throw new Exception('Falha ao gravar.'); }
 
     if (!sqlsrv_commit($conn)) { throw new Exception('Falha ao confirmar a gravação.'); }
-    ch_flash('Parecer do relatório anual salvo com sucesso.');
+    ch_flash('Parecer do relatório salvo com sucesso.');
 } catch (Exception $e) {
     sqlsrv_rollback($conn);
     ch_flash('Não foi possível salvar o parecer.', 'danger');
 }
 
-header('Location: ver.php?aluno_id=' . $alunoId . '&ano=' . $ano);
+header('Location: ' . $voltar);
 exit;

@@ -114,7 +114,7 @@ ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
         <?= eq_caixa_saude($aluno) ?>
         <p class="text-muted small mb-0">
           Informação registrada pela escola a partir do que a família informou.
-          Aparece também na tela de chamada e no relatório anual.
+          Aparece também na tela de chamada e no relatório de desenvolvimento.
         </p>
       </div>
     </div>

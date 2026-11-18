@@ -1,9 +1,9 @@
 <?php require_once('processa/ver_processa.php'); ?>
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
-<?php ch_cabecalho('Relatório Anual ' . $ano, 'fa-file-lines',
-    '<a class="btn btn-outline-secondary" href="index.php?ano=' . (int)$ano . '"><i class="fas fa-arrow-left"></i> Voltar</a> ' .
-    '<a class="btn btn-outline-primary" href="exportar.php?aluno_id=' . (int)$alunoId . '&ano=' . (int)$ano . '"><i class="fas fa-file-csv"></i> CSV</a> ' .
+<?php ch_cabecalho('Relatório de Desenvolvimento — ' . $rotuloPeriodo . ' de ' . (int)$ano, 'fa-file-lines',
+    '<a class="btn btn-outline-secondary" href="index.php?ano=' . (int)$ano . '&periodo=' . ch_h($periodo) . '"><i class="fas fa-arrow-left"></i> Voltar</a> ' .
+    '<a class="btn btn-outline-primary" href="exportar.php?aluno_id=' . (int)$alunoId . '&ano=' . (int)$ano . '&periodo=' . ch_h($periodo) . '"><i class="fas fa-file-csv"></i> CSV</a> ' .
     '<button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>'); ?>
 
 <style>
@@ -151,7 +151,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
   <img src="<?= BASEURL ?>images/brasao.png" alt="Brasão de Angatuba" class="brasao-print">
   <h4 class="mb-0">Prefeitura Municipal de Angatuba</h4>
   <div>Secretaria Municipal de Educação</div>
-  <h5 class="mt-2 mb-0">Relatório Anual de Desenvolvimento — <?= (int)$ano ?></h5>
+  <h5 class="mt-2 mb-0">Relatório de Desenvolvimento — <?= ch_h($rotuloPeriodo) ?> de <?= (int)$ano ?></h5>
   <hr>
 </div>
 
@@ -162,7 +162,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
         <h4 class="mb-1"><?= ch_h($aluno['NOME']) ?></h4>
         <p class="text-muted mb-2">
           Matrícula <?= ch_h($aluno['MATRICULA']) ?> &middot;
-          Nascimento <?= ch_data_br($aluno['NASCIMENTO']) ?> (<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'], $ano . '-12-31')) ?> ao fim do ano)
+          Nascimento <?= ch_data_br($aluno['NASCIMENTO']) ?> (<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'], $fim)) ?> ao fim do período)
         </p>
         <dl class="row mb-0">
           <dt class="col-sm-3">Unidade</dt><dd class="col-sm-9">
@@ -184,9 +184,9 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
       </div>
       <div class="col-md-4 text-md-end">
         <?php if ($frequencia === null): ?>
-          <p class="text-muted">Sem chamadas lançadas em <?= (int)$ano ?>.</p>
+          <p class="text-muted">Sem chamadas lançadas no período.</p>
         <?php else: ?>
-          <div class="text-muted">Frequência no ano</div>
+          <div class="text-muted">Frequência no período</div>
           <h1 class="mb-0"><?= number_format($frequencia, 1, ',', '.') ?>%</h1>
           <small class="text-muted"><?= $presencas ?> presenças em <?= $dias ?> dias lançados</small>
           <div class="mt-2">
@@ -241,8 +241,8 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
             <?= ch_secretario_escolar() && !$obsLeituraPermitida
                   ? 'A Direção não autorizou a consulta de observações nesta unidade.'
                   : (!empty($obsOcultas)
-                  ? 'Nenhuma observação sua registrada neste ano.'
-                  : 'Nenhuma observação registrada neste ano.') ?>
+                  ? 'Nenhuma observação sua registrada neste período.'
+                  : 'Nenhuma observação registrada neste período.') ?>
           </p>
         <?php else: ?>
           <?php foreach ($porCategoria as $cat => $qt): ?>
@@ -261,10 +261,10 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 <?php if ($vinculosAno): ?>
 <div class="card border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
-    <?php $vinculos = $vinculosAno; $tituloQuadro = 'Escolas e turmas em ' . (int)$ano;
+    <?php $vinculos = $vinculosAno; $tituloQuadro = 'Escolas e turmas no ' . ch_h($rotuloPeriodo) . ' de ' . (int)$ano;
           include(ABSPATH . 'transferencias/quadro_vinculos.php'); ?>
     <p class="text-muted mt-2 mb-0"><small>
-      Os totais deste relatório são do ano inteiro do aluno, somando os períodos acima.
+      Os totais deste relatório são do período do aluno, somando os vínculos acima.
     </small></p>
   </div>
 </div>
@@ -276,7 +276,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 <?php if ($faltasDetalhadas): ?>
 <div class="card<?= $classeFaltas ?> border-0 shadow-sm rounded-4 mt-3">
   <div class="card-body">
-    <h5 class="mb-3"><i class="fas fa-calendar-xmark"></i> Faltas e faltas justificadas no ano (<?= count($faltasDetalhadas) ?>)</h5>
+    <h5 class="mb-3"><i class="fas fa-calendar-xmark"></i> Faltas e faltas justificadas no período (<?= count($faltasDetalhadas) ?>)</h5>
     <div class="lista-rolavel">
       <table class="table table-sm mb-0">
         <thead><tr><th>Data</th><th>Situação</th><th>Justificativa</th></tr></thead>
@@ -312,8 +312,8 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
         <?= ch_secretario_escolar() && !$obsLeituraPermitida
               ? 'A Direção não autorizou a consulta de observações nesta unidade.'
               : (!empty($obsOcultas)
-              ? 'Nenhuma observação sua registrada em ' . (int)$ano . '.'
-              : 'Nenhuma observação registrada em ' . (int)$ano . '.') ?>
+              ? 'Nenhuma observação sua registrada neste período.'
+              : 'Nenhuma observação registrada neste período.') ?>
       </p>
     <?php else: ?>
       <?php foreach ($observacoes as $o): ?>
@@ -348,11 +348,12 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
       <?= ch_csrf_campo() ?>
       <input type="hidden" name="aluno_id" value="<?= (int)$alunoId ?>">
       <input type="hidden" name="ano" value="<?= (int)$ano ?>">
+      <input type="hidden" name="periodo" value="<?= ch_h($periodo) ?>">
 
       <div class="mb-3">
         <label class="fw-bold">Parecer descritivo do desenvolvimento</label>
         <textarea name="parecer" class="form-control" rows="8" maxlength="10000"
-                  placeholder="Síntese dos avanços da criança no ano: linguagem, coordenação motora, socialização, autonomia, alimentação, sono..."><?= ch_h($parecer['PARECER'] ?? '') ?></textarea>
+                  placeholder="Síntese dos avanços da criança no período: linguagem, coordenação motora, socialização, autonomia, alimentação, sono..."><?= ch_h($parecer['PARECER'] ?? '') ?></textarea>
       </div>
       <div class="mb-3">
         <label class="fw-bold">Encaminhamentos e recomendações</label>
@@ -368,7 +369,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
     <?php else: ?>
       <?php if (!ch_secretario_escolar()): ?>
       <div class="alert alert-warning no-print">
-        Aluno inativo após saída da rede. O relatório anual está disponível somente para consulta.
+        Aluno inativo após saída da rede. O relatório está disponível somente para consulta.
       </div>
       <?php endif; ?>
       <div class="mb-3">
@@ -430,7 +431,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
   </div>
   <div class="rodape-impresso text-center">
     Documento emitido pelo Sistema de Chamada em <?= ch_data_br(ch_hoje()) ?>.
-    <?= ch_h($aluno['NOME']) ?> — matrícula <?= ch_h($aluno['MATRICULA']) ?> — <?= (int)$ano ?>.
+    <?= ch_h($aluno['NOME']) ?> — matrícula <?= ch_h($aluno['MATRICULA']) ?> — <?= ch_h($rotuloPeriodo) ?> de <?= (int)$ano ?>.
   </div>
 </div>
 

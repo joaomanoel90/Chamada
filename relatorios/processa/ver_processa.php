@@ -6,19 +6,33 @@ ch_db();
 ch_require_relatorios();
 $alunoId = (int)($_POST['aluno_id'] ?? $_GET['aluno_id'] ?? 0);
 $ano     = (int)($_POST['ano'] ?? $_GET['ano'] ?? (int)date('Y'));
+/* Período do relatório: bimestral (B1..B6) ou semestral (S1/S2). */
+$periodo = strtoupper(trim((string)($_POST['periodo'] ?? $_GET['periodo'] ?? ch_periodo_atual())));
+if (!ch_periodo_valido($periodo)) { $periodo = ch_periodo_atual(); }
+$intervalo = ch_periodo_intervalo($ano, $periodo);
+$inicio = $intervalo[0];
+$fim    = $intervalo[1];
+$rotuloPeriodo = ch_periodo_rotulo($periodo);
 
 $aluno = ch_exige_relatorio_aluno($alunoId);
 $podeEditarParecer = !ch_secretario_escolar() && (int)$aluno['ATIVO'] === 1;
 
-/* Transferências: o relatório é do ANO INTEIRO do aluno, mesmo que ele tenha
-   mudado de escola no meio do ano. A chamada, as observações e o parecer já são
+/* Transferências: o relatório é do PERÍODO do aluno, mesmo que ele tenha
+   mudado de escola no meio dele. A chamada, as observações e o parecer já são
    consultados por ID_ALUNO, então nada precisa ser somado — só explicitar em
    que escola e turma ele estava em cada período. */
-$vinculosAno = tr_vinculos_no_ano($alunoId, $ano);
+$vinculosAno = [];
+foreach (tr_vinculos($alunoId) as $v) {
+    $de  = $v['DATA_INICIO'];
+    $ate = $v['DATA_FIM'];
+    if ($ate !== null && $ate < $inicio) continue;   // terminou antes do período
+    if ($de  !== null && $de  > $fim) continue;      // começa depois do período
+    $v['DE_NO_ANO']  = ($de  !== null && $de  > $inicio) ? $de  : $inicio;
+    $v['ATE_NO_ANO'] = ($ate !== null && $ate < $fim) ? $ate : $fim;
+    $v['EM_ABERTO']  = ($ate === null);
+    $vinculosAno[] = $v;
+}
 $houveTransferencia = count($vinculosAno) > 1;
-
-$inicio = $ano . '-01-01';
-$fim    = $ano . '-12-31';
 
 $totais = ch_row(
     "SELECT COUNT(*) AS DIAS,
@@ -43,7 +57,7 @@ $porMes = ch_rows(
 $meses = [];
 foreach ($porMes as $m) { $meses[(int)$m['MES']] = $m; }
 
-/* Relatório anual, inclusive na impressão: o substituto sem liberação não
+/* Relatório do período, inclusive na impressão: o substituto sem liberação não
    pode receber o texto dos outros professores por este caminho. */
 $fObsRel = eq_obs_filtro_aluno($alunoId, 'o');
 $fObsPermissaoRel = ch_filtro_observacao_aluno('a');
@@ -81,8 +95,8 @@ $parecer = ch_row(
             CONVERT(varchar(16), r.MODIFIED, 120) AS MODIFIED
      FROM TB_RELATORIOS_ANUAIS r
      INNER JOIN TB_USUARIOS u ON u.ID = r.ID_USUARIO
-     WHERE r.ID_ALUNO = ? AND r.ANO = ?',
-    [$alunoId, $ano]
+     WHERE r.ID_ALUNO = ? AND r.ANO = ? AND r.PERIODO = ?',
+    [$alunoId, $ano, $periodo]
 );
 $historicoParecer = $parecer
     ? ch_rows(

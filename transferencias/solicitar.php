@@ -110,7 +110,7 @@
           <li>A chamada, as observações e os pareceres <b>continuam com o aluno</b>. Nada é apagado nem movido.</li>
           <li>A escola de origem continua podendo <b>consultar</b> o histórico de quem foi seu aluno.</li>
           <li>A chamada do dia passa a considerar a data de início: até a véspera o aluno aparece na turma antiga, daquele dia em diante na nova.</li>
-          <li>O relatório anual mostra <b>o ano inteiro</b>, com o quadro de escolas e turmas por período.</li>
+          <li>O relatório de desenvolvimento mostra o período, com o quadro de escolas e turmas por período.</li>
         </ul>
       </div>
     </div>

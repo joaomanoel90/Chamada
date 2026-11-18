@@ -764,7 +764,10 @@ ELSE
 GO
 
 /* ============================================================================
-   13. TB_RELATORIOS_ANUAIS — parecer final por aluno/ano
+   13. TB_RELATORIOS_ANUAIS — parecer por aluno/ano/período
+   ----------------------------------------------------------------------------
+   O relatório de desenvolvimento é bimestral (B1..B6) ou semestral (S1/S2),
+   à escolha na tela. PERIODO NULL = parecer anual antigo (legado).
    ============================================================================ */
 IF OBJECT_ID(N'dbo.TB_RELATORIOS_ANUAIS', N'U') IS NULL
 BEGIN
@@ -772,21 +775,50 @@ BEGIN
         ID              int IDENTITY(1,1) NOT NULL,
         ID_ALUNO        int           NOT NULL,
         ANO             int           NOT NULL,
+        PERIODO         varchar(10)   NULL,
         PARECER         nvarchar(max) NULL,
         ENCAMINHAMENTOS nvarchar(max) NULL,
         ID_USUARIO      int           NOT NULL,
         CREATED         datetime      NOT NULL CONSTRAINT DF_REL_CREATED DEFAULT (GETDATE()),
         MODIFIED        datetime      NULL,
         CONSTRAINT PK_TB_RELATORIOS_ANUAIS PRIMARY KEY CLUSTERED (ID),
-        CONSTRAINT UQ_REL_ALUNO_ANO UNIQUE (ID_ALUNO, ANO),
+        CONSTRAINT UQ_REL_ALUNO_ANO_PERIODO UNIQUE (ID_ALUNO, ANO, PERIODO),
         CONSTRAINT FK_REL_ALUNO   FOREIGN KEY (ID_ALUNO)   REFERENCES dbo.TB_ALUNOS (ID),
         CONSTRAINT FK_REL_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
-        CONSTRAINT CK_REL_ANO CHECK (ANO BETWEEN 2000 AND 2100)
+        CONSTRAINT CK_REL_ANO CHECK (ANO BETWEEN 2000 AND 2100),
+        CONSTRAINT CK_REL_PERIODO CHECK (PERIODO IS NULL OR PERIODO IN ('B1','B2','B3','B4','B5','B6','S1','S2'))
     );
     PRINT '  + TB_RELATORIOS_ANUAIS criada';
 END
 ELSE
     PRINT '  = TB_RELATORIOS_ANUAIS já existe';
+GO
+
+/* Instalações antigas: coluna PERIODO + unicidade por período. */
+IF COL_LENGTH('dbo.TB_RELATORIOS_ANUAIS', 'PERIODO') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_RELATORIOS_ANUAIS ADD PERIODO varchar(10) NULL;
+    PRINT '  + TB_RELATORIOS_ANUAIS.PERIODO criada';
+END
+GO
+
+IF EXISTS (SELECT 1 FROM sys.key_constraints
+           WHERE name = 'UQ_REL_ALUNO_ANO'
+             AND parent_object_id = OBJECT_ID('dbo.TB_RELATORIOS_ANUAIS'))
+BEGIN
+    ALTER TABLE dbo.TB_RELATORIOS_ANUAIS DROP CONSTRAINT UQ_REL_ALUNO_ANO;
+    PRINT '  - UQ_REL_ALUNO_ANO antiga removida';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.key_constraints
+               WHERE name = 'UQ_REL_ALUNO_ANO_PERIODO'
+                 AND parent_object_id = OBJECT_ID('dbo.TB_RELATORIOS_ANUAIS'))
+BEGIN
+    ALTER TABLE dbo.TB_RELATORIOS_ANUAIS
+        ADD CONSTRAINT UQ_REL_ALUNO_ANO_PERIODO UNIQUE (ID_ALUNO, ANO, PERIODO);
+    PRINT '  + UQ_REL_ALUNO_ANO_PERIODO criada';
+END
 GO
 
 IF OBJECT_ID(N'dbo.TB_HISTORICO_OBSERVACOES', N'U') IS NULL

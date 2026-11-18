@@ -6,10 +6,13 @@ ch_db();
 ch_require_relatorios();
 $alunoId = (int)($_GET['aluno_id'] ?? 0);
 $ano     = (int)($_GET['ano'] ?? (int)date('Y'));
+$periodo = strtoupper(trim((string)($_GET['periodo'] ?? ch_periodo_atual())));
+if (!ch_periodo_valido($periodo)) { $periodo = ch_periodo_atual(); }
+$intervalo = ch_periodo_intervalo($ano, $periodo);
+$inicio = $intervalo[0];
+$fim    = $intervalo[1];
+$rotuloPeriodo = ch_periodo_rotulo($periodo);
 $aluno   = ch_exige_relatorio_aluno($alunoId);
-
-$inicio = $ano . '-01-01';
-$fim    = $ano . '-12-31';
 
 $meses = ch_rows(
     "SELECT MONTH(DATA) AS MES, COUNT(*) AS DIAS,
@@ -23,15 +26,15 @@ $meses = ch_rows(
 );
 
 $parecer = ch_row('SELECT ISNULL(PARECER, \'\') AS PARECER, ISNULL(ENCAMINHAMENTOS, \'\') AS ENCAMINHAMENTOS
-                   FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ?', [$alunoId, $ano]);
+                   FROM TB_RELATORIOS_ANUAIS WHERE ID_ALUNO = ? AND ANO = ? AND PERIODO = ?', [$alunoId, $ano, $periodo]);
 
-$nome = 'relatorio_' . preg_replace('/[^A-Za-z0-9]+/', '_', $aluno['NOME']) . '_' . $ano . '.csv';
+$nome = 'relatorio_' . preg_replace('/[^A-Za-z0-9]+/', '_', $aluno['NOME']) . '_' . $ano . '_' . $periodo . '.csv';
 header('Content-Type: text/csv; charset=UTF-8');
 header('Content-Disposition: attachment; filename="' . $nome . '"');
 
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF");
-fputcsv($out, ['Relatório Anual de Desenvolvimento', $ano], ';', '"', '');
+fputcsv($out, ['Relatório de Desenvolvimento', $rotuloPeriodo . ' de ' . $ano], ';', '"', '');
 fputcsv($out, ['Aluno', $aluno['NOME']], ';', '"', '');
 fputcsv($out, ['Matrícula', $aluno['MATRICULA']], ';', '"', '');
 fputcsv($out, ['Unidade', $aluno['UNIDADE']], ';', '"', '');

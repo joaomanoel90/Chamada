@@ -1119,6 +1119,59 @@ function ch_mes_nome($n)
 }
 
 /* ============================================================================
+   PERÍODOS DO RELATÓRIO DE DESENVOLVIMENTO
+   ----------------------------------------------------------------------------
+   O relatório é bimestral (6 períodos de 2 meses) ou semestral (2 períodos
+   de 6 meses), à escolha na tela. O código do período é 'B1'..'B6' ou
+   'S1'/'S2' (gravado em TB_RELATORIOS_ANUAIS.PERIODO).
+   ============================================================================ */
+
+/** Períodos do relatório: código => rótulo e meses (inclusive). */
+function ch_periodos_relatorio()
+{
+    return [
+        'B1' => ['rotulo' => '1º bimestre',  'mes_ini' => 1,  'mes_fim' => 2,  'tipo' => 'Bimestral'],
+        'B2' => ['rotulo' => '2º bimestre',  'mes_ini' => 3,  'mes_fim' => 4,  'tipo' => 'Bimestral'],
+        'B3' => ['rotulo' => '3º bimestre',  'mes_ini' => 5,  'mes_fim' => 6,  'tipo' => 'Bimestral'],
+        'B4' => ['rotulo' => '4º bimestre',  'mes_ini' => 7,  'mes_fim' => 8,  'tipo' => 'Bimestral'],
+        'B5' => ['rotulo' => '5º bimestre',  'mes_ini' => 9,  'mes_fim' => 10, 'tipo' => 'Bimestral'],
+        'B6' => ['rotulo' => '6º bimestre',  'mes_ini' => 11, 'mes_fim' => 12, 'tipo' => 'Bimestral'],
+        'S1' => ['rotulo' => '1º semestre',  'mes_ini' => 1,  'mes_fim' => 6,  'tipo' => 'Semestral'],
+        'S2' => ['rotulo' => '2º semestre',  'mes_ini' => 7,  'mes_fim' => 12, 'tipo' => 'Semestral'],
+    ];
+}
+
+/** O código de período é válido? */
+function ch_periodo_valido($cod)
+{
+    return isset(ch_periodos_relatorio()[(string)$cod]);
+}
+
+/** Rótulo do período ('1º bimestre', '2º semestre'...). */
+function ch_periodo_rotulo($cod)
+{
+    return ch_periodos_relatorio()[(string)$cod]['rotulo'] ?? '';
+}
+
+/** Intervalo [início, fim] (ISO) do período no ano. null se inválido. */
+function ch_periodo_intervalo($ano, $cod)
+{
+    $p = ch_periodos_relatorio()[(string)$cod] ?? null;
+    if (!$p) return null;
+    $ano = (int)$ano;
+    $inicio = sprintf('%04d-%02d-01', $ano, $p['mes_ini']);
+    $fim = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $ano, $p['mes_fim'])));
+    return [$inicio, $fim];
+}
+
+/** Período bimestral em que estamos hoje (padrão dos filtros). */
+function ch_periodo_atual()
+{
+    $mes = (int)date('n');
+    return 'B' . (int)ceil($mes / 2);
+}
+
+/* ============================================================================
    TRANSFERÊNCIAS
    Carregadas aqui para que qualquer tela que já use estes helpers também tenha
    as regras de transferência à mão. O arquivo só define funções, e não inclui

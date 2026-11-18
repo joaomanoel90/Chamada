@@ -452,6 +452,12 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'objs'   => array('TB_ATRIBUICOES', 'UQ_ATRIBUICAO',
 					'FK_ATRIBUICAO_DISCIPLINA', 'FK_ATRIBUICAO_PROFESSOR', 'CK_ATRIBUICAO_AULAS'),
 			),
+			array(
+				'nome'   => 'Relatório bimestral/semestral (parecer por período)',
+				'script' => 'sql_inicial/ATUALIZAR_RELATORIO_PERIODO.sql',
+				'cols'   => array('TB_RELATORIOS_ANUAIS.PERIODO'),
+				'objs'   => array('UQ_REL_ALUNO_ANO_PERIODO', 'CK_REL_PERIODO'),
+			),
 		);
 
 		foreach ($rodadas as $rodada) {

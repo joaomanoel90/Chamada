@@ -23,7 +23,7 @@ $ch_links_chamada = [
     ['chamada',     'Chamada do Dia',  'fas fa-clipboard-user',  'chamada/index.php',     true],
     ['diario',      'Diário de Classe', 'fas fa-book-open',      'diario/index.php',      true],
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
-    ['relatorios',  'Relatório Anual', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
+    ['relatorios',  'Relatório de Desenvolvimento', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
     ['faltas',      'Faltas de Professores', 'fas fa-user-clock', 'faltas/index.php',    ch_gestor()],
     ['atribuicoes', 'Atribuição de Professores', 'fas fa-chalkboard-user', 'atribuicoes/index.php', ch_gestor() || ch_professor()],
 ];

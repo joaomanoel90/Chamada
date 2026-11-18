@@ -1,10 +1,10 @@
 <?php require_once('processa/index_processa.php'); ?>
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
-<?php ch_cabecalho('Relatório Anual de Desenvolvimento', 'fa-file-lines'); ?>
+<?php ch_cabecalho('Relatório de Desenvolvimento', 'fa-file-lines'); ?>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
-  <div class="col-md-5">
+  <div class="col-md-4">
     <label class="fw-bold">Turma</label>
     <select name="turma_id" class="form-select">
       <option value="0">Todas</option>
@@ -14,6 +14,21 @@
           · Sala <?= ch_h($t['NOME']) ?> · <?= ch_h($t['PERIODO']) ?> (<?= (int)$t['ANO_LETIVO'] ?>)
         </option>
       <?php endforeach; ?>
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="fw-bold">Período</label>
+    <select name="periodo" class="form-select">
+      <optgroup label="Bimestral">
+        <?php foreach ($periodos as $cod => $p): if ($p['tipo'] !== 'Bimestral') continue; ?>
+          <option value="<?= ch_h($cod) ?>" <?= $cod === $fPeriodo ? 'selected' : '' ?>><?= ch_h($p['rotulo']) ?></option>
+        <?php endforeach; ?>
+      </optgroup>
+      <optgroup label="Semestral">
+        <?php foreach ($periodos as $cod => $p): if ($p['tipo'] !== 'Semestral') continue; ?>
+          <option value="<?= ch_h($cod) ?>" <?= $cod === $fPeriodo ? 'selected' : '' ?>><?= ch_h($p['rotulo']) ?></option>
+        <?php endforeach; ?>
+      </optgroup>
     </select>
   </div>
   <div class="col-md-3">
@@ -41,11 +56,12 @@
 <div class="alert alert-info">
   <i class="fas fa-circle-info"></i>
   A frequência é calculada <strong>somente sobre os dias com chamada lançada</strong>.
-  O relatório reúne a frequência mês a mês e todas as observações registradas no ano.
+  O relatório reúne a frequência mês a mês e todas as observações registradas no
+  <strong><?= ch_h($rotuloPeriodo) ?> de <?= (int)$fAno ?></strong> (bimestral ou semestral, à sua escolha).
 </div>
 
 <div class="table-responsive-sm">
-  <table id="item" data-vazio="Nenhum aluno encontrado para o ano e filtro escolhidos." class="table table-light table-striped table-sm align-middle">
+  <table id="item" data-vazio="Nenhum aluno encontrado para o período e filtro escolhidos." class="table table-light table-striped table-sm align-middle">
     <thead class="text-sm-center">
       <tr>
         <th width="30%">Aluno</th>
@@ -69,7 +85,7 @@
           </span>
         </td>
         <td class="text-center">
-          <a class="btn btn-sm btn-primary" href="ver.php?aluno_id=<?= (int)$row['ID'] ?>&ano=<?= (int)$fAno ?>">
+          <a class="btn btn-sm btn-primary" href="ver.php?aluno_id=<?= (int)$row['ID'] ?>&ano=<?= (int)$fAno ?>&periodo=<?= ch_h($fPeriodo) ?>">
             <i class="far fa-eye"></i> Abrir
           </a>
         </td>

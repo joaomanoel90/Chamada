@@ -46,7 +46,7 @@ if (!defined('ABSPATH')) {
       <label class="fw-bold">Observação</label>
       <textarea name="texto" class="form-control" rows="7" maxlength="5000" required
                 placeholder="Descreva o que foi observado: avanços, dificuldades, interesses, interações, marcos do desenvolvimento..."><?= ch_h($d['TEXTO']) ?></textarea>
-      <small class="text-muted">Este texto entra no relatório anual de desenvolvimento do aluno.</small>
+      <small class="text-muted">Este texto entra no relatório de desenvolvimento do aluno.</small>
     </div>
   </div>
 
