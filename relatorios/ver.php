@@ -147,6 +147,40 @@ $textoParecer = trim((string)($parecer['PARECER'] ?? '')) . trim((string)($parec
 $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
 ?>
 
+<div class="card border-0 shadow-sm rounded-4 mb-3 no-print">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <input type="hidden" name="aluno_id" value="<?= (int)$alunoId ?>">
+      <div class="col-md-5">
+        <label class="form-label small mb-1 fw-semibold">Qual relatório abrir / iniciar (período)</label>
+        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+          <optgroup label="Bimestral">
+            <?php foreach (ch_periodos_relatorio() as $cod => $info): if ($info['tipo'] !== 'Bimestral') continue; ?>
+              <option value="<?= ch_h($cod) ?>" <?= $periodo === $cod ? 'selected' : '' ?>><?= ch_h($info['rotulo']) ?></option>
+            <?php endforeach; ?>
+          </optgroup>
+          <optgroup label="Semestral">
+            <?php foreach (ch_periodos_relatorio() as $cod => $info): if ($info['tipo'] !== 'Semestral') continue; ?>
+              <option value="<?= ch_h($cod) ?>" <?= $periodo === $cod ? 'selected' : '' ?>><?= ch_h($info['rotulo']) ?></option>
+            <?php endforeach; ?>
+          </optgroup>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1 fw-semibold">Ano letivo</label>
+        <select name="ano" class="form-select form-select-sm" onchange="this.form.submit()">
+          <?php for ($a = (int)date('Y') + 1; $a >= 2020; $a--): ?>
+            <option value="<?= $a ?>" <?= $a === (int)$ano ? 'selected' : '' ?>><?= $a ?></option>
+          <?php endfor; ?>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-rotate"></i> Trocar período</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="relatorio-print text-center mb-3">
   <img src="<?= BASEURL ?>images/brasao.png" alt="Brasão de Angatuba" class="brasao-print">
   <h4 class="mb-0">Prefeitura Municipal de Angatuba</h4>
