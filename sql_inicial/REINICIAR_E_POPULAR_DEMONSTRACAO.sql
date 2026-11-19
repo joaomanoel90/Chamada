@@ -21,10 +21,11 @@
 
    PRÉ-REQUISITO
    --------------------------------------------------------------------------
-   Execute depois de sql_inicial/INSTALACAO_COMPLETA.sql em bancos novos; em
-   bancos existentes, aplique todas as migrações da versão atual (incluindo
-   sql_inicial/ATUALIZAR_CRECHE_FAMILIA_CRACHA.sql). O script aborta antes de
-   apagar dados se faltar tabela/coluna requerida ou se não existir o usuário ID 1.
+   Execute depois de sql_inicial/INSTALACAO_COMPLETA.sql em bancos novos. Em
+   bancos existentes, aplique todas as migrações da versão atual. ATUALIZAR_EQUIPE_SAUDE.sql
+   é obrigatória para as colunas TURNO de períodos, usuários e equipe; também
+   aplique ATUALIZAR_CRECHE_FAMILIA_CRACHA.sql para os vínculos familiares. O
+   script verifica tabelas e colunas requeridas antes de apagar dados.
 
    COMO EXECUTAR
    --------------------------------------------------------------------------
@@ -85,6 +86,8 @@ BEGIN
 END;
 
 IF COL_LENGTH('dbo.TB_PERIODOS', 'TURNO') IS NULL
+   OR COL_LENGTH('dbo.TB_USUARIOS', 'TURNO') IS NULL
+   OR COL_LENGTH('dbo.TB_TURMA_PROFESSORES', 'TURNO') IS NULL
    OR COL_LENGTH('dbo.TB_USUARIOS', 'CATEGORIA') IS NULL
    OR COL_LENGTH('dbo.TB_TURMA_PROFESSORES', 'VINCULO_DIRETO') IS NULL
    OR COL_LENGTH('dbo.TB_ALUNOS', 'PASSA_AEE') IS NULL
@@ -93,7 +96,7 @@ IF COL_LENGTH('dbo.TB_PERIODOS', 'TURNO') IS NULL
    OR COL_LENGTH('dbo.TB_TURMA_DISCIPLINAS', 'AULAS') IS NULL
    OR COL_LENGTH('dbo.TB_OBSERVACOES', 'RESTRITA_AEE') IS NULL
 BEGIN
-    ;THROW 51004, N'Colunas recentes não encontradas. Rode a migração indicada no cabeçalho.', 1;
+    ;THROW 51004, N'Colunas requeridas ausentes. Em banco existente, aplique ATUALIZAR_EQUIPE_SAUDE.sql e as demais migrações antes deste reset.', 1;
 END;
 
 DECLARE @HOJE date = CONVERT(date, GETDATE());
@@ -505,18 +508,32 @@ BEGIN TRY
            b.BASE_CPF + CONVERT(varchar(1), d1.DIGITO) + CONVERT(varchar(1), d2.DIGITO)
     FROM Bases b
     CROSS APPLY (
-        SELECT SUM(CONVERT(int, SUBSTRING(b.BASE_CPF, v.POS, 1)) * (11 - v.POS)) AS SOMA
-        FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9)) v(POS)
+        SELECT
+            CONVERT(int, SUBSTRING(b.BASE_CPF, 1, 1)) * 10
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 2, 1)) * 9
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 3, 1)) * 8
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 4, 1)) * 7
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 5, 1)) * 6
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 6, 1)) * 5
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 7, 1)) * 4
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 8, 1)) * 3
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 9, 1)) * 2 AS SOMA
     ) s1
     CROSS APPLY (
         SELECT CASE WHEN s1.SOMA % 11 < 2 THEN 0 ELSE 11 - (s1.SOMA % 11) END AS DIGITO
     ) d1
     CROSS APPLY (
-        SELECT SUM(
-            (CASE WHEN v.POS = 10 THEN d1.DIGITO ELSE CONVERT(int, SUBSTRING(b.BASE_CPF, v.POS, 1)) END)
-            * (12 - v.POS)
-        ) AS SOMA
-        FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10)) v(POS)
+        SELECT
+            CONVERT(int, SUBSTRING(b.BASE_CPF, 1, 1)) * 11
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 2, 1)) * 10
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 3, 1)) * 9
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 4, 1)) * 8
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 5, 1)) * 7
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 6, 1)) * 6
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 7, 1)) * 5
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 8, 1)) * 4
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 9, 1)) * 3
+          + d1.DIGITO * 2 AS SOMA
     ) s2
     CROSS APPLY (
         SELECT CASE WHEN s2.SOMA % 11 < 2 THEN 0 ELSE 11 - (s2.SOMA % 11) END AS DIGITO
@@ -550,18 +567,32 @@ BEGIN TRY
            b.NOME, b.NASCIMENTO
     FROM Bases b
     CROSS APPLY (
-        SELECT SUM(CONVERT(int, SUBSTRING(b.BASE_CPF, v.POS, 1)) * (11 - v.POS)) AS SOMA
-        FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9)) v(POS)
+        SELECT
+            CONVERT(int, SUBSTRING(b.BASE_CPF, 1, 1)) * 10
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 2, 1)) * 9
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 3, 1)) * 8
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 4, 1)) * 7
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 5, 1)) * 6
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 6, 1)) * 5
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 7, 1)) * 4
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 8, 1)) * 3
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 9, 1)) * 2 AS SOMA
     ) s1
     CROSS APPLY (
         SELECT CASE WHEN s1.SOMA % 11 < 2 THEN 0 ELSE 11 - (s1.SOMA % 11) END AS DIGITO
     ) d1
     CROSS APPLY (
-        SELECT SUM(
-            (CASE WHEN v.POS = 10 THEN d1.DIGITO ELSE CONVERT(int, SUBSTRING(b.BASE_CPF, v.POS, 1)) END)
-            * (12 - v.POS)
-        ) AS SOMA
-        FROM (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10)) v(POS)
+        SELECT
+            CONVERT(int, SUBSTRING(b.BASE_CPF, 1, 1)) * 11
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 2, 1)) * 10
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 3, 1)) * 9
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 4, 1)) * 8
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 5, 1)) * 7
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 6, 1)) * 6
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 7, 1)) * 5
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 8, 1)) * 4
+          + CONVERT(int, SUBSTRING(b.BASE_CPF, 9, 1)) * 3
+          + d1.DIGITO * 2 AS SOMA
     ) s2
     CROSS APPLY (
         SELECT CASE WHEN s2.SOMA % 11 < 2 THEN 0 ELSE 11 - (s2.SOMA % 11) END AS DIGITO
