@@ -7,7 +7,7 @@
 <div class="alert alert-light border py-2 mb-3 small">
   <i class="fas fa-circle-info text-primary"></i>
   O professor substituto enxerga a turma e lança chamada apenas entre <strong>De</strong> e <strong>Até</strong>.
-  O professor titular continua na equipe e mantém suas aulas atribuídas.
+  Na falta de professor em período <strong>Integral</strong> (ex.: Creche), é possível cadastrar <strong>2 substitutos</strong> nas mesmas datas — um para a <strong>Manhã</strong> e outro para a <strong>Tarde</strong>.
 </div>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">

@@ -3,13 +3,13 @@
 
 <?php ch_cabecalho('Alunos', 'fa-child-reaching',
     ch_gestao_alunos()
-        ? '<a class="btn btn-outline-primary" href="retorno.php"><i class="fas fa-right-to-bracket"></i> Retorno à rede</a> <a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Aluno</a>'
+        ? '<a class="btn btn-outline-primary" href="retorno.php"><i class="fas fa-right-to-bracket"></i> Retorno à rede</a> <a class="btn btn-outline-secondary" href="' . ch_url('familias/index.php') . '"><i class="fas fa-people-roof"></i> Famílias</a> <a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Aluno</a>'
         : ''); ?>
 
 <form method="get" action="index.php" class="row g-2 align-items-end mb-3">
   <div class="col-md-4">
     <label class="fw-bold">Buscar</label>
-    <input type="text" name="busca" class="form-control" value="<?= ch_h($fBusca) ?>" placeholder="Nome, matrícula ou responsável">
+    <input type="text" name="busca" class="form-control" value="<?= ch_h($fBusca) ?>" placeholder="Aluno, matrícula, responsável ou CPF do responsável">
   </div>
   <div class="col-md-4">
     <label class="fw-bold">Turma</label>
@@ -69,7 +69,23 @@
             <br><span class="badge bg-secondary"><i class="fas fa-right-from-bracket"></i> Saiu da rede</span>
           <?php endif; ?>
         </td>
-        <td><?= ch_h($row['RESPONSAVEL']) ?><br><small class="text-muted"><?= ch_h($row['TELEFONE']) ?></small></td>
+        <td>
+          <?= ch_h($row['RESPONSAVEL']) ?><br><small class="text-muted"><?= ch_h($row['TELEFONE']) ?></small>
+          <?php if (!empty($familiasPorAluno[(int)$row['ID']])): ?>
+            <div class="mt-1">
+              <?php foreach ($familiasPorAluno[(int)$row['ID']] as $fr): ?>
+                <div>
+                  <small>
+                    <span class="badge bg-light text-dark border"><?= ch_h(fam_parentesco_rotulo($fr['PARENTESCO'], $fr['DESCRICAO_OUTRO'])) ?></span>
+                    <?= ch_h($fr['NOME']) ?>
+                    <?php if (!empty($fr['TELEFONE'])): ?><span class="text-muted">· <?= ch_h($fr['TELEFONE']) ?></span><?php endif; ?>
+                    <?php if (!empty($fr['CONTATO_PRINCIPAL'])): ?><span class="badge bg-success" title="Contato principal">★</span><?php endif; ?>
+                  </small>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </td>
         <td class="text-center"><?= ch_h(ch_idade_texto($row['NASCIMENTO'])) ?></td>
         <td class="text-center">
           <span class="badge bg-<?= (int)$row['ATIVO'] === 1 ? 'success' : 'secondary' ?>">

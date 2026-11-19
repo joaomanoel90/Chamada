@@ -3,7 +3,7 @@
 
 <?php
 $botoesTopo = ['<a class="btn btn-outline-secondary" href="index.php"><i class="fas fa-arrow-left"></i> Voltar</a>'];
-$botoesTopo[] = '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Gerar crachá</a>';
+$botoesTopo[] = '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Crachá frente e verso</a>';
 if (ch_gestao_alunos() && !$apenasHistorico) {
     $botoesTopo[] = '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a>';
 }
@@ -150,6 +150,69 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
     </div>
   </div>
 </div>
+
+<?php if (!empty($responsaveisFamilia) || !empty($irmaosRede)): ?>
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h5 class="mb-0"><i class="fas fa-people-roof text-success"></i> Família / Responsáveis</h5>
+          <?php if (ch_gestao_alunos()): ?>
+            <a class="btn btn-sm btn-outline-secondary" href="<?= ch_url('familias/index.php') ?>"><i class="fas fa-magnifying-glass me-1"></i> Buscar família</a>
+          <?php endif; ?>
+        </div>
+        <?php if (!empty($responsaveisFamilia)): ?>
+          <div class="row g-3">
+            <?php foreach ($responsaveisFamilia as $fr): ?>
+              <div class="col-md-4">
+                <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
+                  <div class="d-flex flex-wrap justify-content-between align-items-center gap-1 mb-1">
+                    <span class="badge bg-success"><?= ch_h(fam_parentesco_rotulo($fr['PARENTESCO'], $fr['DESCRICAO_OUTRO'])) ?></span>
+                    <?php if (!empty($fr['CONTATO_PRINCIPAL'])): ?>
+                      <span class="badge bg-warning text-dark"><i class="fas fa-star me-1"></i> Contato principal</span>
+                    <?php endif; ?>
+                  </div>
+                  <div class="fw-bold"><?= ch_h($fr['NOME']) ?></div>
+                  <?php if (ch_gestao_alunos() && !empty($fr['CPF'])): ?>
+                    <div class="small text-muted">CPF: <?= ch_h(ch_cpf_mask($fr['CPF'])) ?></div>
+                  <?php endif; ?>
+                  <?php if (!empty($fr['TELEFONE'])): ?>
+                    <div class="small"><i class="fas fa-phone me-1"></i><?= ch_h($fr['TELEFONE']) ?></div>
+                  <?php endif; ?>
+                  <?php if (!empty($fr['EMAIL'])): ?>
+                    <div class="small text-muted"><i class="fas fa-envelope me-1"></i><?= ch_h($fr['EMAIL']) ?></div>
+                  <?php endif; ?>
+                  <?php if (ch_gestao_alunos() && !empty($fr['CPF'])): ?>
+                    <a class="small" href="<?= ch_url('familias/index.php?q=' . rawurlencode((string)$fr['CPF'])) ?>">Ver todos os filhos</a>
+                  <?php endif; ?>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+        <?php if (!empty($irmaosRede)): ?>
+          <div class="mt-3">
+            <div class="small fw-bold text-muted text-uppercase mb-2" style="font-size:.72rem;letter-spacing:.04em">
+              <i class="fas fa-children me-1"></i> Irmãos / crianças com os mesmos responsáveis na rede
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <?php foreach ($irmaosRede as $irm): ?>
+                <a class="btn btn-sm btn-outline-primary"
+                   href="<?= ch_url('alunos/view.php?id=' . (int)$irm['ID']) ?>">
+                  <?= ch_h($irm['NOME']) ?>
+                  <small class="text-muted">· <?= ch_h(ch_series_ensino()[$irm['SERIE'] ?? '']['rotulo'] ?? 'Série') ?> <?= ch_h($irm['TURMA']) ?> (<?= ch_h($irm['UNIDADE']) ?>)</small>
+                  <?php if ((int)$irm['ATIVO'] !== 1): ?><span class="badge bg-secondary">Inativo</span><?php endif; ?>
+                </a>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php if (ch_tem_acompanhamento_especial($aluno)): ?>
 <div class="row g-3 mt-1">

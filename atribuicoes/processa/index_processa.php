@@ -2,19 +2,16 @@
 /* ============================================================================
    PAINEL DE ATRIBUIÇÃO DE PROFESSORES
    ----------------------------------------------------------------------------
-   A turma define as matérias e o TOTAL de aulas de cada uma (ex.: 10 de
-   Matemática). As aulas são divididas entre os professores (ex.: 4 + 6),
-   e o painel mostra quantas aulas ainda faltam ser atribuídas. Cada
-   professor tem teto de 36 h/a por semana.
-
-   - A gestão escolhe primeiro o PROFESSOR: aparecem só as turmas em que ele
-     pode ser atribuído — as turmas da equipe dele MAIS as turmas compatíveis
-     com a categoria do concurso dele (PDI / PEB I / PEB II, do cadastro).
-     No começo do ano ele ainda não tem equipe, e a categoria é o que
-     permite atribuir. As turmas já COMPLETAS (todas as aulas atribuídas)
-     vêm marcadas. Quem recebe aulas entra na equipe da turma
-     automaticamente.
-   - O professor vê, em modo leitura, só as turmas e matérias dele.
+   - Creche (Berçário I ao Maternal II): turma Integral sem matéria obrigatória;
+     cada professor PDI — Creche assume 1 período (Manhã ou Tarde) e o
+     Professor de Apoio — Creche assume o dia todo (Integral).
+   - Pré-escola (Pré I e Pré II): atribui professor PEB I como regente da turma
+     sem matéria.
+   - Em todas as etapas (inclusive Creche e Pré I/II), se a turma tiver matérias
+     específicas cadastradas em Turmas (ex.: Educação Física, Artes, Inglês),
+     qualquer professor ativo que tenha aquela matéria no seu cadastro pode
+     receber aulas dela.
+   - Anos Iniciais / Finais: divisão de aulas por matéria (teto de 36 h/a).
    ============================================================================ */
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
@@ -34,18 +31,17 @@ $fUnidade = (int)($_GET['unidade'] ?? $_POST['unidade'] ?? 0);
 $unidades = ch_unidades_opcoes();
 $anos     = ch_rows('SELECT DISTINCT ANO_LETIVO FROM TB_TURMAS ORDER BY ANO_LETIVO DESC') ?: [];
 
-/* Filtro por categoria da turma (PDI-Creche, PDI-Pré-escola, PEB I, PEB II). */
+/* Filtro por categoria da turma. */
 $fCategoria = strtoupper(trim((string)($_GET['categoria'] ?? $_POST['categoria'] ?? '')));
-if (!isset(eq_categorias_turma()[$fCategoria])) { $fCategoria = ''; }
+if (!isset(eq_categorias_turma()[$fCategoria]) && !in_array($fCategoria, ['PDI', 'PEB_I'], true)) {
+    $fCategoria = '';
+}
 $categoriasTurma = eq_categorias_turma();
 
-/* A gestão escolhe primeiro o professor: o painel passa a mostrar só as
-   turmas em que ele pode ser atribuído (equipe dele OU categoria do
-   concurso compatível com a etapa). Professores de AEE são vinculados na
-   ficha do aluno, não em matérias regulares de turma. */
+/* Filtro por professor (AEE fica fora pois é vinculado na ficha do aluno). */
 $fProfessor = $ehGestao ? (int)($_GET['professor'] ?? $_POST['professor'] ?? 0) : 0;
 $professores = $ehGestao
-    ? (ch_rows("SELECT ID, NOME, TURNO FROM TB_USUARIOS
+    ? (ch_rows("SELECT ID, NOME, TURNO, CATEGORIA FROM TB_USUARIOS
                  WHERE NIVEL = 3 AND ISNULL(ATIVO, 1) = 1 AND ISNULL(CATEGORIA, '') <> 'AEE'
                  ORDER BY NOME") ?: [])
     : [];
@@ -63,7 +59,7 @@ $series = ch_series_ensino();
 /* Turmas do painel. */
 $sqlTurmas =
     'SELECT t.ID, t.NOME, t.SERIE, t.ETAPA_ENSINO, t.ANO_LETIVO, t.ID_UNIDADE,
-            u.unidade AS ESCOLA, p.NOME AS PERIODO
+            u.unidade AS ESCOLA, p.NOME AS PERIODO, p.TURNO AS TURNO_TURMA
      FROM TB_TURMAS t
      INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
      INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
@@ -71,10 +67,15 @@ $sqlTurmas =
 $params = [$fAno];
 
 if ($ehProfessor && !$ehGestao) {
-    /* O professor só vê as turmas em que tem aulas atribuídas. */
-    $sqlTurmas .= ' AND EXISTS (SELECT 1 FROM TB_ATRIBUICOES a
-                                INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
-                                WHERE d.ID_TURMA = t.ID AND a.ID_PROFESSOR = ?)';
+    $sqlTurmas .= " AND (
+        EXISTS (SELECT 1 FROM TB_ATRIBUICOES a
+                INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+                WHERE d.ID_TURMA = t.ID AND a.ID_PROFESSOR = ?)
+        OR EXISTS (SELECT 1 FROM TB_TURMA_PROFESSORES tp
+                   WHERE tp.ID_TURMA = t.ID AND tp.ID_USUARIO = ?
+                     AND tp.ATIVO = 1 AND tp.PAPEL IN ('REGENTE', 'AUXILIAR'))
+    )";
+    $params[] = ch_uid();
     $params[] = ch_uid();
 } else {
     $filtro = ch_filtro_turma('t');
@@ -91,77 +92,19 @@ $sqlTurmas .= ' ORDER BY t.SERIE, u.unidade, t.NOME, p.NOME';
 
 $turmas = ch_rows($sqlTurmas, $params) ?: [];
 
-/* Professor escolhido: só as turmas em que ele pode ser atribuído — as da
-   equipe dele OU as compatíveis com a categoria do concurso. A etapa da
-   turma pode vir da série, então o filtro é feito aqui, em PHP. */
-if ($fProfessor > 0) {
-    $idsEquipeProf = [];
-    foreach (ch_rows(
-        "SELECT ID_TURMA FROM TB_TURMA_PROFESSORES
-         WHERE ID_USUARIO = ? AND ATIVO = 1 AND PAPEL <> 'SUBSTITUTO'",
-        [$fProfessor]
-    ) ?: [] as $te) {
-        $idsEquipeProf[(int)$te['ID_TURMA']] = true;
-    }
-    $turmas = array_values(array_filter($turmas, function ($t) use ($idsEquipeProf, $categoriaProfessor, $series) {
-        if (isset($idsEquipeProf[(int)$t['ID']])) return true;
-        $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
-        return eq_professor_pode_turma($categoriaProfessor, $etapa);
-    }));
-}
-
-/* Categoria da turma escolhida: só as turmas daquela etapa. A etapa pode
-   vir da série, então o filtro é feito aqui, em PHP. */
-if ($fCategoria !== '') {
-    $etapasCategoria = eq_categoria_etapas($fCategoria) ?: [];
-    $turmas = array_values(array_filter($turmas, function ($t) use ($etapasCategoria, $series) {
-        $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
-        return in_array($etapa, $etapasCategoria, true);
-    }));
-}
-
-/* Matérias e atribuições de todas as turmas do painel, de uma vez. */
-$idsTurmas = array_map(function ($t) { return (int)$t['ID']; }, $turmas);
-$disciplinasPorTurma = [];
-$atribuicoesPorDisc = [];
-if ($idsTurmas) {
-    $ph = implode(',', array_fill(0, count($idsTurmas), '?'));
-    $discs = ch_rows(
-        "SELECT d.ID_TURMA, d.ID, d.NOME, d.AULAS
-         FROM TB_TURMA_DISCIPLINAS d
-         WHERE d.ID_TURMA IN ({$ph}) ORDER BY d.NOME",
-        $idsTurmas
-    ) ?: [];
-    $idsDiscs = [];
-    foreach ($discs as $d) {
-        $disciplinasPorTurma[(int)$d['ID_TURMA']][] = $d;
-        $idsDiscs[] = (int)$d['ID'];
-    }
-    if ($idsDiscs) {
-        $phD = implode(',', array_fill(0, count($idsDiscs), '?'));
-        foreach (ch_rows(
-            "SELECT a.ID_DISCIPLINA, a.ID, a.ID_PROFESSOR, a.AULAS, u.NOME AS PROFESSOR
-             FROM TB_ATRIBUICOES a
-             INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
-             WHERE a.ID_DISCIPLINA IN ({$phD}) ORDER BY u.NOME",
-            $idsDiscs
-        ) ?: [] as $a) {
-            $atribuicoesPorDisc[(int)$a['ID_DISCIPLINA']][] = $a;
-        }
-    }
-}
-
-/* Professores e matérias de todos, de uma vez (para montar os elegíveis). */
-$todosProfs = [];      // id => ['NOME' => ..., 'CATEGORIA' => ...]
-$materiasPorProf = []; // id => mapa [nome em minúsculas => nome original]
+/* Professores ativos (exceto AEE) e suas matérias cadastradas. */
+$todosProfs = [];      // id => ['NOME' => ..., 'CATEGORIA' => ..., 'TURNO' => ...]
+$materiasPorProf = []; // id => mapa [nome minúsculo => nome original]
 if ($ehGestao) {
     foreach (ch_rows(
-        'SELECT ID, NOME, CATEGORIA FROM TB_USUARIOS
-         WHERE NIVEL = 3 AND ISNULL(ATIVO, 1) = 1 ORDER BY NOME'
+        "SELECT ID, NOME, CATEGORIA, TURNO FROM TB_USUARIOS
+          WHERE NIVEL = 3 AND ISNULL(ATIVO, 1) = 1 AND ISNULL(CATEGORIA, '') <> 'AEE'
+          ORDER BY NOME"
     ) ?: [] as $p) {
         $todosProfs[(int)$p['ID']] = [
             'NOME'      => (string)$p['NOME'],
             'CATEGORIA' => $p['CATEGORIA'] ?? null,
+            'TURNO'     => $p['TURNO'] ?? 'INTEGRAL',
         ];
     }
     if ($todosProfs) {
@@ -175,36 +118,144 @@ if ($ehGestao) {
     }
 }
 
-/* Elegíveis por turma: mapa id => ['NOME', 'MATERIAS'] (equipe + categoria). */
-$elegiveisPorTurma = [];
-foreach ($turmas as $t) {
-    $idT = (int)$t['ID'];
-    $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
-    $mapa = [];
-    foreach (ch_rows(
-        "SELECT DISTINCT u.ID, u.NOME
-         FROM TB_TURMA_PROFESSORES tp
-         INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
-         WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND ISNULL(u.ATIVO, 1) = 1
-           AND u.NIVEL = 3 AND tp.PAPEL <> 'SUBSTITUTO'",
-        [$idT]
-    ) ?: [] as $m) {
-        $idP = (int)$m['ID'];
-        $mapa[$idP] = ['NOME' => (string)$m['NOME'], 'MATERIAS' => $materiasPorProf[$idP] ?? []];
-    }
-    foreach ($todosProfs as $idP => $p) {
-        if (!isset($mapa[$idP]) && eq_professor_pode_turma($p['CATEGORIA'], $etapa)) {
-            $mapa[$idP] = ['NOME' => $p['NOME'], 'MATERIAS' => $materiasPorProf[$idP] ?? []];
-        }
-    }
-    uasort($mapa, function ($a, $b) { return strcasecmp($a['NOME'], $b['NOME']); });
-    $elegiveisPorTurma[$idT] = $mapa;
+/* Filtro por categoria da turma. */
+if ($fCategoria !== '') {
+    $etapasCategoria = eq_etapas_filtro_turma($fCategoria);
+    $turmas = array_values(array_filter($turmas, function ($t) use ($etapasCategoria, $series) {
+        $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
+        return in_array($etapa, $etapasCategoria, true);
+    }));
 }
 
-/* Status por matéria e por turma: quantas aulas ainda faltam. */
+/* Pré-carrega matérias de todas as turmas candidatas para permitir filtrar também
+   pelas matérias específicas que o professor selecionado leciona. */
+$idsTurmasCand = array_map(fn($t) => (int)$t['ID'], $turmas);
+$disciplinasPorTurma = [];
+if ($idsTurmasCand) {
+    $phC = implode(',', array_fill(0, count($idsTurmasCand), '?'));
+    foreach (ch_rows(
+        "SELECT d.ID_TURMA, d.ID, d.NOME, d.AULAS
+           FROM TB_TURMA_DISCIPLINAS d
+          WHERE d.ID_TURMA IN ({$phC}) ORDER BY d.NOME",
+        $idsTurmasCand
+    ) ?: [] as $d) {
+        $disciplinasPorTurma[(int)$d['ID_TURMA']][] = $d;
+    }
+}
+
+/* Se um professor foi selecionado no filtro: mostra turmas da equipe dele,
+   turmas compatíveis com a categoria dele OU turmas que tenham alguma matéria
+   específica que ele leciona (ex.: Educação Física na Creche/Pré). */
+if ($fProfessor > 0) {
+    $idsEquipeProf = [];
+    foreach (ch_rows(
+        "SELECT ID_TURMA FROM TB_TURMA_PROFESSORES
+         WHERE ID_USUARIO = ? AND ATIVO = 1 AND PAPEL <> 'SUBSTITUTO'",
+        [$fProfessor]
+    ) ?: [] as $te) {
+        $idsEquipeProf[(int)$te['ID_TURMA']] = true;
+    }
+    $matsProfSel = $materiasPorProf[$fProfessor] ?? [];
+    $turmas = array_values(array_filter($turmas, function ($t) use ($idsEquipeProf, $categoriaProfessor, $series, $matsProfSel, $disciplinasPorTurma) {
+        $idT = (int)$t['ID'];
+        if (isset($idsEquipeProf[$idT])) return true;
+        $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
+        if (eq_professor_pode_turma($categoriaProfessor, $etapa)) return true;
+        if ($matsProfSel) {
+            foreach ($disciplinasPorTurma[$idT] ?? [] as $disc) {
+                if (eq_professor_pode_materia($matsProfSel, $disc['NOME'])) return true;
+            }
+        }
+        return false;
+    }));
+}
+
+$idsTurmas = array_map(fn($t) => (int)$t['ID'], $turmas);
+$atribuicoesPorDisc = [];
+$vinculosDiretosPorTurma = []; // idTurma => lista de linhas REGENTE / AUXILIAR ativas
+if ($idsTurmas) {
+    $idsDiscs = [];
+    foreach ($idsTurmas as $idT) {
+        foreach ($disciplinasPorTurma[$idT] ?? [] as $d) {
+            $idsDiscs[] = (int)$d['ID'];
+        }
+    }
+    if ($idsDiscs) {
+        $phD = implode(',', array_fill(0, count($idsDiscs), '?'));
+        foreach (ch_rows(
+            "SELECT a.ID_DISCIPLINA, a.ID, a.ID_PROFESSOR, a.AULAS, u.NOME AS PROFESSOR
+               FROM TB_ATRIBUICOES a
+               INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
+              WHERE a.ID_DISCIPLINA IN ({$phD}) ORDER BY u.NOME",
+            $idsDiscs
+        ) ?: [] as $a) {
+            $atribuicoesPorDisc[(int)$a['ID_DISCIPLINA']][] = $a;
+        }
+    }
+
+    $phT = implode(',', array_fill(0, count($idsTurmas), '?'));
+    foreach (ch_rows(
+        "SELECT tp.ID, tp.ID_TURMA, tp.ID_USUARIO, tp.PAPEL, tp.TURNO,
+                ISNULL(tp.VINCULO_DIRETO, 0) AS VINCULO_DIRETO,
+                u.NOME AS PROFESSOR, u.CATEGORIA
+           FROM TB_TURMA_PROFESSORES tp
+           INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+          WHERE tp.ID_TURMA IN ({$phT}) AND tp.ATIVO = 1 AND tp.PAPEL IN ('REGENTE', 'AUXILIAR')
+          ORDER BY CASE tp.PAPEL WHEN 'REGENTE' THEN 1 ELSE 2 END,
+                   CASE tp.TURNO WHEN 'MANHA' THEN 1 WHEN 'TARDE' THEN 2 ELSE 3 END,
+                   u.NOME",
+        $idsTurmas
+    ) ?: [] as $vd) {
+        /* Em Creche e Pré-escola exibimos os regentes e os apoios diretos (VINCULO_DIRETO = 1
+           ou PAPEL = 'REGENTE'). Professores que entraram apenas por aulas de matéria
+           específica (VINCULO_DIRETO = 0 e PAPEL = 'AUXILIAR') aparecem no card da matéria. */
+        if ($vd['PAPEL'] === 'REGENTE' || (int)$vd['VINCULO_DIRETO'] === 1) {
+            $vinculosDiretosPorTurma[(int)$vd['ID_TURMA']][] = $vd;
+        }
+    }
+}
+
+/* Opções de professores para vínculos sem matéria e para matérias específicas. */
+$profsCrecheRegente = [];
+$profsCrecheApoio   = [];
+$profsPreRegente    = [];
+$elegiveisPorTurma  = [];
+
+if ($ehGestao) {
+    foreach ($todosProfs as $idP => $p) {
+        $cat = (string)($p['CATEGORIA'] ?? '');
+        if ($cat === '' || $cat === 'PDI_CRECHE') {
+            $profsCrecheRegente[$idP] = $p['NOME'];
+        }
+        if ($cat === '' || $cat === 'APOIO_CRECHE') {
+            $profsCrecheApoio[$idP] = $p['NOME'];
+        }
+        if ($cat === '' || in_array($cat, ['PEB_I', 'PDI'], true)) {
+            $profsPreRegente[$idP] = $p['NOME'];
+        }
+    }
+
+    /* Para atribuição de matérias (inclusive matérias específicas como Educação
+       Física na Creche/Pré), qualquer professor ativo que tenha matérias no
+       cadastro é elegível na disciplina correspondente. */
+    foreach ($turmas as $t) {
+        $idT = (int)$t['ID'];
+        $mapa = [];
+        foreach ($todosProfs as $idP => $p) {
+            if (!empty($materiasPorProf[$idP])) {
+                $mapa[$idP] = ['NOME' => $p['NOME'], 'MATERIAS' => $materiasPorProf[$idP]];
+            }
+        }
+        $elegiveisPorTurma[$idT] = $mapa;
+    }
+}
+
+/* Status por turma (considerando regência sem matéria em Creche/Pré + matérias). */
 $statusPorTurma = [];
 foreach ($turmas as $t) {
     $idT = (int)$t['ID'];
+    $etapa = $t['ETAPA_ENSINO'] ?: ($series[$t['SERIE'] ?? '']['etapa'] ?? '');
+    $turnoTurma = $t['TURNO_TURMA'] ?: 'INTEGRAL';
     $discsT = $disciplinasPorTurma[$idT] ?? [];
     $totalAulas = 0;
     $faltam = 0;
@@ -226,23 +277,65 @@ foreach ($turmas as $t) {
         }
     }
     $total = count($discsT);
+
+    $vincs = $vinculosDiretosPorTurma[$idT] ?? [];
+    $temManha = false;
+    $temTarde = false;
+    $apoios = [];
+    $regentes = [];
+    foreach ($vincs as $v) {
+        if ($v['PAPEL'] === 'REGENTE') {
+            $regentes[] = $v;
+            if (in_array($v['TURNO'], ['MANHA', 'INTEGRAL'], true)) $temManha = true;
+            if (in_array($v['TURNO'], ['TARDE', 'INTEGRAL'], true)) $temTarde = true;
+        } else {
+            $apoios[] = $v;
+        }
+    }
+
+    if ($etapa === 'INFANTIL_CRECHE') {
+        $regenciaOk = $temManha && $temTarde;
+        $apoioOk = count($apoios) > 0;
+        $turmaCompleta = $regenciaOk && $apoioOk && ($total === 0 || $completas === $total);
+    } elseif ($etapa === 'INFANTIL_PRE_ESCOLA') {
+        $regenciaOk = $turnoTurma === 'INTEGRAL' ? ($temManha && $temTarde) : (count($regentes) > 0);
+        $apoioOk = true;
+        $turmaCompleta = $regenciaOk && ($total === 0 || $completas === $total);
+    } else {
+        $regenciaOk = true;
+        $apoioOk = true;
+        $turmaCompleta = $total > 0 && $completas === $total;
+    }
+
     $statusPorTurma[$idT] = [
+        'etapa'        => $etapa,
+        'turno_turma'  => $turnoTurma,
         'total'        => $total,
         'total_aulas'  => $totalAulas,
         'faltam'       => $faltam,
         'completas'    => $completas,
-        'completa'     => $total > 0 && $completas === $total,
+        'regencia_ok'  => $regenciaOk,
+        'apoio_ok'     => $apoioOk,
+        'tem_manha'    => $temManha,
+        'tem_tarde'    => $temTarde,
+        'regentes'     => $regentes,
+        'apoios'       => $apoios,
+        'completa'     => $turmaCompleta,
     ];
 }
 
-/* Resumo do professor escolhido: turmas completas + carga semanal. */
+/* Resumo do professor escolhido. */
 $resumoProfessor = null;
 if ($fProfessor > 0) {
     $resumoProfessor = ['turmas' => count($turmas), 'completas' => 0, 'incompletas' => 0, 'sem_materias' => 0];
     foreach ($statusPorTurma as $s) {
-        if ($s['total'] === 0) { $resumoProfessor['sem_materias']++; }
-        elseif ($s['completa']) { $resumoProfessor['completas']++; }
-        else { $resumoProfessor['incompletas']++; }
+        if ($s['completa']) {
+            $resumoProfessor['completas']++;
+        } elseif (!in_array($s['etapa'], ['INFANTIL_CRECHE', 'INFANTIL_PRE_ESCOLA'], true) && $s['total'] === 0) {
+            $resumoProfessor['sem_materias']++;
+        } else {
+            $resumoProfessor['incompletas']++;
+        }
     }
     $resumoProfessor['categoria'] = eq_categorias_concurso()[$categoriaProfessor]
         ?? 'Sem restrição (todas as etapas)';
@@ -253,8 +346,8 @@ if ($fProfessor > 0) {
 
 /* Agrupa por etapa e série, na ordem de progressão. */
 $etapas = [
-    'INFANTIL_CRECHE'      => 'Educação Infantil — Creche',
-    'INFANTIL_PRE_ESCOLA'  => 'Educação Infantil — Pré-escola',
+    'INFANTIL_CRECHE'      => 'Educação Infantil — Creche (Integral: 1 período por regente + apoio o dia todo)',
+    'INFANTIL_PRE_ESCOLA'  => 'Educação Infantil — Pré-escola (Pré I e Pré II: regente PEB I sem matéria)',
     'FUNDAMENTAL_1_5'      => 'Ensino Fundamental — Anos Iniciais',
     'FUNDAMENTAL_6_9'      => 'Ensino Fundamental — Anos Finais',
 ];
@@ -279,6 +372,7 @@ $voltar = 'atribuicoes/index.php?ano=' . $fAno
     . ($fUnidade ? '&unidade=' . $fUnidade : '')
     . ($fProfessor ? '&professor=' . $fProfessor : '')
     . ($fCategoria ? '&categoria=' . $fCategoria : '');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$ehGestao) {
         ch_flash('Somente a gestão pode atribuir professores.', 'danger');
@@ -291,15 +385,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $acao = is_string($_POST['acao'] ?? null) ? $_POST['acao'] : '';
 
-    if ($acao === 'atribuir') {
-        /* Atribui N aulas de uma matéria a um professor. */
+    if ($acao === 'atribuir_direto') {
+        $idTurma = (int)($_POST['id_turma'] ?? 0);
+        $idProf  = (int)($_POST['id_professor'] ?? 0);
+        $papel   = (string)($_POST['papel'] ?? 'REGENTE');
+        $turno   = (string)($_POST['turno'] ?? 'INTEGRAL');
+        if (!in_array($idTurma, $idsTurmas, true)) {
+            ch_flash('Turma não encontrada ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_begin_transaction(ch_db());
+        [$ok, $erros] = eq_atribuir_vinculo_direto($idTurma, $idProf, $papel, $turno);
+        if ($ok && sqlsrv_commit(ch_db())) {
+            ch_flash('Professor atribuído à turma.');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_rollback(ch_db());
+        if (!$erros) { $erros[] = 'Não foi possível gravar a atribuição.'; }
+    } elseif ($acao === 'remover_direto') {
+        $idTp = (int)($_POST['id_turma_prof'] ?? 0);
+        $linha = ch_row('SELECT ID, ID_TURMA FROM TB_TURMA_PROFESSORES WHERE ID = ?', [$idTp]);
+        if (!$linha || !in_array((int)$linha['ID_TURMA'], $idsTurmas, true)) {
+            ch_flash('Vínculo não encontrado ou fora do seu alcance.', 'danger');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_begin_transaction(ch_db());
+        $ok = eq_remover_vinculo_direto($idTp);
+        if ($ok && sqlsrv_commit(ch_db())) {
+            ch_flash('Professor removido da turma.');
+            header('Location: ' . ch_url($voltar));
+            exit;
+        }
+        sqlsrv_rollback(ch_db());
+        $erros[] = 'Não foi possível remover o vínculo.';
+    } elseif ($acao === 'atribuir') {
         $idDisc = (int)($_POST['id_disciplina'] ?? 0);
         $idProf = (int)($_POST['id_professor'] ?? 0);
         $aulas  = (int)($_POST['aulas'] ?? 0);
-        $disc = ch_row(
-            'SELECT d.ID, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?',
-            [$idDisc]
-        );
+        $disc = ch_row('SELECT d.ID, d.ID_TURMA FROM TB_TURMA_DISCIPLINAS d WHERE d.ID = ?', [$idDisc]);
         $turmaOk = $disc && in_array((int)$disc['ID_TURMA'], $idsTurmas, true);
         if (!$turmaOk) {
             ch_flash('Matéria não encontrada ou fora do seu alcance.', 'danger');

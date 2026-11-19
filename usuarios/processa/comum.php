@@ -42,7 +42,7 @@ function usuario_validar($post, &$d, $idAtual = 0)
     $categoria = strtoupper(trim((string)($post['categoria'] ?? '')));
     $d['categoria'] = ($d['nivel'] === 3 && isset(eq_categorias_concurso()[$categoria])) ? $categoria : null;
     $d['materias'] = [];
-    if ($d['nivel'] === 3 && $d['categoria'] !== 'AEE') {
+    if ($d['nivel'] === 3 && !in_array($d['categoria'], ['AEE', 'PDI_CRECHE', 'APOIO_CRECHE'], true)) {
         $opcoes = [];
         foreach (eq_materias_opcoes() as $op) {
             $opcoes[mb_strtolower($op, 'UTF-8')] = $op;

@@ -100,7 +100,7 @@ function turma_linha_disciplina($d, $op)
               </option>
             <?php endforeach; ?>
           </select>
-          <small class="text-muted">O turno do período é a referência da turma.</small>
+          <small class="text-muted">Na Creche (Berçário I ao Maternal II), o período é sempre <b>Integral</b>.</small>
         </div>
         <div class="form-group col-md-3">
           <label class="fw-bold">Capacidade</label>
@@ -125,9 +125,11 @@ function turma_linha_disciplina($d, $op)
     </div>
     <div class="card-escola-corpo">
       <p class="text-muted mb-3">
-        Defina <strong>quantas matérias</strong> esta turma terá e o <strong>total de
-        aulas por semana</strong> de cada uma (escolha da lista, para não digitar
-        errado). Os <strong>professores</strong> são vinculados no menu
+        No <strong>Ensino Fundamental</strong>, defina as matérias e o total de aulas por semana.
+        Na <strong>Creche</strong> (atribuída por período + professor de apoio o dia todo) e no
+        <strong>Pré I / Pré II</strong> (regente PEB I sem matéria), adicione aqui apenas
+        <strong>matérias específicas</strong> quando houver (ex.: <em>Educação Física</em>, <em>Artes</em>, <em>Inglês</em>).
+        Os professores são vinculados no menu
         <a href="<?= ch_url('atribuicoes/index.php') ?>"><strong>Atribuição</strong></a>,
         e as escalas temporárias no menu
         <a href="<?= ch_url('substituicoes/index.php' . (!empty($id) ? '?turma=' . (int)$id : '')) ?>"><strong>Substituições</strong></a>.
@@ -191,5 +193,39 @@ function turma_linha_disciplina($d, $op)
   });
 
   atualizar();
+})();
+
+/* Creche (Berçário I ao Maternal II): o período é sempre Integral.
+   Ao escolher uma série de creche, seleciona automaticamente o período
+   de turno INTEGRAL (o servidor também impõe isso na gravação). */
+(function () {
+  var serie = document.getElementById('serie');
+  var periodo = document.getElementById('id_periodo');
+  if (!serie || !periodo) return;
+  var seriesCreche = ['BERCARIO_I', 'BERCARIO_II', 'MATERNAL_I', 'MATERNAL_II'];
+  var eraCreche = seriesCreche.indexOf(serie.value) !== -1;
+  var periodoAntesCreche = eraCreche ? periodo.value : null;
+
+  function aplicarCreche() {
+    var ehCreche = seriesCreche.indexOf(serie.value) !== -1;
+    if (ehCreche) {
+      if (!eraCreche) periodoAntesCreche = periodo.value;
+      for (var i = 0; i < periodo.options.length; i++) {
+        if (periodo.options[i].getAttribute('data-turno') === 'INTEGRAL') {
+          periodo.selectedIndex = i;
+          break;
+        }
+      }
+    } else if (eraCreche && periodoAntesCreche !== null) {
+      /* Ao trocar de Creche para Pré/Fundamental, restaura o período anterior
+         (ou o placeholder em um cadastro novo). */
+      periodo.value = periodoAntesCreche;
+      periodoAntesCreche = null;
+    }
+    eraCreche = ehCreche;
+  }
+
+  serie.addEventListener('change', aplicarCreche);
+  aplicarCreche();
 })();
 </script>

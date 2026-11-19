@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 ?>
-<form action="<?= $acao ?>" method="post" enctype="multipart/form-data">
+<form id="form-aluno" action="<?= $acao ?>" method="post" enctype="multipart/form-data">
   <?= ch_csrf_campo() ?>
   <?php $editando = !empty($id); ?>
   <?php if ($editando): ?><input type="hidden" name="id" value="<?= (int)$id ?>"><?php endif; ?>
@@ -86,11 +86,12 @@ if (!defined('ABSPATH')) {
 
     <div class="form-group col-md-5">
       <label class="fw-bold">Responsável</label>
-      <input type="text" class="form-control" name="responsavel" maxlength="150" value="<?= ch_h($d['RESPONSAVEL']) ?>" required>
+      <input type="text" class="form-control" name="responsavel" maxlength="150" value="<?= ch_h($d['RESPONSAVEL']) ?>">
+      <small class="text-muted">Pode ser preenchido pelo contato principal da seção Família abaixo.</small>
     </div>
     <div class="form-group col-md-3">
       <label class="fw-bold">Telefone</label>
-      <input type="text" class="form-control" name="telefone" maxlength="30" value="<?= ch_h($d['TELEFONE']) ?>" placeholder="(15) 99999-9999" required>
+      <input type="text" class="form-control" name="telefone" maxlength="30" value="<?= ch_h($d['TELEFONE']) ?>" placeholder="(15) 99999-9999">
     </div>
     <div class="form-group col-md-4">
       <label class="fw-bold">Data de matrícula</label>
@@ -103,6 +104,181 @@ if (!defined('ABSPATH')) {
     </div>
   </div>
 
+  <?php $familia = $d['FAMILIA'] ?? fam_estrutura_vazia(); ?>
+  <div class="card-escola mt-4">
+    <div class="card-escola-titulo"><i class="fas fa-people-roof"></i> Família / Responsáveis (vínculo por CPF)</div>
+    <div class="card-escola-corpo">
+      <p class="text-muted mb-3">
+        Vincule a <strong>mãe</strong>, o <strong>pai</strong> e/ou <strong>outro responsável</strong> pelo CPF.
+        Se o CPF já estiver cadastrado no sistema, nome, telefone e e-mail são preenchidos automaticamente
+        e o responsável passa a aparecer na tela
+        <a href="<?= ch_url('familias/index.php') ?>"><strong>Famílias</strong></a> com todos os filhos vinculados.
+        O responsável marcado como <strong>contato principal</strong> preenche os campos Responsável, Telefone e E-mail acima.
+        Deixe um bloco em branco quando não houver esse responsável.
+      </p>
+
+      <?php foreach (fam_parentescos() as $cod => $rotulo): ?>
+        <?php $pref = 'fam_' . strtolower($cod) . '_'; $f = $familia[$cod] ?? []; ?>
+        <div class="border rounded-3 p-3 mb-3" data-fam-bloco="<?= $cod ?>">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <strong><i class="fas fa-user me-1"></i> <?= ch_h($rotulo) ?></strong>
+            <label class="form-check form-check-inline mb-0">
+              <input class="form-check-input" type="radio" name="fam_contato_principal" value="<?= $cod ?>"
+                     data-fam-principal="<?= $cod ?>" <?= !empty($f['CONTATO_PRINCIPAL']) ? 'checked' : '' ?>>
+              <span class="form-check-label fw-bold">Contato principal</span>
+            </label>
+          </div>
+          <div class="row g-3">
+            <div class="form-group col-md-4">
+              <label class="fw-bold">CPF</label>
+              <input type="text" class="form-control" name="<?= $pref ?>cpf" maxlength="14" inputmode="numeric"
+                     autocomplete="off" placeholder="000.000.000-00" data-fam-cpf="<?= $cod ?>"
+                     value="<?= ch_h($f['CPF'] ?? '') ?>">
+            </div>
+            <div class="form-group col-md-8">
+              <label class="fw-bold">Nome completo</label>
+              <input type="text" class="form-control" name="<?= $pref ?>nome" maxlength="150"
+                     data-fam-nome="<?= $cod ?>" value="<?= ch_h($f['NOME'] ?? '') ?>">
+            </div>
+            <div class="form-group col-md-4">
+              <label class="fw-bold">Telefone</label>
+              <input type="text" class="form-control" name="<?= $pref ?>telefone" maxlength="30"
+                     placeholder="(15) 99999-9999" data-fam-telefone="<?= $cod ?>" value="<?= ch_h($f['TELEFONE'] ?? '') ?>">
+            </div>
+            <div class="form-group col-md-5">
+              <label class="fw-bold">E-mail <small class="text-muted">(opcional)</small></label>
+              <input type="email" class="form-control" name="<?= $pref ?>email" maxlength="120"
+                     data-fam-email="<?= $cod ?>" value="<?= ch_h($f['EMAIL'] ?? '') ?>">
+            </div>
+            <?php if ($cod === 'OUTRO'): ?>
+              <div class="form-group col-md-3">
+                <label class="fw-bold">Parentesco / vínculo</label>
+                <input type="text" class="form-control" name="<?= $pref ?>descricao" maxlength="60"
+                       placeholder="Ex.: avó, tia, padrasto" value="<?= ch_h($f['DESCRICAO_OUTRO'] ?? '') ?>">
+              </div>
+            <?php endif; ?>
+            <div class="col-12" data-fam-feedback="<?= $cod ?>"></div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+
+  <script>
+  /* Família por CPF: máscara, preenchimento automático quando o CPF já existe
+     no sistema e sincronização do contato principal com os campos principais. */
+  (function () {
+    var form = document.querySelector('form');
+    if (!form) return;
+    var inpResponsavel = form.querySelector('input[name="responsavel"]');
+    var inpTelefone = form.querySelector('input[name="telefone"]');
+    var inpEmail = form.querySelector('input[name="email"]');
+    var urlBusca = '<?= ch_url('familias/buscar_cpf.php') ?>';
+
+    function digitos(s) { return (s || '').replace(/\D/g, ''); }
+
+    function mascararCpf(inp) {
+      var d = digitos(inp.value).slice(0, 11);
+      if (d.length > 9) {
+        inp.value = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
+      } else if (d.length > 6) {
+        inp.value = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6);
+      } else if (d.length > 3) {
+        inp.value = d.slice(0, 3) + '.' + d.slice(3);
+      } else {
+        inp.value = d;
+      }
+    }
+
+    function campo(cod, tipo) {
+      return form.querySelector('[data-fam-' + tipo + '="' + cod + '"]');
+    }
+
+    function blocoPrincipal() {
+      var r = form.querySelector('input[name="fam_contato_principal"]:checked');
+      return r ? r.value : null;
+    }
+
+    /* Preenche Responsável/Telefone/E-mail a partir do contato principal,
+       sem apagar o que a pessoa digitou manualmente nesses campos. */
+    function sincronizarPrincipal() {
+      var cod = blocoPrincipal();
+      if (!cod) return;
+      var nome = campo(cod, 'nome'), tel = campo(cod, 'telefone'), email = campo(cod, 'email');
+      if (inpResponsavel && inpResponsavel.value.trim() === '' && nome && nome.value.trim() !== '') {
+        inpResponsavel.value = nome.value.trim();
+      }
+      if (inpTelefone && inpTelefone.value.trim() === '' && tel && tel.value.trim() !== '') {
+        inpTelefone.value = tel.value.trim();
+      }
+      if (inpEmail && inpEmail.value.trim() === '' && email && email.value.trim() !== '') {
+        inpEmail.value = email.value.trim();
+      }
+    }
+
+    form.querySelectorAll('input[name="fam_contato_principal"]').forEach(function (r) {
+      r.addEventListener('change', sincronizarPrincipal);
+    });
+    form.addEventListener('submit', sincronizarPrincipal);
+
+    ['mae', 'pai', 'outro'].forEach(function (cod) {
+      var inpCpf = campo(cod, 'cpf');
+      if (!inpCpf) return;
+      var feedback = form.querySelector('[data-fam-feedback="' + cod + '"]');
+
+      inpCpf.addEventListener('input', function () { mascararCpf(inpCpf); });
+
+      inpCpf.addEventListener('blur', function () {
+        var d = digitos(inpCpf.value);
+        if (feedback) feedback.innerHTML = '';
+        if (d.length !== 11) return;
+        fetch(urlBusca, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+          },
+          body: 'cpf=' + encodeURIComponent(d)
+        })
+          .then(function (resp) { return resp.json(); })
+          .then(function (dados) {
+            if (!dados || !dados.encontrado) return;
+            var nome = campo(cod, 'nome'), tel = campo(cod, 'telefone'), email = campo(cod, 'email');
+            if (nome && nome.value.trim() === '') nome.value = dados.nome || '';
+            if (tel && tel.value.trim() === '' && dados.telefone) tel.value = dados.telefone;
+            if (email && email.value.trim() === '' && dados.email) email.value = dados.email;
+            if (feedback) {
+              /* Os nomes vêm do cadastro: criar nós e usar textContent evita
+                 interpretar dados digitados como HTML. */
+              var aviso = document.createElement('div');
+              aviso.className = 'alert alert-info py-2 small mb-0';
+              var icone = document.createElement('i');
+              icone.className = 'fas fa-circle-check me-1';
+              aviso.appendChild(icone);
+              aviso.appendChild(document.createTextNode(' Responsável já cadastrado no sistema — dados preenchidos automaticamente.'));
+              if (dados.filhos && dados.filhos.length) {
+                aviso.appendChild(document.createElement('br'));
+                var tituloFilhos = document.createElement('strong');
+                tituloFilhos.textContent = 'Filhos já vinculados: ';
+                aviso.appendChild(tituloFilhos);
+                dados.filhos.forEach(function (f, i) {
+                  if (i > 0) aviso.appendChild(document.createTextNode(' · '));
+                  var link = document.createElement('a');
+                  link.href = '<?= ch_url('alunos/view.php') ?>?id=' + encodeURIComponent(f.id);
+                  link.textContent = f.nome || 'Aluno';
+                  aviso.appendChild(link);
+                  aviso.appendChild(document.createTextNode(' (' + (f.turma || 'Turma') + ')'));
+                });
+              }
+              feedback.replaceChildren(aviso);
+            }
+            sincronizarPrincipal();
+          })
+          .catch(function () { /* sem rede: segue o preenchimento manual */ });
+      });
+    });
+  })();
+  </script>
 
   <div class="card-escola mt-4">
     <div class="card-escola-titulo"><i class="fas fa-heart-pulse"></i> Saúde e alimentação</div>

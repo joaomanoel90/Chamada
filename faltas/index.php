@@ -111,7 +111,7 @@
           <?php foreach ($substituicoes as $s): ?>
             <tr>
               <td><span class="fw-bold"><?= ch_h($s['PROFESSOR']) ?></span></td>
-              <td><?= ch_h($s['SUBSTITUTO']) ?></td>
+              <td><?= ch_h($s['SUBSTITUTO']) ?> <?= eq_turno_selo($s['TURNO_SUBST'] ?? 'INTEGRAL') ?></td>
               <td>
                 <?= ch_h(ch_series_ensino()[$s['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> ·
                 <?= ch_h($s['TURMA']) ?> — <?= ch_h($s['PERIODO']) ?>

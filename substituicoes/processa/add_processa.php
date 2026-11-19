@@ -12,6 +12,7 @@ $d = [
     'ID_TURMA'        => (int)($_GET['turma'] ?? 0),
     'ID_SUBSTITUIDO'  => (int)($_GET['coberto'] ?? 0),
     'ID_USUARIO'      => 0,
+    'TURNO'           => 'INTEGRAL',
     'DATA_INICIO'     => ch_hoje(),
     'DATA_FIM'        => ch_hoje(),
     'MOTIVO'          => '',

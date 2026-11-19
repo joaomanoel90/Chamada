@@ -79,6 +79,8 @@ function turma_validar($post, $idAtual = 0)
     $periodo = ch_row('SELECT ID, TURNO FROM TB_PERIODOS WHERE ID = ? AND ATIVO = 1', [$d['ID_PERIODO']]);
     if (!$periodo) {
         $e[] = 'Selecione um período ativo.';
+    } elseif ($d['ETAPA_ENSINO'] === 'INFANTIL_CRECHE' && $periodo['TURNO'] !== 'INTEGRAL') {
+        $e[] = 'Na Creche (Berçário I ao Maternal II), o período da turma deve ser Integral.';
     }
 
     /* Matérias: nome da lista + total de aulas. Os professores são

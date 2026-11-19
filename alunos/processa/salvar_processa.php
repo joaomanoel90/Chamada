@@ -77,6 +77,21 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
 
     $e = [];
 
+    /* Família / Responsáveis vinculados por CPF (Mãe, Pai e/ou Outro). */
+    $d['FAMILIA'] = fam_extrair_e_validar($post, $d['CPF'], $e);
+    $principalFam = fam_contato_principal_dados($d['FAMILIA']);
+    if ($principalFam) {
+        if ($d['RESPONSAVEL'] === '' && $principalFam['NOME'] !== '') {
+            $d['RESPONSAVEL'] = $principalFam['NOME'];
+        }
+        if ($d['TELEFONE'] === '' && $principalFam['TELEFONE'] !== '') {
+            $d['TELEFONE'] = $principalFam['TELEFONE'];
+        }
+        if ($d['EMAIL'] === '' && $principalFam['EMAIL'] !== '') {
+            $d['EMAIL'] = $principalFam['EMAIL'];
+        }
+    }
+
     if ($d['ID_PROFESSOR_AEE'] > 0) {
         $okProfAee = ch_val(
             "SELECT ID FROM TB_USUARIOS WHERE ID = ? AND NIVEL = 3 AND ATIVO = 1 AND CATEGORIA = 'AEE'",

@@ -3,11 +3,9 @@
    APOIO DO MÓDULO DE SUBSTITUIÇÕES
    ----------------------------------------------------------------------------
    Gerencia os registros PAPEL = 'SUBSTITUTO' de TB_TURMA_PROFESSORES em tela
-   própria, respeitando todas as constraints do banco:
-     - UQ_TURMAPROF_TURMA_USUARIO (ID_TURMA, ID_USUARIO)
-     - CK_TURMAPROF_SUBSTITUTO (ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM >= DATA_INICIO)
-     - CK_TURMAPROF_NAO_SI_MESMO (ID_SUBSTITUIDO <> ID_USUARIO)
-     - CK_TURMAPROF_OBSLIB_JUNTAS (OBS_LIBERADA_POR e OBS_LIBERADA_EM juntas)
+   própria, incluindo substituição por período (Manhã + Tarde = 2 substitutos)
+   quando um professor que atua o dia todo (Integral, ex.: Apoio de Creche)
+   falta em turma integral.
    ============================================================================ */
 if (!defined('ABSPATH')) {
     http_response_code(404);
@@ -28,22 +26,20 @@ function subst_opcoes_form($idTurmaForcada = 0)
            . ' ORDER BY t.ANO_LETIVO DESC, u.unidade, t.SERIE, t.NOME, p.NOME';
     $turmas = ch_rows($sql, $filtro['params']) ?: [];
 
-    /* Professores titulares/atribuídos de cada turma que podem ser cobertos:
-       quem está ativo em TB_TURMA_PROFESSORES com PAPEL <> 'SUBSTITUTO' OU tem
-       aulas atribuídas em TB_ATRIBUICOES na turma. */
     $titularesPorTurma = [];
     if ($turmas) {
         $ids = array_map(fn($t) => (int)$t['ID'], $turmas);
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $rows = ch_rows(
-            "SELECT tp.ID_TURMA, u.ID AS ID_USUARIO, u.NOME, tp.TURNO
+            "SELECT tp.ID_TURMA, u.ID AS ID_USUARIO, u.NOME, tp.TURNO, tp.PAPEL
                FROM TB_TURMA_PROFESSORES tp
                INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
               WHERE tp.ID_TURMA IN ({$ph}) AND tp.ATIVO = 1 AND tp.PAPEL <> 'SUBSTITUTO'
                 AND u.NIVEL = 3 AND ISNULL(u.ATIVO, 1) = 1
              UNION
              SELECT d.ID_TURMA, u.ID AS ID_USUARIO, u.NOME,
-                    CASE WHEN u.TURNO IN ('MANHA','TARDE','INTEGRAL') THEN u.TURNO ELSE 'INTEGRAL' END AS TURNO
+                    CASE WHEN u.TURNO IN ('MANHA','TARDE','INTEGRAL') THEN u.TURNO ELSE 'INTEGRAL' END AS TURNO,
+                    'AUXILIAR' AS PAPEL
                FROM TB_ATRIBUICOES a
                INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
                INNER JOIN TB_USUARIOS u ON u.ID = a.ID_PROFESSOR
@@ -54,11 +50,13 @@ function subst_opcoes_form($idTurmaForcada = 0)
         foreach ($rows as $r) {
             $tid = (int)$r['ID_TURMA'];
             $uid = (int)$r['ID_USUARIO'];
-            if (!isset($titularesPorTurma[$tid][$uid])) {
+            if (!isset($titularesPorTurma[$tid][$uid]) || $r['PAPEL'] === 'REGENTE') {
                 $titularesPorTurma[$tid][$uid] = [
-                    'ID'    => $uid,
-                    'NOME'  => $r['NOME'],
-                    'TURNO' => $r['TURNO'],
+                    'ID'          => $uid,
+                    'NOME'        => $r['NOME'],
+                    'TURNO'       => $r['TURNO'],
+                    'TURNO_ROT'   => eq_turno_rotulo($r['TURNO']),
+                    'PAPEL_ROT'   => $r['PAPEL'] === 'REGENTE' ? 'Regente' : 'Apoio / Matéria',
                 ];
             }
         }
@@ -83,15 +81,16 @@ function subst_opcoes_form($idTurmaForcada = 0)
 /** Valida os dados vindos do POST de cadastro/edição de substituição. */
 function subst_validar($post, $op, $idAtual = 0)
 {
+    $turnoPost = strtoupper(trim((string)($post['turno'] ?? '')));
     $d = [
         'ID_TURMA'        => (int)($post['id_turma'] ?? 0),
         'ID_SUBSTITUIDO'  => (int)($post['id_substituido'] ?? 0),
         'ID_USUARIO'      => (int)($post['id_usuario'] ?? 0),
+        'TURNO'           => isset(eq_turnos()[$turnoPost]) ? $turnoPost : 'INTEGRAL',
         'DATA_INICIO'     => trim((string)($post['data_inicio'] ?? '')),
         'DATA_FIM'        => trim((string)($post['data_fim'] ?? '')),
         'MOTIVO'          => mb_substr(trim(strip_tags((string)($post['motivo'] ?? ''))), 0, 200, 'UTF-8'),
         'VER_OBSERVACOES' => !empty($post['ver_observacoes']) ? 1 : 0,
-        'TURNO'           => 'INTEGRAL',
     ];
     $erros = [];
 
@@ -117,7 +116,15 @@ function subst_validar($post, $op, $idAtual = 0)
     if ($turmaInfo && !$cobertoInfo) {
         $erros[] = 'Selecione um professor titular atribuído a esta turma para ser substituído.';
     } elseif ($cobertoInfo) {
-        $d['TURNO'] = isset(eq_turnos()[$cobertoInfo['TURNO']]) ? $cobertoInfo['TURNO'] : 'INTEGRAL';
+        $turnoCoberto = isset(eq_turnos()[$cobertoInfo['TURNO']]) ? $cobertoInfo['TURNO'] : 'INTEGRAL';
+        /* Se o titular atua só Manhã ou só Tarde, a substituição cobre exatamente aquele turno.
+           Se atua o dia todo (Integral, ex.: Apoio de Creche), a substituição pode cobrir
+           Manhã, Tarde (2 substitutos) ou Integral (1 substituto). */
+        if ($turnoCoberto !== 'INTEGRAL') {
+            $d['TURNO'] = $turnoCoberto;
+        } elseif (!isset(eq_turnos()[$turnoPost])) {
+            $d['TURNO'] = 'INTEGRAL';
+        }
     }
 
     $substOk = false;
@@ -147,8 +154,7 @@ function subst_validar($post, $op, $idAtual = 0)
     }
 
     if (!$erros) {
-        /* Verifica se o professor escolhido já está ativo na turma (como titular
-           ou em outra substituição ativa diferente desta). */
+        /* 1) Verifica se o substituto escolhido já está ativo nesta turma. */
         $conflito = ch_row(
             'SELECT ID, PAPEL, ATIVO FROM TB_TURMA_PROFESSORES
               WHERE ID_TURMA = ? AND ID_USUARIO = ? AND ID <> ?',
@@ -156,9 +162,28 @@ function subst_validar($post, $op, $idAtual = 0)
         );
         if ($conflito && (int)$conflito['ATIVO'] === 1) {
             if ($conflito['PAPEL'] === 'SUBSTITUTO') {
-                $erros[] = 'Este professor já possui uma substituição ativa nesta turma. Edite ou encerre a substituição existente.';
+                $erros[] = 'Este substituto já possui uma substituição ativa nesta turma. Para cobrir o outro período nas mesmas datas, escolha um segundo professor substituto (ou mude o período da substituição existente para Integral).';
             } else {
                 $erros[] = 'Este professor já faz parte da equipe titular desta turma.';
+            }
+        }
+
+        /* 2) Verifica se já há outro substituto cobrindo o MESMO professor ausente
+              no MESMO período/turno em datas sobrepostas (Manhã + Tarde é permitido!). */
+        $outrasCob = ch_rows(
+            "SELECT tp.ID, tp.TURNO, u.NOME AS SUBSTITUTO
+               FROM TB_TURMA_PROFESSORES tp
+               INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+              WHERE tp.ID_TURMA = ? AND tp.PAPEL = 'SUBSTITUTO' AND tp.ATIVO = 1
+                AND tp.ID_SUBSTITUIDO = ? AND tp.ID <> ?
+                AND tp.DATA_INICIO <= ? AND tp.DATA_FIM >= ?",
+            [$d['ID_TURMA'], $d['ID_SUBSTITUIDO'], (int)$idAtual, $d['DATA_FIM'], $d['DATA_INICIO']]
+        ) ?: [];
+        foreach ($outrasCob as $oc) {
+            if (eq_turno_sobrepoe($d['TURNO'], $oc['TURNO'])) {
+                $erros[] = 'O período ' . eq_turno_rotulo($d['TURNO']) . ' deste professor já está coberto por '
+                         . $oc['SUBSTITUTO'] . ' nessas datas. Para dividir a substituição em 2 substitutos, cadastre um na Manhã e outro na Tarde.';
+                break;
             }
         }
     }
@@ -182,8 +207,6 @@ function subst_salvar($d, $idAtual = 0)
         );
         if (!$ant) return false;
 
-        /* Se trocou turma ou professor e já existia linha INATIVA no par novo,
-           remove a linha inativa antiga para não esbarrar em UQ_TURMAPROF_TURMA_USUARIO. */
         if ((int)$ant['ID_TURMA'] !== (int)$d['ID_TURMA'] || (int)$ant['ID_USUARIO'] !== (int)$d['ID_USUARIO']) {
             ch_exec(
                 'DELETE FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ? AND ATIVO = 0 AND ID <> ?',
@@ -197,7 +220,7 @@ function subst_salvar($d, $idAtual = 0)
                     "UPDATE TB_TURMA_PROFESSORES
                         SET ID_TURMA = ?, ID_USUARIO = ?, PAPEL = 'SUBSTITUTO', TURNO = ?,
                             ID_SUBSTITUIDO = ?, DATA_INICIO = ?, DATA_FIM = ?, MOTIVO = ?,
-                            VER_OBSERVACOES = 1, ATIVO = 1
+                            VER_OBSERVACOES = 1, VINCULO_DIRETO = 0, ATIVO = 1
                       WHERE ID = ?",
                     [$d['ID_TURMA'], $d['ID_USUARIO'], $d['TURNO'],
                      $d['ID_SUBSTITUIDO'], $d['DATA_INICIO'], $d['DATA_FIM'], $motivo, $idAtual]
@@ -207,7 +230,8 @@ function subst_salvar($d, $idAtual = 0)
                 "UPDATE TB_TURMA_PROFESSORES
                     SET ID_TURMA = ?, ID_USUARIO = ?, PAPEL = 'SUBSTITUTO', TURNO = ?,
                         ID_SUBSTITUIDO = ?, DATA_INICIO = ?, DATA_FIM = ?, MOTIVO = ?,
-                        VER_OBSERVACOES = 1, OBS_LIBERADA_POR = ?, OBS_LIBERADA_EM = GETDATE(), ATIVO = 1
+                        VER_OBSERVACOES = 1, OBS_LIBERADA_POR = ?, OBS_LIBERADA_EM = GETDATE(),
+                        VINCULO_DIRETO = 0, ATIVO = 1
                   WHERE ID = ?",
                 [$d['ID_TURMA'], $d['ID_USUARIO'], $d['TURNO'],
                  $d['ID_SUBSTITUIDO'], $d['DATA_INICIO'], $d['DATA_FIM'], $motivo, ch_uid(), $idAtual]
@@ -218,14 +242,14 @@ function subst_salvar($d, $idAtual = 0)
             "UPDATE TB_TURMA_PROFESSORES
                 SET ID_TURMA = ?, ID_USUARIO = ?, PAPEL = 'SUBSTITUTO', TURNO = ?,
                     ID_SUBSTITUIDO = ?, DATA_INICIO = ?, DATA_FIM = ?, MOTIVO = ?,
-                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL, ATIVO = 1
+                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL,
+                    VINCULO_DIRETO = 0, ATIVO = 1
               WHERE ID = ?",
             [$d['ID_TURMA'], $d['ID_USUARIO'], $d['TURNO'],
              $d['ID_SUBSTITUIDO'], $d['DATA_INICIO'], $d['DATA_FIM'], $motivo, $idAtual]
         );
     }
 
-    /* Criação: se já houver registro INATIVO para (ID_TURMA, ID_USUARIO), reaproveita a linha. */
     $inativa = ch_row(
         'SELECT ID FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ? AND ATIVO = 0',
         [$d['ID_TURMA'], $d['ID_USUARIO']]
@@ -236,7 +260,8 @@ function subst_salvar($d, $idAtual = 0)
                 "UPDATE TB_TURMA_PROFESSORES
                     SET PAPEL = 'SUBSTITUTO', TURNO = ?, ID_SUBSTITUIDO = ?,
                         DATA_INICIO = ?, DATA_FIM = ?, MOTIVO = ?,
-                        VER_OBSERVACOES = 1, OBS_LIBERADA_POR = ?, OBS_LIBERADA_EM = GETDATE(), ATIVO = 1
+                        VER_OBSERVACOES = 1, OBS_LIBERADA_POR = ?, OBS_LIBERADA_EM = GETDATE(),
+                        VINCULO_DIRETO = 0, ATIVO = 1
                   WHERE ID = ?",
                 [$d['TURNO'], $d['ID_SUBSTITUIDO'], $d['DATA_INICIO'], $d['DATA_FIM'],
                  $motivo, ch_uid(), (int)$inativa['ID']]
@@ -246,7 +271,8 @@ function subst_salvar($d, $idAtual = 0)
             "UPDATE TB_TURMA_PROFESSORES
                 SET PAPEL = 'SUBSTITUTO', TURNO = ?, ID_SUBSTITUIDO = ?,
                     DATA_INICIO = ?, DATA_FIM = ?, MOTIVO = ?,
-                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL, ATIVO = 1
+                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL,
+                    VINCULO_DIRETO = 0, ATIVO = 1
               WHERE ID = ?",
             [$d['TURNO'], $d['ID_SUBSTITUIDO'], $d['DATA_INICIO'], $d['DATA_FIM'],
              $motivo, (int)$inativa['ID']]
@@ -257,8 +283,8 @@ function subst_salvar($d, $idAtual = 0)
         return ch_exec(
             "INSERT INTO TB_TURMA_PROFESSORES
                 (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO,
-                 VER_OBSERVACOES, OBS_LIBERADA_POR, OBS_LIBERADA_EM, ATIVO)
-             VALUES (?, ?, 'SUBSTITUTO', ?, ?, ?, ?, ?, 1, ?, GETDATE(), 1)",
+                 VER_OBSERVACOES, OBS_LIBERADA_POR, OBS_LIBERADA_EM, VINCULO_DIRETO, ATIVO)
+             VALUES (?, ?, 'SUBSTITUTO', ?, ?, ?, ?, ?, 1, ?, GETDATE(), 0, 1)",
             [$d['ID_TURMA'], $d['ID_USUARIO'], $d['TURNO'], $d['ID_SUBSTITUIDO'],
              $d['DATA_INICIO'], $d['DATA_FIM'], $motivo, ch_uid()]
         );
@@ -266,8 +292,8 @@ function subst_salvar($d, $idAtual = 0)
     return ch_exec(
         "INSERT INTO TB_TURMA_PROFESSORES
             (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ID_SUBSTITUIDO, DATA_INICIO, DATA_FIM, MOTIVO,
-             VER_OBSERVACOES, OBS_LIBERADA_POR, OBS_LIBERADA_EM, ATIVO)
-         VALUES (?, ?, 'SUBSTITUTO', ?, ?, ?, ?, ?, 0, NULL, NULL, 1)",
+             VER_OBSERVACOES, OBS_LIBERADA_POR, OBS_LIBERADA_EM, VINCULO_DIRETO, ATIVO)
+         VALUES (?, ?, 'SUBSTITUTO', ?, ?, ?, ?, ?, 0, NULL, NULL, 0, 1)",
         [$d['ID_TURMA'], $d['ID_USUARIO'], $d['TURNO'], $d['ID_SUBSTITUIDO'],
          $d['DATA_INICIO'], $d['DATA_FIM'], $motivo]
     );

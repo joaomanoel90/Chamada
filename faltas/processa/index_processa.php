@@ -52,7 +52,7 @@ if ($fProfessor > 0) {
 }
 
 $substituicoes = ch_rows(
-    'SELECT tp.ID, tp.ID_TURMA, tp.ID_USUARIO, tp.ID_SUBSTITUIDO,
+    'SELECT tp.ID, tp.ID_TURMA, tp.ID_USUARIO, tp.ID_SUBSTITUIDO, tp.TURNO AS TURNO_SUBST,
             CONVERT(varchar(10), tp.DATA_INICIO, 23) AS DATA_INICIO,
             CONVERT(varchar(10), tp.DATA_FIM, 23)    AS DATA_FIM,
             tp.MOTIVO,
@@ -71,28 +71,50 @@ $substituicoes = ch_rows(
     $params
 ) ?: [];
 
-/* Resumo geral do período filtrado. */
+/* Resumo geral e por professor: quando uma falta em creche integral tem 2
+   substitutos (Manhã + Tarde), as linhas compartilham o mesmo intervalo.
+   Unimos períodos sobrepostos por professor ausente para não contar esses
+   dias duas vezes, inclusive se a falta cobre mais de uma turma. */
 $resumo = [
     'total'       => count($substituicoes),
     'dias'        => 0,
     'professores' => [],
     'substitutos' => [],
 ];
-foreach ($substituicoes as $s) {
-    $resumo['dias'] += (int)$s['DIAS'];
-    $resumo['professores'][(int)$s['ID_SUBSTITUIDO']] = $s['PROFESSOR'];
-    $resumo['substitutos'][(int)$s['ID_USUARIO']]     = $s['SUBSTITUTO'];
-}
-
-/* Resumo por professor (ranking de faltas). */
+$intervalosPorAusente = [];
 $porProfessor = [];
 foreach ($substituicoes as $s) {
-    $id = (int)$s['ID_SUBSTITUIDO'];
-    if (!isset($porProfessor[$id])) {
-        $porProfessor[$id] = ['nome' => $s['PROFESSOR'], 'vezes' => 0, 'dias' => 0];
+    $idAus = (int)$s['ID_SUBSTITUIDO'];
+    $resumo['professores'][$idAus] = $s['PROFESSOR'];
+    $resumo['substitutos'][(int)$s['ID_USUARIO']] = $s['SUBSTITUTO'];
+    $intervalosPorAusente[$idAus][] = [$s['DATA_INICIO'], $s['DATA_FIM']];
+    if (!isset($porProfessor[$idAus])) {
+        $porProfessor[$idAus] = ['nome' => $s['PROFESSOR'], 'vezes' => 0, 'dias' => 0];
     }
-    $porProfessor[$id]['vezes']++;
-    $porProfessor[$id]['dias'] += (int)$s['DIAS'];
+}
+foreach ($intervalosPorAusente as $idAus => $listaInt) {
+    $idAus = (int)$idAus;
+    usort($listaInt, fn($a, $b) => strcmp($a[0], $b[0]) ?: strcmp($a[1], $b[1]));
+    $unidos = [];
+    foreach ($listaInt as [$ini, $fim]) {
+        if (!$unidos) {
+            $unidos[] = [$ini, $fim];
+        } else {
+            $ult = &$unidos[count($unidos) - 1];
+            if ($ini <= $ult[1]) {
+                if ($fim > $ult[1]) $ult[1] = $fim;
+            } else {
+                $unidos[] = [$ini, $fim];
+            }
+            unset($ult);
+        }
+    }
+    foreach ($unidos as [$ini, $fim]) {
+        $d = (int)round((strtotime($fim) - strtotime($ini)) / 86400) + 1;
+        $porProfessor[$idAus]['vezes']++;
+        $porProfessor[$idAus]['dias'] += $d;
+        $resumo['dias'] += $d;
+    }
 }
 uasort($porProfessor, function ($a, $b) {
     return $b['dias'] <=> $a['dias'] ?: $b['vezes'] <=> $a['vezes'];

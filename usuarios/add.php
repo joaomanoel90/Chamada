@@ -77,11 +77,8 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
         </select>
         <small class="text-muted">Só para professor. Diz em quais turmas ele pode ser atribuído no começo do ano, antes de ter equipe.</small>
       </div>
-      <div class="col-12" id="avisoAee" style="display:none">
-        <div class="alert alert-light border py-2 mb-0 small">
-          <i class="fas fa-puzzle-piece text-primary"></i>
-          <strong>Professor de AEE:</strong> atua no Atendimento Educacional Especializado e é vinculado diretamente na ficha dos alunos (não recebe matérias regulares de turma).
-        </div>
+      <div class="col-12" id="avisoSemMateria" style="display:none">
+        <div class="alert alert-light border py-2 mb-0 small" id="avisoSemMateriaTexto"></div>
       </div>
       <div class="col-12" id="grupoMaterias">
         <label class="fw-bold">Matérias que pode lecionar</label>
@@ -93,7 +90,7 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
             </option>
           <?php endforeach; ?>
         </select>
-        <small class="text-muted d-block mt-1">Só para professor. Escolha da lista. Só é possível atribuir a ele as matérias marcadas aqui — deixe vazio se ele ainda não pode lecionar nenhuma.</small>
+        <small class="text-muted d-block mt-1">No Pré I e Pré II o professor PEB I é atribuído diretamente na turma sem matéria. Marque matérias para quem leciona nos Anos Iniciais/Finais ou matérias específicas (ex.: Educação Física, Artes, Inglês).</small>
       </div>
       <div class="col-12">
         <div class="form-check">
@@ -127,11 +124,20 @@ ch_cabecalho('Novo Usuário', 'fa-user-plus',
        descarta os valores. */
     function mostraTurno() {
       var ehProf = document.getElementById('nivel').value === '3';
-      var ehAee = ehProf && document.getElementById('categoria').value === 'AEE';
+      var cat = ehProf ? document.getElementById('categoria').value : '';
+      var msg = '';
+      if (cat === 'AEE') {
+        msg = '<i class="fas fa-puzzle-piece text-primary"></i> <strong>Professor de AEE:</strong> atua no Atendimento Educacional Especializado e é vinculado diretamente na ficha dos alunos (não recebe matérias de turma).';
+      } else if (cat === 'PDI_CRECHE') {
+        msg = '<i class="fas fa-baby text-success"></i> <strong>PDI — Creche:</strong> atua na Creche (Berçário I ao Maternal II) assumindo um período da turma integral (Manhã ou Tarde), sem matéria.';
+      } else if (cat === 'APOIO_CRECHE') {
+        msg = '<i class="fas fa-hands-holding-child text-info"></i> <strong>Professor de Apoio — Creche:</strong> atua na Creche assumindo o dia todo (período Integral), sem matéria.';
+      }
       document.getElementById('grupoTurno').style.display = ehProf ? '' : 'none';
       document.getElementById('grupoCategoria').style.display = ehProf ? '' : 'none';
-      document.getElementById('grupoMaterias').style.display = (ehProf && !ehAee) ? '' : 'none';
-      document.getElementById('avisoAee').style.display = ehAee ? '' : 'none';
+      document.getElementById('grupoMaterias').style.display = (ehProf && !msg) ? '' : 'none';
+      document.getElementById('avisoSemMateria').style.display = msg ? '' : 'none';
+      document.getElementById('avisoSemMateriaTexto').innerHTML = msg;
     }
     mostraTurno();
     document.getElementById('nivel').addEventListener('change', mostraTurno);

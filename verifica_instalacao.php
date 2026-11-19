@@ -358,7 +358,8 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 			'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS', 'TB_PROMOCOES',
 			'TB_ALUNO_SAIDAS_EXTERNAS',
 			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
-			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS', 'TB_ATRIBUICOES');
+			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS', 'TB_ATRIBUICOES',
+			'TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS');
 
 		$falta = array_values(array_diff($tabelas, $tem_tabela));
 		if ($falta) {
@@ -470,6 +471,13 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'script' => 'sql_inicial/ATUALIZAR_PROFESSOR_E_OBS_AEE.sql',
 				'cols'   => array('TB_OBSERVACOES.RESTRITA_AEE', 'TB_HISTORICO_OBSERVACOES.RESTRITA_AEE'),
 				'objs'   => array('CK_OBS_RESTRITA_AEE'),
+			),
+			array(
+				'nome'   => 'Creche/Apoio/Pré-escola sem matéria e vínculo de Família por CPF',
+				'script' => 'sql_inicial/ATUALIZAR_CRECHE_FAMILIA_CRACHA.sql',
+				'cols'   => array('TB_TURMA_PROFESSORES.VINCULO_DIRETO'),
+				'objs'   => array('TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS', 'UQ_RESPONSAVEIS_CPF',
+					'FK_ALUNORESP_ALUNO', 'FK_ALUNORESP_RESP', 'CK_TURMAPROF_VINCULO_DIRETO'),
 			),
 		);
 

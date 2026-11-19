@@ -8,7 +8,7 @@ require_once(__DIR__ . '/salvar_processa.php');
 
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 $atual = ch_row(
-    "SELECT tp.ID, tp.ID_TURMA, tp.ID_USUARIO, tp.ID_SUBSTITUIDO,
+    "SELECT tp.ID, tp.ID_TURMA, tp.ID_USUARIO, tp.ID_SUBSTITUIDO, tp.TURNO,
             CONVERT(varchar(10), tp.DATA_INICIO, 23) AS DATA_INICIO,
             CONVERT(varchar(10), tp.DATA_FIM, 23) AS DATA_FIM,
             ISNULL(tp.MOTIVO, '') AS MOTIVO,

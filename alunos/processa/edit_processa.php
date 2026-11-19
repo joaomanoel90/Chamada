@@ -14,6 +14,7 @@ $professoresAee = ch_professores_aee_opcoes((int)($aluno['ID_PROFESSOR_AEE'] ?? 
 $d = $aluno;
 $d['EMAIL'] = (string)($aluno['EMAIL'] ?? '');
 $d['TEM_FOTO'] = !empty($aluno['TEM_FOTO']);
+$d['FAMILIA'] = fam_carregar_para_form($id);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -53,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              (int)$d['ID_PROFESSOR_AEE'] > 0 ? (int)$d['ID_PROFESSOR_AEE'] : null,
              $d['AEE_OBSERVACOES'] !== '' ? $d['AEE_OBSERVACOES'] : null], $paramsFoto, [$id])
         );
-        if ($ok) {
-            sqlsrv_commit(ch_db());
+        $okFam = $ok && fam_salvar_vinculos_aluno($id, $d['FAMILIA'] ?? []);
+        if ($ok && $okFam && sqlsrv_commit(ch_db())) {
             ch_flash('Cadastro do aluno atualizado.');
             header('Location: view.php?id=' . $id);
             exit;

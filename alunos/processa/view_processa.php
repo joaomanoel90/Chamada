@@ -57,3 +57,7 @@ $apenasHistorico         = !ch_pode_turma($aluno['ID_TURMA']) && !ch_eh_professo
 $dias = (int)($resumo['DIAS'] ?? 0);
 $presencas = (int)($resumo['P'] ?? 0) + (int)($resumo['A'] ?? 0);
 $frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;
+
+/* Família / Responsáveis vinculados por CPF e irmãos na rede. */
+$responsaveisFamilia = fam_responsaveis_aluno($id);
+$irmaosRede = fam_irmaos_aluno($id);

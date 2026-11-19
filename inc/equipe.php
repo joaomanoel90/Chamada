@@ -869,11 +869,12 @@ function eq_disciplinas_salvar($idTurma, $lista)
 function eq_categorias_concurso()
 {
     return [
-        'PDI_CRECHE' => 'PDI — Creche',
-        'PDI'        => 'PDI — Pré-escola',
-        'PEB_I'      => 'PEB I — Anos Iniciais',
-        'PEB_II'     => 'PEB II — Anos Finais',
-        'AEE'        => 'Professor de AEE — Educação Especial',
+        'PDI_CRECHE'   => 'PDI — Creche (1 período)',
+        'APOIO_CRECHE' => 'Professor de Apoio — Creche (dia todo)',
+        'PDI'          => 'PDI — Pré-escola (legado)',
+        'PEB_I'        => 'PEB I — Pré I/II e Anos Iniciais',
+        'PEB_II'       => 'PEB II — Anos Finais / Matérias específicas',
+        'AEE'          => 'Professor de AEE — Educação Especial',
     ];
 }
 
@@ -881,23 +882,37 @@ function eq_categorias_concurso()
 function eq_categorias_turma()
 {
     return [
-        'PDI_CRECHE' => 'PDI — Creche',
-        'PDI'        => 'PDI — Pré-escola',
-        'PEB_I'      => 'PEB I — Anos Iniciais',
-        'PEB_II'     => 'PEB II — Anos Finais',
+        'PDI_CRECHE' => 'Creche (Berçário I ao Maternal II)',
+        'PRE_ESCOLA' => 'Pré-escola (Pré I e Pré II — PEB I)',
+        'FUND_I'     => 'Anos Iniciais (1º ao 5º ano — PEB I)',
+        'PEB_II'     => 'Anos Finais (6º ao 9º ano — PEB II)',
     ];
 }
 
-/** Etapas de ensino que cada categoria pode lecionar. NULL = sem restrição. */
+/** Etapas correspondentes ao filtro de categoria de turma na tela de Atribuição. */
+function eq_etapas_filtro_turma($codigoFiltro)
+{
+    return match ($codigoFiltro) {
+        'PDI_CRECHE' => ['INFANTIL_CRECHE'],
+        'PRE_ESCOLA', 'PDI' => ['INFANTIL_PRE_ESCOLA'],
+        'FUND_I'     => ['FUNDAMENTAL_1_5'],
+        'PEB_I'      => ['INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5'],
+        'PEB_II'     => ['FUNDAMENTAL_6_9'],
+        default      => [],
+    };
+}
+
+/** Etapas de ensino que cada categoria pode lecionar diretamente. NULL = sem restrição. */
 function eq_categoria_etapas($categoria)
 {
     return match ($categoria) {
-        'PDI_CRECHE' => ['INFANTIL_CRECHE'],
-        'PDI'        => ['INFANTIL_PRE_ESCOLA'],
-        'PEB_I'      => ['FUNDAMENTAL_1_5'],
-        'PEB_II'     => ['FUNDAMENTAL_6_9'],
-        'AEE'        => [],
-        default      => null,
+        'PDI_CRECHE'   => ['INFANTIL_CRECHE'],
+        'APOIO_CRECHE' => ['INFANTIL_CRECHE'],
+        'PDI'          => ['INFANTIL_PRE_ESCOLA'],
+        'PEB_I'        => ['INFANTIL_PRE_ESCOLA', 'FUNDAMENTAL_1_5'],
+        'PEB_II'       => ['FUNDAMENTAL_6_9'],
+        'AEE'          => [],
+        default        => null,
     };
 }
 
@@ -1018,7 +1033,7 @@ function eq_professor_garantir_equipe($idTurma, $idUsuario)
     if (!(int)$linha['ATIVO']) {
         return ch_exec(
             "UPDATE TB_TURMA_PROFESSORES
-                SET PAPEL = 'AUXILIAR', TURNO = ?, ATIVO = 1,
+                SET PAPEL = 'AUXILIAR', TURNO = ?, ATIVO = 1, VINCULO_DIRETO = 0,
                     ID_SUBSTITUIDO = NULL, DATA_INICIO = NULL, DATA_FIM = NULL, MOTIVO = NULL,
                     VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL
               WHERE ID = ?",
@@ -1244,8 +1259,9 @@ function eq_atribuicao_remover($idAtribuicao)
         return false;
     }
 
-    /* Se o professor não tem mais nenhuma atribuição nesta turma, retira-o da
-       equipe titular (exceto se for substituto ativo). */
+    /* Se o professor não tem mais nenhuma atribuição de matéria nesta turma
+       e não foi atribuído diretamente sem matéria (VINCULO_DIRETO = 1),
+       retira-o da equipe titular (exceto se for substituto ativo). */
     $aindaTem = (int)ch_val(
         'SELECT COUNT(*) FROM TB_ATRIBUICOES a
           INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
@@ -1255,9 +1271,178 @@ function eq_atribuicao_remover($idAtribuicao)
     if ($aindaTem === 0) {
         ch_exec(
             "UPDATE TB_TURMA_PROFESSORES SET ATIVO = 0
-              WHERE ID_TURMA = ? AND ID_USUARIO = ? AND PAPEL <> 'SUBSTITUTO'",
+              WHERE ID_TURMA = ? AND ID_USUARIO = ? AND PAPEL <> 'SUBSTITUTO' AND ISNULL(VINCULO_DIRETO, 0) = 0",
             [(int)$linha['ID_TURMA'], (int)$linha['ID_PROFESSOR']]
         );
     }
     return true;
+}
+
+/** Sincroniza TB_TURMAS.ID_PROFESSOR com o regente ativo da turma (legado). */
+function eq_sincronizar_regente_turma($idTurma)
+{
+    $idTurma = (int)$idTurma;
+    $idReg = ch_val(
+        "SELECT TOP 1 ID_USUARIO FROM TB_TURMA_PROFESSORES
+          WHERE ID_TURMA = ? AND ATIVO = 1 AND PAPEL = 'REGENTE'
+          ORDER BY CASE TURNO WHEN 'INTEGRAL' THEN 1 WHEN 'MANHA' THEN 2 ELSE 3 END, ID",
+        [$idTurma]
+    );
+    return ch_exec('UPDATE TB_TURMAS SET ID_PROFESSOR = ? WHERE ID = ?', [$idReg ? (int)$idReg : null, $idTurma]);
+}
+
+/**
+ * Atribui professor sem matéria em turmas de Creche (regente por período ou
+ * apoio o dia todo) ou Pré-escola (PEB I regente da turma).
+ * Deve ser chamado DENTRO de uma transação.
+ */
+function eq_atribuir_vinculo_direto($idTurma, $idProfessor, $papel, $turno)
+{
+    $idTurma = (int)$idTurma;
+    $idProfessor = (int)$idProfessor;
+    $papel = strtoupper(trim((string)$papel));
+    $turno = strtoupper(trim((string)$turno));
+
+    $turma = ch_row(
+        'SELECT t.ID, t.NOME, t.SERIE, t.ETAPA_ENSINO, p.TURNO AS TURNO_TURMA
+           FROM TB_TURMAS t
+           INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+          WHERE t.ID = ? AND t.ATIVO = 1',
+        [$idTurma]
+    );
+    if (!$turma) {
+        return [false, ['Turma não encontrada ou inativa.']];
+    }
+    $series = ch_series_ensino();
+    $etapa = $turma['ETAPA_ENSINO'] ?: ($series[$turma['SERIE'] ?? '']['etapa'] ?? '');
+    $turnoTurma = $turma['TURNO_TURMA'] ?: 'INTEGRAL';
+
+    $prof = ch_row(
+        'SELECT ID, NOME, CATEGORIA FROM TB_USUARIOS WHERE ID = ? AND NIVEL = 3 AND ISNULL(ATIVO, 1) = 1',
+        [$idProfessor]
+    );
+    if (!$prof) {
+        return [false, ['Selecione um professor ativo válido.']];
+    }
+    $cat = (string)($prof['CATEGORIA'] ?? '');
+
+    if ($etapa === 'INFANTIL_CRECHE') {
+        if ($papel === 'REGENTE') {
+            if (!in_array($turno, ['MANHA', 'TARDE'], true)) {
+                return [false, ['Na Creche, cada professor regente assume um período (Manhã ou Tarde).']];
+            }
+            if ($cat !== '' && $cat !== 'PDI_CRECHE') {
+                return [false, ['Para regente de período na Creche, selecione um professor da categoria "PDI — Creche".']];
+            }
+        } elseif ($papel === 'AUXILIAR') {
+            $turno = 'INTEGRAL';
+            if ($cat !== '' && $cat !== 'APOIO_CRECHE') {
+                return [false, ['Para apoio de Creche (dia todo), selecione um professor da categoria "Professor de Apoio — Creche".']];
+            }
+        } else {
+            return [false, ['Função inválida para turma de Creche.']];
+        }
+    } elseif ($etapa === 'INFANTIL_PRE_ESCOLA') {
+        $papel = 'REGENTE';
+        if ($turnoTurma !== 'INTEGRAL') {
+            $turno = $turnoTurma;
+        } elseif (!in_array($turno, ['MANHA', 'TARDE', 'INTEGRAL'], true)) {
+            $turno = 'INTEGRAL';
+        }
+        if ($cat !== '' && !in_array($cat, ['PEB_I', 'PDI'], true)) {
+            return [false, ['No Pré I e Pré II, a regência sem matéria é atribuída a professor PEB I.']];
+        }
+    } else {
+        return [false, ['Esta turma utiliza atribuição por matérias.']];
+    }
+
+    /* Verifica conflito de responsável no mesmo turno (REGENTE). */
+    if ($papel === 'REGENTE') {
+        $regentesAtivos = ch_rows(
+            "SELECT tp.ID_USUARIO, tp.TURNO, u.NOME
+               FROM TB_TURMA_PROFESSORES tp
+               INNER JOIN TB_USUARIOS u ON u.ID = tp.ID_USUARIO
+              WHERE tp.ID_TURMA = ? AND tp.ATIVO = 1 AND tp.PAPEL = 'REGENTE' AND tp.ID_USUARIO <> ?",
+            [$idTurma, $idProfessor]
+        ) ?: [];
+        foreach ($regentesAtivos as $ra) {
+            if (eq_turno_sobrepoe($turno, $ra['TURNO'])) {
+                return [false, ['Já existe professor responsável atribuído neste período (' . $ra['NOME'] . '). Remova-o antes de trocar.']];
+            }
+        }
+    }
+
+    /* Verifica se o professor já está ativo nesta mesma turma. */
+    $existente = ch_row(
+        'SELECT ID, PAPEL, TURNO, ATIVO, ISNULL(VINCULO_DIRETO, 0) AS VINCULO_DIRETO
+           FROM TB_TURMA_PROFESSORES WHERE ID_TURMA = ? AND ID_USUARIO = ?',
+        [$idTurma, $idProfessor]
+    );
+    if ($existente && (int)$existente['ATIVO'] === 1) {
+        if ($existente['PAPEL'] === 'SUBSTITUTO') {
+            return [false, ['Este professor está com uma substituição ativa nesta turma. Encerre a substituição antes de atribuí-lo como titular.']];
+        }
+        if ((int)$existente['VINCULO_DIRETO'] === 1) {
+            return [false, ['Este professor já está atribuído nesta turma (' . eq_turno_rotulo($existente['TURNO']) . ').']];
+        }
+        /* Já estava apenas como AUXILIAR por matéria específica: promove ao vínculo direto. */
+        $ok = ch_exec(
+            "UPDATE TB_TURMA_PROFESSORES
+                SET PAPEL = ?, TURNO = ?, ATIVO = 1, VINCULO_DIRETO = 1
+              WHERE ID = ?",
+            [$papel, $turno, (int)$existente['ID']]
+        );
+    } elseif ($existente) {
+        $ok = ch_exec(
+            "UPDATE TB_TURMA_PROFESSORES
+                SET PAPEL = ?, TURNO = ?, ATIVO = 1, VINCULO_DIRETO = 1,
+                    ID_SUBSTITUIDO = NULL, DATA_INICIO = NULL, DATA_FIM = NULL, MOTIVO = NULL,
+                    VER_OBSERVACOES = 0, OBS_LIBERADA_POR = NULL, OBS_LIBERADA_EM = NULL
+              WHERE ID = ?",
+            [$papel, $turno, (int)$existente['ID']]
+        );
+    } else {
+        $ok = ch_exec(
+            'INSERT INTO TB_TURMA_PROFESSORES (ID_TURMA, ID_USUARIO, PAPEL, TURNO, ATIVO, VINCULO_DIRETO)
+             VALUES (?, ?, ?, ?, 1, 1)',
+            [$idTurma, $idProfessor, $papel, $turno]
+        );
+    }
+
+    if (!$ok || !eq_sincronizar_regente_turma($idTurma)) {
+        return [false, ['Não foi possível gravar a atribuição na turma.']];
+    }
+    return [true, []];
+}
+
+/** Remove um vínculo direto sem matéria (Creche / Apoio / Pré-escola). */
+function eq_remover_vinculo_direto($idTurmaProf)
+{
+    $linha = ch_row(
+        "SELECT ID, ID_TURMA, ID_USUARIO, PAPEL
+           FROM TB_TURMA_PROFESSORES
+          WHERE ID = ? AND ATIVO = 1 AND PAPEL IN ('REGENTE', 'AUXILIAR')",
+        [(int)$idTurmaProf]
+    );
+    if (!$linha) return false;
+
+    $temAulas = (int)ch_val(
+        'SELECT COUNT(*) FROM TB_ATRIBUICOES a
+          INNER JOIN TB_TURMA_DISCIPLINAS d ON d.ID = a.ID_DISCIPLINA
+          WHERE d.ID_TURMA = ? AND a.ID_PROFESSOR = ?',
+        [(int)$linha['ID_TURMA'], (int)$linha['ID_USUARIO']]
+    );
+    if ($temAulas > 0) {
+        $ok = ch_exec(
+            "UPDATE TB_TURMA_PROFESSORES SET PAPEL = 'AUXILIAR', VINCULO_DIRETO = 0 WHERE ID = ?",
+            [(int)$linha['ID']]
+        );
+    } else {
+        $ok = ch_exec(
+            'UPDATE TB_TURMA_PROFESSORES SET ATIVO = 0, VINCULO_DIRETO = 0 WHERE ID = ?',
+            [(int)$linha['ID']]
+        );
+    }
+    if (!$ok) return false;
+    return eq_sincronizar_regente_turma((int)$linha['ID_TURMA']);
 }

@@ -29,16 +29,29 @@ if (!defined('ABSPATH')) {
           </select>
         </div>
 
-        <div class="form-group col-md-6">
+        <div class="form-group col-md-4">
           <label class="fw-bold">Substituindo quem?</label>
           <select name="id_substituido" id="id_substituido" class="form-select" required
                   data-inicial="<?= (int)$d['ID_SUBSTITUIDO'] ?>">
             <option value="">Selecione a turma primeiro...</option>
           </select>
-          <small class="text-muted">Aparecem aqui os professores titulares com aulas atribuídas nesta turma.</small>
+          <small class="text-muted">Professores titulares atribuídos a esta turma.</small>
         </div>
 
-        <div class="form-group col-md-6">
+        <div class="form-group col-md-4">
+          <label class="fw-bold">Período da substituição</label>
+          <select name="turno" id="turno" class="form-select" required
+                  data-inicial="<?= ch_h($d['TURNO'] ?? 'INTEGRAL') ?>">
+            <option value="INTEGRAL">Integral (dia todo)</option>
+            <option value="MANHA">Manhã</option>
+            <option value="TARDE">Tarde</option>
+          </select>
+          <small class="text-muted" id="ajuda-turno">
+            Em falta de professor integral (ex.: creche), é possível cadastrar 2 substitutos: um na Manhã e outro na Tarde.
+          </small>
+        </div>
+
+        <div class="form-group col-md-4">
           <label class="fw-bold">Professor(a) substituto(a)</label>
           <select name="id_usuario" id="id_usuario" class="form-select" required>
             <option value="">Selecione...</option>
@@ -48,7 +61,7 @@ if (!defined('ABSPATH')) {
               </option>
             <?php endforeach; ?>
           </select>
-          <small class="text-muted">O substituto assume o turno do professor substituído durante o período informado.</small>
+          <small class="text-muted">Assume o período selecionado acima durante o prazo.</small>
         </div>
 
         <div class="form-group col-md-3">
@@ -93,12 +106,50 @@ if (!defined('ABSPATH')) {
 
 <script>
 (function () {
-  var mapaTitulares = <?= json_encode($op['titularesPorTurma'], JSON_UNESCAPED_UNICODE) ?>;
+  var mapaTitulares = <?= json_encode($op['titularesPorTurma'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   var selTurma = document.getElementById('id_turma');
   var selCob   = document.getElementById('id_substituido');
-  if (!selTurma || !selCob) return;
+  var selTurno = document.getElementById('turno');
+  var ajudaT   = document.getElementById('ajuda-turno');
+  if (!selTurma || !selCob || !selTurno) return;
 
   var valorInicial = selCob.getAttribute('data-inicial') || '';
+  var turnoInicial = selTurno.getAttribute('data-inicial') || 'INTEGRAL';
+
+  function atualizarTurnos() {
+    var tid = selTurma.value;
+    var cid = selCob.value;
+    var lista = mapaTitulares[tid] || [];
+    var escolhido = null;
+    for (var i = 0; i < lista.length; i++) {
+      if (String(lista[i].ID) === String(cid)) { escolhido = lista[i]; break; }
+    }
+    var turnoTitular = escolhido ? escolhido.TURNO : 'INTEGRAL';
+    var preferido = turnoInicial || selTurno.value || turnoTitular;
+    turnoInicial = '';
+
+    selTurno.innerHTML = '';
+    if (turnoTitular === 'MANHA') {
+      selTurno.innerHTML = '<option value="MANHA" selected>Manhã</option>';
+      if (ajudaT) ajudaT.textContent = 'O professor substituído atua no período da Manhã.';
+    } else if (turnoTitular === 'TARDE') {
+      selTurno.innerHTML = '<option value="TARDE" selected>Tarde</option>';
+      if (ajudaT) ajudaT.textContent = 'O professor substituído atua no período da Tarde.';
+    } else {
+      [
+        ['INTEGRAL', 'Integral — Dia todo (1 substituto)'],
+        ['MANHA',    'Manhã (permite 2º substituto à Tarde)'],
+        ['TARDE',    'Tarde (permite 2º substituto na Manhã)']
+      ].forEach(function (par) {
+        var o = document.createElement('option');
+        o.value = par[0];
+        o.textContent = par[1];
+        if (par[0] === preferido) o.selected = true;
+        selTurno.appendChild(o);
+      });
+      if (ajudaT) ajudaT.textContent = 'Na falta de professor integral (ex.: creche), você pode usar 1 substituto Integral ou 2 substitutos (Manhã e Tarde).';
+    }
+  }
 
   function atualizarTitulares() {
     var tid = selTurma.value;
@@ -111,6 +162,7 @@ if (!defined('ABSPATH')) {
       op0.value = '';
       op0.textContent = 'Selecione a turma primeiro...';
       selCob.appendChild(op0);
+      atualizarTurnos();
       return;
     }
 
@@ -120,6 +172,7 @@ if (!defined('ABSPATH')) {
       opVazia.value = '';
       opVazia.textContent = 'Nenhum professor atribuído a esta turma (atribua em Atribuição primeiro)';
       selCob.appendChild(opVazia);
+      atualizarTurnos();
       return;
     }
 
@@ -131,15 +184,18 @@ if (!defined('ABSPATH')) {
     lista.forEach(function (t) {
       var o = document.createElement('option');
       o.value = String(t.ID);
-      o.textContent = t.NOME;
+      o.textContent = t.NOME + ' (' + t.TURNO_ROT + ')';
       if (String(t.ID) === String(atual)) o.selected = true;
       selCob.appendChild(o);
     });
+    atualizarTurnos();
   }
 
   selTurma.addEventListener('change', atualizarTitulares);
+  selCob.addEventListener('change', atualizarTurnos);
   if (window.jQuery) {
     $(document).on('select2:select select2:clear', '#id_turma', atualizarTitulares);
+    $(document).on('select2:select select2:clear', '#id_substituido', atualizarTurnos);
   }
   atualizarTitulares();
 })();

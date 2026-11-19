@@ -8,12 +8,19 @@ ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);
 $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
-/* Fonte do nome pelo tamanho: garante que nomes grandes caibam no
-   crachá sem cortar nenhuma letra. */
+$responsaveisFamilia = fam_responsaveis_aluno($id);
+
+/* Fonte do nome pelo tamanho: garante que nomes grandes caibam no crachá sem
+   cortar nenhuma letra. */
 $tamNome = mb_strlen($aluno['NOME']);
 $nomeFonte = $tamNome <= 28 ? '11pt'
            : ($tamNome <= 38 ? '10pt'
            : ($tamNome <= 48 ? '9pt' : '8pt'));
+$nomeFonteVerso = $tamNome <= 32 ? '8pt' : ($tamNome <= 48 ? '7pt' : '6pt');
+$fonteContato = function ($nome) {
+    $n = mb_strlen((string)$nome);
+    return $n <= 34 ? '7pt' : ($n <= 60 ? '6.3pt' : '5.5pt');
+};
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -27,9 +34,10 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       margin: 0;
       min-height: 100vh;
       padding: 24px;
-      display: grid;
-      place-items: center;
-      gap: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
       background: #f2f5f8;
       color: #203047;
       font: 14px Arial, sans-serif;
@@ -47,7 +55,10 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       cursor: pointer;
     }
     .acoes a { background: #526174; }
+    .orientacao { max-width: 620px; margin: 0; color: #526174; text-align: center; font-size: 13px; }
+    .cracha-par { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
     .cracha {
+      position: relative;
       width: 54mm;
       height: 86mm;
       overflow: hidden;
@@ -57,10 +68,17 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       background: linear-gradient(160deg, #fff 0%, #f5fbff 60%, #e8f6ef 100%);
       box-shadow: 0 8px 26px rgba(32, 48, 71, .18);
       text-align: center;
-      /* Coluna flex: o nome ocupa o espaço que sobra e as informações de
-         baixo (turma, período, ano) nunca saem do crachá. */
       display: flex;
       flex-direction: column;
+    }
+    .lado-label {
+      position: absolute;
+      top: 1.5mm;
+      right: 3mm;
+      color: #657487;
+      font-size: 5pt;
+      font-weight: 800;
+      letter-spacing: .8px;
     }
     .marca { color: #26734d; font-size: 9pt; font-weight: 800; letter-spacing: .5px; }
     .subtitulo {
@@ -89,9 +107,6 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       font-weight: 800;
     }
     .foto img { width: 100%; height: 100%; object-fit: cover; }
-    /* Nome: nunca corta. A fonte é ajustada no PHP pelo tamanho do nome
-       (ver $nomeFonte abaixo) e a quebra de palavra cobre sobrenomes
-       compridos sem espaço. */
     .nome {
       margin: 0 auto 1.5mm;
       line-height: 1.15;
@@ -100,7 +115,6 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       word-break: break-word;
       flex: 1 1 auto;
     }
-    /* margin-top:auto cola o bloco de baixo no rodapé do crachá. */
     .matricula { color: #26734d; font-size: 8pt; font-weight: 700; margin-top: auto; }
     .linha {
       margin-top: 2mm;
@@ -111,35 +125,124 @@ $nomeFonte = $tamNome <= 28 ? '11pt'
       word-break: break-word;
     }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
+
+    /* Verso: contatos de emergência, sem CPF nem informações médicas no
+       crachá impresso. A lista prioriza o contato principal cadastrado. */
+    .cracha-verso {
+      padding: 4mm;
+      text-align: left;
+      background: linear-gradient(155deg, #f5fbff 0%, #fff 50%, #e9f6ee 100%);
+    }
+    .verso-topo { padding-bottom: 1.5mm; border-bottom: 1px solid #cbd9d1; text-align: center; }
+    .verso-marca { color: #26734d; font-size: 7.5pt; font-weight: 800; letter-spacing: .3px; }
+    .verso-titulo { margin-top: .5mm; color: #405168; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .verso-unidade { margin-top: 1mm; color: #526174; font-size: 6pt; line-height: 1.15; overflow-wrap: anywhere; }
+    .verso-aluno { padding: 1.5mm 0; border-bottom: 1px solid #dce5e0; }
+    .verso-aluno-nome { color: #203047; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
+    .verso-matricula { margin-top: .8mm; color: #526174; font-size: 5.8pt; }
+    .contatos-titulo { margin: 1.5mm 0 1mm; color: #26734d; font-size: 6pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .lista-contatos { display: flex; flex-direction: column; gap: 1mm; }
+    .contato {
+      padding: 1.2mm 1.5mm;
+      border: 1px solid #dce5e0;
+      border-radius: 1.5mm;
+      background: rgba(255,255,255,.88);
+      overflow: hidden;
+    }
+    .contato-vinculo { color: #526174; font-size: 5.3pt; line-height: 1.05; text-transform: uppercase; letter-spacing: .2px; }
+    .contato-nome { margin-top: .4mm; color: #203047; font-weight: 700; line-height: 1.08; overflow-wrap: anywhere; }
+    .contato-telefone { margin-top: .4mm; color: #26734d; font-size: 6.2pt; font-weight: 700; line-height: 1.05; }
+    .sem-contato { padding: 2mm; border: 1px dashed #cbd9d1; border-radius: 1.5mm; color: #657487; font-size: 6pt; text-align: center; }
+    .verso-rodape { margin-top: auto; padding-top: 1mm; color: #657487; font-size: 5.3pt; line-height: 1.15; text-align: center; }
+
     @page { size: 54mm 86mm; margin: 0; }
     @media print {
-      body { display: block; min-height: 0; padding: 0; background: #fff; }
-      .acoes { display: none; }
-      .cracha { border: 0; border-radius: 0; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { display: block; width: 54mm; min-height: 0; padding: 0; background: #fff; }
+      .acoes, .orientacao, .lado-label { display: none !important; }
+      .cracha-par { display: block; }
+      .cracha {
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        page-break-after: always;
+        break-after: page;
+      }
+      .cracha:last-child { page-break-after: auto; break-after: auto; }
     }
   </style>
 </head>
 <body>
   <nav class="acoes" aria-label="Ações do crachá">
     <a href="<?= ch_url('alunos/view.php?id=' . (int)$id) ?>">Voltar à ficha</a>
-    <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+    <button type="button" onclick="window.print()">Imprimir frente e verso / salvar PDF</button>
   </nav>
-  <main class="cracha">
-    <div class="marca">PREFEITURA DE ANGATUBA</div>
-    <div class="subtitulo"><?= ch_h($aluno['UNIDADE']) ?></div>
-    <div class="foto">
-      <?php if ($fotoSrc): ?>
-        <img src="<?= ch_h($fotoSrc) ?>" alt="Foto de <?= ch_h($aluno['NOME']) ?>">
-      <?php else: ?>
-        <?= ch_h(ch_iniciais($aluno['NOME'])) ?>
-      <?php endif; ?>
-    </div>
-    <h1 class="nome" style="font-size: <?= $nomeFonte ?>"><?= ch_h($aluno['NOME']) ?></h1>
-    <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
-    <div class="linha">Turma <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
-      · Sala <?= ch_h($aluno['TURMA']) ?></div>
-    <div class="linha"><?= ch_h($aluno['PERIODO']) ?></div>
-    <div class="ano">Ano letivo <?= (int)$aluno['ANO_LETIVO'] ?></div>
-  </main>
+  <p class="orientacao">O crachá contém duas páginas: frente e verso. Para imprimir em cartão frente e verso, selecione impressão duplex e vire pela borda longa.</p>
+
+  <div class="cracha-par">
+    <main class="cracha">
+      <span class="lado-label">FRENTE</span>
+      <div class="marca">PREFEITURA DE ANGATUBA</div>
+      <div class="subtitulo"><?= ch_h($aluno['UNIDADE']) ?></div>
+      <div class="foto">
+        <?php if ($fotoSrc): ?>
+          <img src="<?= ch_h($fotoSrc) ?>" alt="Foto de <?= ch_h($aluno['NOME']) ?>">
+        <?php else: ?>
+          <?= ch_h(ch_iniciais($aluno['NOME'])) ?>
+        <?php endif; ?>
+      </div>
+      <h1 class="nome" style="font-size: <?= $nomeFonte ?>"><?= ch_h($aluno['NOME']) ?></h1>
+      <div class="matricula">Matrícula: <?= ch_h($aluno['MATRICULA']) ?></div>
+      <div class="linha">Turma <?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
+        · Sala <?= ch_h($aluno['TURMA']) ?></div>
+      <div class="linha"><?= ch_h($aluno['PERIODO']) ?></div>
+      <div class="ano">Ano letivo <?= (int)$aluno['ANO_LETIVO'] ?></div>
+    </main>
+
+    <main class="cracha cracha-verso">
+      <span class="lado-label">VERSO</span>
+      <div class="verso-topo">
+        <div class="verso-marca">PREFEITURA DE ANGATUBA</div>
+        <div class="verso-titulo">Contato em caso de necessidade</div>
+        <div class="verso-unidade"><?= ch_h($aluno['UNIDADE']) ?></div>
+      </div>
+      <div class="verso-aluno">
+        <div class="verso-aluno-nome" style="font-size: <?= $nomeFonteVerso ?>"><?= ch_h($aluno['NOME']) ?></div>
+        <div class="verso-matricula">Matrícula <?= ch_h($aluno['MATRICULA']) ?> · <?= ch_h($aluno['TURMA']) ?></div>
+      </div>
+      <div class="contatos-titulo">Responsáveis</div>
+      <div class="lista-contatos">
+        <?php if ($responsaveisFamilia): ?>
+          <?php foreach ($responsaveisFamilia as $resp): ?>
+            <div class="contato">
+              <div class="contato-vinculo">
+                <?= ch_h(fam_parentesco_rotulo($resp['PARENTESCO'], $resp['DESCRICAO_OUTRO'] ?? '')) ?>
+                <?= !empty($resp['CONTATO_PRINCIPAL']) ? ' · PRINCIPAL' : '' ?>
+              </div>
+              <div class="contato-nome" style="font-size: <?= $fonteContato($resp['NOME'] ?? '') ?>"><?= ch_h($resp['NOME']) ?></div>
+              <?php if (trim((string)($resp['TELEFONE'] ?? '')) !== ''): ?>
+                <div class="contato-telefone"><?= ch_h($resp['TELEFONE']) ?></div>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        <?php elseif (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+          <div class="contato">
+            <div class="contato-vinculo">Responsável</div>
+            <?php if (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== ''): ?>
+              <div class="contato-nome" style="font-size: <?= $fonteContato($aluno['RESPONSAVEL']) ?>"><?= ch_h($aluno['RESPONSAVEL']) ?></div>
+            <?php endif; ?>
+            <?php if (trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+              <div class="contato-telefone"><?= ch_h($aluno['TELEFONE']) ?></div>
+            <?php endif; ?>
+          </div>
+        <?php else: ?>
+          <div class="sem-contato">Contate a unidade escolar indicada acima.</div>
+        <?php endif; ?>
+      </div>
+      <div class="verso-rodape">Se encontrar este crachá, devolva à unidade escolar.</div>
+    </main>
+  </div>
 </body>
 </html>

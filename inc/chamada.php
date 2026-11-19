@@ -1370,3 +1370,8 @@ require_once(__DIR__ . '/transferencias.php');
    Mesmo arranjo: só define funções, não inclui este arquivo de volta.
    ============================================================================ */
 require_once(__DIR__ . '/equipe.php');
+
+/* ============================================================================
+   FAMÍLIA E RESPONSÁVEIS VINCULADOS POR CPF
+   ============================================================================ */
+require_once(__DIR__ . '/familia.php');

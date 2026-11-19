@@ -15,6 +15,7 @@ $d = ['ID_TURMA' => (int)($_GET['turma_id'] ?? 0), 'MATRICULA' => '', 'NOME' => 
       'ALERGIAS' => '', 'RESTRICOES_ALIMENTARES' => '', 'MEDICACAO' => '',
       'CONDICAO_ESPECIFICA' => '', 'OUTROS_ACOMPANHAMENTOS' => '',
       'PASSA_AEE' => 0, 'ID_PROFESSOR_AEE' => 0, 'AEE_OBSERVACOES' => '',
+      'FAMILIA' => fam_estrutura_vazia(),
       'TEM_FOTO' => false];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,11 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $d['TEM_FOTO'] = $fotoNova !== null;
     if (!$erros) {
         sqlsrv_begin_transaction(ch_db());
-        $ok = ch_exec(
+        $novoId = ch_insert_id(
             'INSERT INTO TB_ALUNOS (ID_TURMA, MATRICULA, CPF, NOME, NASCIMENTO, DATA_MATRICULA, RESPONSAVEL, TELEFONE, EMAIL,
                                     ALERGIAS, RESTRICOES_ALIMENTARES, MEDICACAO,
                                     CONDICAO_ESPECIFICA, OUTROS_ACOMPANHAMENTOS, PASSA_AEE, ID_PROFESSOR_AEE, AEE_OBSERVACOES,
                                     FOTO_DADOS, FOTO_MIME)
+             OUTPUT INSERTED.ID
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [$d['ID_TURMA'], $d['MATRICULA'], $d['CPF'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
              $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
@@ -45,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              $d['AEE_OBSERVACOES'] !== '' ? $d['AEE_OBSERVACOES'] : null,
              aluno_foto_parametro($fotoNova['dados'] ?? null), $fotoNova['mime'] ?? null]
         );
-        if ($ok) {
-            sqlsrv_commit(ch_db());
+        $okFam = $novoId > 0 && fam_salvar_vinculos_aluno($novoId, $d['FAMILIA'] ?? []);
+        if ($novoId > 0 && $okFam && sqlsrv_commit(ch_db())) {
             ch_flash('Aluno cadastrado com sucesso.');
             header('Location: index.php');
             exit;
