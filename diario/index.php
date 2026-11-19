@@ -95,7 +95,7 @@
       ?>
       <div class="card-escola">
         <div class="card-escola-titulo">
-          <i class="fas fa-list-ol"></i> <?= ch_h($nomeDisciplina) ?> — <?= $bimestre ?>º bimestre
+          <i class="fas fa-list-ol"></i> <?= ch_h($nomeDisciplina) ?> — notas por bimestre
           <span class="ms-2 small">Professores: <?= ch_h($responsavelDisciplina ?: 'não atribuído') ?></span>
           <span class="ms-auto badge bg-light text-dark"><?= count($alunos) ?> aluno(s)</span>
         </div>
@@ -120,13 +120,19 @@
               <input type="hidden" name="disciplina_id" value="<?= $disciplinaId ?>">
               <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
               <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                  <thead><tr><th>Aluno</th><th>Matrícula</th><th style="width: 180px">Nota (0 a 10)</th></tr></thead>
+                <table class="table table-striped table-hover align-middle diario-notas">
+                  <thead><tr>
+                    <th>Aluno</th><th>Matrícula</th>
+                    <?php for ($b = 1; $b <= 4; $b++): ?>
+                      <th class="text-center<?= $b === $bimestre ? ' bimestre-atual' : '' ?>"><?= $b ?>º bimestre</th>
+                    <?php endfor; ?>
+                  </tr></thead>
                   <tbody>
                     <?php foreach ($alunos as $aluno):
                       $alunoId = (int)$aluno['ID'];
                       $notaExibida = $notasPost[$alunoId] ?? $notaPorAluno[$alunoId] ?? '';
                       if (!is_scalar($notaExibida)) $notaExibida = '';
+                      $podeEditarLinha = $podeLancar && (int)$aluno['ID_TURMA'] === $turmaId && (int)$aluno['ATIVO'] === 1;
                     ?>
                       <tr>
                         <td><?= ch_h($aluno['NOME']) ?></td>
@@ -136,23 +142,27 @@
                             <span class="badge bg-secondary">Histórico</span>
                           <?php endif; ?>
                         </td>
-                        <td>
-                          <?php if ($podeLancar && (int)$aluno['ID_TURMA'] === $turmaId && (int)$aluno['ATIVO'] === 1): ?>
-                          <input type="number" class="form-control" name="notas[<?= $alunoId ?>]"
-                                 min="0" max="10" step="0.01" inputmode="decimal"
-                                 value="<?= ch_h($notaExibida) ?>"
-                                 aria-label="Nota de <?= ch_h($aluno['NOME']) ?>">
-                          <?php else: ?>
-                          <?= isset($notaPorAluno[$alunoId]) ? ch_h(number_format((float)$notaPorAluno[$alunoId], 2, ',', '.')) : '<span class="text-muted">—</span>' ?>
-                          <?php endif; ?>
-                        </td>
+                        <?php for ($b = 1; $b <= 4; $b++): ?>
+                          <td class="text-center<?= $b === $bimestre ? ' bimestre-atual' : '' ?>">
+                            <?php if ($b === $bimestre && $podeEditarLinha): ?>
+                              <input type="number" class="form-control nota-input" name="notas[<?= $alunoId ?>]"
+                                     min="0" max="10" step="0.01" inputmode="decimal"
+                                     value="<?= ch_h($notaExibida) ?>"
+                                     aria-label="Nota de <?= ch_h($aluno['NOME']) ?> — <?= $b ?>º bimestre">
+                            <?php elseif (isset($notasPorAlunoBimestre[$alunoId][$b])): ?>
+                              <?= ch_h(number_format((float)$notasPorAlunoBimestre[$alunoId][$b], 2, ',', '.')) ?>
+                            <?php else: ?>
+                              <span class="text-muted">—</span>
+                            <?php endif; ?>
+                          </td>
+                        <?php endfor; ?>
                       </tr>
                     <?php endforeach; ?>
                   </tbody>
                 </table>
               </div>
               <?php if ($podeLancar): ?>
-                <p class="form-text">Deixe sem nota quem ainda não foi avaliado. Apagar uma nota já lançada e salvar remove esse registro.</p>
+                <p class="form-text">A coluna destacada é o bimestre selecionado para lançamento; as demais são somente leitura. Deixe sem nota quem ainda não foi avaliado. Apagar uma nota já lançada e salvar remove esse registro.</p>
                 <button class="btn btn-success"><i class="fas fa-save"></i> Salvar notas</button>
               <?php endif; ?>
             </form>
@@ -170,11 +180,18 @@
 <?php endif; ?>
 
 <style>
+  .diario-notas .bimestre-atual { background: #e8f6ef; }
+  .diario-notas .nota-input { max-width: 110px; margin: 0 auto; text-align: center; }
   @media print {
     body { background: #fff !important; padding: 0 !important; }
     .content { margin: 0 !important; padding: 0 !important; }
       .sidebar, .toggle-btn, .footer-custom { display: none !important; }
-      .card-escola { break-inside: avoid; }
+      .card-escola { break-inside: auto; }
+      .diario-notas { font-size: 10pt; }
+      .diario-notas th, .diario-notas td { padding: 3pt 4pt !important; }
+      .diario-notas thead { display: table-header-group; }
+      .diario-notas tr { break-inside: avoid; }
+      .diario-notas .nota-input { border: 0; padding: 0; background: transparent; }
     }
 </style>
 

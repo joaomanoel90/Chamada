@@ -49,6 +49,7 @@ $disciplinaId = filter_var($parametros['disciplina_id'] ?? 0, FILTER_VALIDATE_IN
 $disciplinaId = $disciplinaId ?: 0;
 $alunos = [];
 $notaPorAluno = [];
+$notasPorAlunoBimestre = [];
 $notasPost = [];
 $erros = [];
 
@@ -155,13 +156,20 @@ if ($turmaId > 0) {
              ORDER BY a.NOME',
             [$turmaId, $turmaId]
         );
+        /* Todos os bimestres, para a tabela e a impressão do diário. */
         $notas = ch_rows(
-            'SELECT ID_ALUNO, NOTA FROM TB_NOTAS
-             WHERE ID_DISCIPLINA = ? AND BIMESTRE = ?',
-            [$disciplinaId, $bimestre]
+            'SELECT ID_ALUNO, BIMESTRE, NOTA FROM TB_NOTAS
+             WHERE ID_DISCIPLINA = ?',
+            [$disciplinaId]
         );
         foreach ($notas as $nota) {
-            $notaPorAluno[(int)$nota['ID_ALUNO']] = number_format((float)$nota['NOTA'], 2, '.', '');
+            $idA = (int)$nota['ID_ALUNO'];
+            $bim = (int)$nota['BIMESTRE'];
+            $formatada = number_format((float)$nota['NOTA'], 2, '.', '');
+            $notasPorAlunoBimestre[$idA][$bim] = $formatada;
+            if ($bim === $bimestre) {
+                $notaPorAluno[$idA] = $formatada;
+            }
         }
     }
 }
