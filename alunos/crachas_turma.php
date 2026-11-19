@@ -18,7 +18,8 @@ if (!$turma || !ch_pode_turma($turmaId)) {
 }
 
 $alunos = ch_rows(
-    'SELECT ID, NOME, MATRICULA,
+    'SELECT ID, NOME, MATRICULA, RESPONSAVEL, TELEFONE,
+            ALERGIAS, RESTRICOES_ALIMENTARES, MEDICACAO,
             CASE WHEN FOTO_DADOS IS NULL THEN 0 ELSE 1 END AS TEM_FOTO
      FROM TB_ALUNOS
      WHERE ID_TURMA = ? AND ATIVO = 1
@@ -26,6 +27,12 @@ $alunos = ch_rows(
     [$turmaId]
 );
 $folhas = array_chunk($alunos, 9);
+/* Fonte do nome do responsável no verso, pelo tamanho (igual ao crachá
+   individual em alunos/cracha.php). */
+$fonteContato = function ($nome) {
+    $n = mb_strlen((string)$nome);
+    return $n <= 34 ? '7pt' : ($n <= 60 ? '6.3pt' : '5.5pt');
+};
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -138,6 +145,39 @@ $folhas = array_chunk($alunos, 9);
       word-break: break-word;
     }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
+    /* Verso: só o que NÃO está na frente — saúde/alimentação e responsáveis,
+       sem repetir nome, matrícula, turma, unidade ou prefeitura. */
+    .cracha.verso {
+      padding: 4mm;
+      text-align: left;
+      background: linear-gradient(155deg, #f5fbff 0%, #fff 50%, #e9f6ee 100%);
+    }
+    .verso-secao-titulo { margin: 1.5mm 0 1mm; color: #26734d; font-size: 6pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .verso-secao-titulo:first-child { margin-top: 0; }
+    .lista-saude, .lista-contatos { display: flex; flex-direction: column; gap: 1mm; }
+    .item-saude {
+      padding: 1.2mm 1.5mm;
+      border: 1px solid #dce5e0;
+      border-left: 1.2mm solid #26734d;
+      border-radius: 1.5mm;
+      background: rgba(255,255,255,.88);
+      overflow: hidden;
+    }
+    .item-saude.alerta { border-left-color: #c0392b; }
+    .saude-rotulo { color: #526174; font-size: 5.3pt; line-height: 1.05; text-transform: uppercase; letter-spacing: .2px; }
+    .saude-texto { margin-top: .4mm; color: #203047; font-size: 5.8pt; line-height: 1.15; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .contato {
+      padding: 1.2mm 1.5mm;
+      border: 1px solid #dce5e0;
+      border-radius: 1.5mm;
+      background: rgba(255,255,255,.88);
+      overflow: hidden;
+    }
+    .contato-vinculo { color: #526174; font-size: 5.3pt; line-height: 1.05; text-transform: uppercase; letter-spacing: .2px; }
+    .contato-nome { margin-top: .4mm; color: #203047; font-weight: 700; line-height: 1.08; overflow-wrap: anywhere; }
+    .contato-telefone { margin-top: .4mm; color: #26734d; font-size: 6.2pt; font-weight: 700; line-height: 1.05; }
+    .sem-saude, .sem-contato { padding: 2mm; border: 1px dashed #cbd9d1; border-radius: 1.5mm; color: #657487; font-size: 6pt; text-align: center; }
+    .verso-rodape { margin-top: auto; padding-top: 1mm; color: #657487; font-size: 5.3pt; line-height: 1.15; text-align: center; }
     @page { size: A4 portrait; margin: 8mm; }
     @media print {
       body { padding: 0; background: #fff; }
@@ -170,7 +210,8 @@ $folhas = array_chunk($alunos, 9);
     <h1>Crachás — Turma <?= ch_h(ch_series_ensino()[$turma['SERIE'] ?? '']['rotulo'] ?? 'não classificada') ?>
       · Sala <?= ch_h($turma['NOME']) ?></h1>
     <p><?= ch_h($turma['UNIDADE']) ?> · <?= ch_h($turma['PERIODO']) ?> · Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></p>
-    <p><?= count($alunos) ?> aluno(s) ativo(s); até 9 crachás por folha A4.</p>
+    <p><?= count($alunos) ?> aluno(s) ativo(s); até 9 crachás por folha A4, frente e verso.</p>
+    <p>Para cartão frente e verso, imprima em duplex virando pela borda longa: cada folha de frentes é seguida pela folha de versos já espelhada.</p>
   </header>
 
   <?php if (!$alunos): ?>
@@ -204,6 +245,67 @@ $folhas = array_chunk($alunos, 9);
               · Sala <?= ch_h($turma['NOME']) ?></div>
             <div class="linha"><?= ch_h($turma['PERIODO']) ?></div>
             <div class="ano">Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></div>
+          </article>
+        <?php endforeach; ?>
+      </main>
+      <?php
+        /* Verso espelhado por linha (3 colunas): ao virar a folha pela borda
+           longa no duplex, cada verso cai atrás da sua frente. */
+        $folhaVerso = [];
+        foreach (array_chunk($folha, 3) as $linha) {
+            $folhaVerso = array_merge($folhaVerso, array_reverse($linha));
+        }
+      ?>
+      <main class="folha">
+        <?php foreach ($folhaVerso as $aluno): ?>
+          <?php
+            $responsaveisFamilia = fam_responsaveis_aluno($aluno['ID']);
+            $alertasSaude = eq_saude_alertas($aluno);
+          ?>
+          <article class="cracha verso">
+            <div class="verso-secao-titulo">Saúde e alimentação</div>
+            <div class="lista-saude">
+              <?php if ($alertasSaude): ?>
+                <?php foreach ($alertasSaude as $a): ?>
+                  <div class="item-saude<?= $a['campo'] === 'ALERGIAS' ? ' alerta' : '' ?>">
+                    <div class="saude-rotulo"><?= ch_h($a['rotulo']) ?></div>
+                    <div class="saude-texto"><?= ch_h($a['texto']) ?></div>
+                  </div>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <div class="sem-saude">Sem registros de saúde ou alimentação.</div>
+              <?php endif; ?>
+            </div>
+            <div class="verso-secao-titulo">Responsáveis</div>
+            <div class="lista-contatos">
+              <?php if ($responsaveisFamilia): ?>
+                <?php foreach ($responsaveisFamilia as $resp): ?>
+                  <div class="contato">
+                    <div class="contato-vinculo">
+                      <?= ch_h(fam_parentesco_rotulo($resp['PARENTESCO'], $resp['DESCRICAO_OUTRO'] ?? '')) ?>
+                      <?= !empty($resp['CONTATO_PRINCIPAL']) ? ' · PRINCIPAL' : '' ?>
+                    </div>
+                    <div class="contato-nome" style="font-size: <?= $fonteContato($resp['NOME'] ?? '') ?>"><?= ch_h($resp['NOME']) ?></div>
+                    <?php if (trim((string)($resp['TELEFONE'] ?? '')) !== ''): ?>
+                      <div class="contato-telefone"><?= ch_h($resp['TELEFONE']) ?></div>
+                    <?php endif; ?>
+                  </div>
+                <?php endforeach; ?>
+              <?php elseif (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+                <div class="contato">
+                  <div class="contato-vinculo">Responsável</div>
+                  <?php if (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== ''): ?>
+                    <div class="contato-nome" style="font-size: <?= $fonteContato($aluno['RESPONSAVEL']) ?>"><?= ch_h($aluno['RESPONSAVEL']) ?></div>
+                  <?php endif; ?>
+                  <?php if (trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+                    <div class="contato-telefone"><?= ch_h($aluno['TELEFONE']) ?></div>
+                  <?php endif; ?>
+                </div>
+              <?php else: ?>
+                <div class="sem-contato">Contate a unidade escolar.</div>
+              <?php endif; ?>
+            </div>
+            <div class="verso-rodape">Se encontrar este crachá, devolva à unidade escolar.</div>
           </article>
         <?php endforeach; ?>
       </main>
