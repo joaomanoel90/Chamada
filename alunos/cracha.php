@@ -16,7 +16,6 @@ $tamNome = mb_strlen($aluno['NOME']);
 $nomeFonte = $tamNome <= 28 ? '11pt'
            : ($tamNome <= 38 ? '10pt'
            : ($tamNome <= 48 ? '9pt' : '8pt'));
-$nomeFonteVerso = $tamNome <= 32 ? '8pt' : ($tamNome <= 48 ? '7pt' : '6pt');
 $fonteContato = function ($nome) {
     $n = mb_strlen((string)$nome);
     return $n <= 34 ? '7pt' : ($n <= 60 ? '6.3pt' : '5.5pt');
@@ -126,21 +125,30 @@ $fonteContato = function ($nome) {
     }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
 
-    /* Verso: contatos de emergência, sem CPF nem informações médicas no
-       crachá impresso. A lista prioriza o contato principal cadastrado. */
+    /* Verso: só o que NÃO está na frente — contatos de emergência e dados de
+       saúde/alimentação (alergias, restrições alimentares, medicação), sem
+       repetir nome, matrícula, turma, unidade ou prefeitura. A lista de
+       contatos prioriza o contato principal cadastrado. */
     .cracha-verso {
       padding: 4mm;
       text-align: left;
       background: linear-gradient(155deg, #f5fbff 0%, #fff 50%, #e9f6ee 100%);
     }
-    .verso-topo { padding-bottom: 1.5mm; border-bottom: 1px solid #cbd9d1; text-align: center; }
-    .verso-marca { color: #26734d; font-size: 7.5pt; font-weight: 800; letter-spacing: .3px; }
-    .verso-titulo { margin-top: .5mm; color: #405168; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-    .verso-unidade { margin-top: 1mm; color: #526174; font-size: 6pt; line-height: 1.15; overflow-wrap: anywhere; }
-    .verso-aluno { padding: 1.5mm 0; border-bottom: 1px solid #dce5e0; }
-    .verso-aluno-nome { color: #203047; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
-    .verso-matricula { margin-top: .8mm; color: #526174; font-size: 5.8pt; }
-    .contatos-titulo { margin: 1.5mm 0 1mm; color: #26734d; font-size: 6pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .verso-secao-titulo { margin: 1.5mm 0 1mm; color: #26734d; font-size: 6pt; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .verso-secao-titulo:first-child { margin-top: 0; }
+    .lista-saude { display: flex; flex-direction: column; gap: 1mm; }
+    .item-saude {
+      padding: 1.2mm 1.5mm;
+      border: 1px solid #dce5e0;
+      border-left: 1.2mm solid #26734d;
+      border-radius: 1.5mm;
+      background: rgba(255,255,255,.88);
+      overflow: hidden;
+    }
+    .item-saude.alerta { border-left-color: #c0392b; }
+    .saude-rotulo { color: #526174; font-size: 5.3pt; line-height: 1.05; text-transform: uppercase; letter-spacing: .2px; }
+    .saude-texto { margin-top: .4mm; color: #203047; font-size: 5.8pt; line-height: 1.15; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .sem-saude { padding: 2mm; border: 1px dashed #cbd9d1; border-radius: 1.5mm; color: #657487; font-size: 6pt; text-align: center; }
     .lista-contatos { display: flex; flex-direction: column; gap: 1mm; }
     .contato {
       padding: 1.2mm 1.5mm;
@@ -179,7 +187,7 @@ $fonteContato = function ($nome) {
     <a href="<?= ch_url('alunos/view.php?id=' . (int)$id) ?>">Voltar à ficha</a>
     <button type="button" onclick="window.print()">Imprimir frente e verso / salvar PDF</button>
   </nav>
-  <p class="orientacao">O crachá contém duas páginas: frente e verso. Para imprimir em cartão frente e verso, selecione impressão duplex e vire pela borda longa.</p>
+  <p class="orientacao">O crachá contém duas páginas: frente (identificação) e verso (saúde, alimentação e responsáveis). Para imprimir em cartão frente e verso, selecione impressão duplex e vire pela borda longa.</p>
 
   <div class="cracha-par">
     <main class="cracha">
@@ -203,16 +211,21 @@ $fonteContato = function ($nome) {
 
     <main class="cracha cracha-verso">
       <span class="lado-label">VERSO</span>
-      <div class="verso-topo">
-        <div class="verso-marca">PREFEITURA DE ANGATUBA</div>
-        <div class="verso-titulo">Contato em caso de necessidade</div>
-        <div class="verso-unidade"><?= ch_h($aluno['UNIDADE']) ?></div>
+      <div class="verso-secao-titulo">Saúde e alimentação</div>
+      <div class="lista-saude">
+        <?php $alertasSaude = eq_saude_alertas($aluno); ?>
+        <?php if ($alertasSaude): ?>
+          <?php foreach ($alertasSaude as $a): ?>
+            <div class="item-saude<?= $a['campo'] === 'ALERGIAS' ? ' alerta' : '' ?>">
+              <div class="saude-rotulo"><?= ch_h($a['rotulo']) ?></div>
+              <div class="saude-texto"><?= ch_h($a['texto']) ?></div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div class="sem-saude">Sem registros de saúde ou alimentação.</div>
+        <?php endif; ?>
       </div>
-      <div class="verso-aluno">
-        <div class="verso-aluno-nome" style="font-size: <?= $nomeFonteVerso ?>"><?= ch_h($aluno['NOME']) ?></div>
-        <div class="verso-matricula">Matrícula <?= ch_h($aluno['MATRICULA']) ?> · <?= ch_h($aluno['TURMA']) ?></div>
-      </div>
-      <div class="contatos-titulo">Responsáveis</div>
+      <div class="verso-secao-titulo">Responsáveis</div>
       <div class="lista-contatos">
         <?php if ($responsaveisFamilia): ?>
           <?php foreach ($responsaveisFamilia as $resp): ?>
@@ -238,7 +251,7 @@ $fonteContato = function ($nome) {
             <?php endif; ?>
           </div>
         <?php else: ?>
-          <div class="sem-contato">Contate a unidade escolar indicada acima.</div>
+          <div class="sem-contato">Contate a unidade escolar.</div>
         <?php endif; ?>
       </div>
       <div class="verso-rodape">Se encontrar este crachá, devolva à unidade escolar.</div>
