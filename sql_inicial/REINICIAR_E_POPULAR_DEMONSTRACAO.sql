@@ -191,7 +191,11 @@ VALUES
     (10,'FUND_6_B', 'EMEF2', N'A', N'ANO_6',       N'FUNDAMENTAL_6_9',     'TARDE',    11, 30, 1);
 
 DECLARE @Unidades TABLE (COD varchar(12) NOT NULL PRIMARY KEY, ID int NOT NULL);
-DECLARE @Periodos TABLE (COD varchar(12) NOT NULL PRIMARY KEY, ID int NOT NULL);
+DECLARE @Periodos TABLE (
+    COD varchar(12) NOT NULL PRIMARY KEY,
+    ID int NOT NULL,
+    TURNO nvarchar(10) NOT NULL
+);
 DECLARE @Usuarios TABLE (COD varchar(24) NOT NULL PRIMARY KEY, ID int NOT NULL);
 DECLARE @Turmas TABLE (
     ORDEM int NOT NULL,
@@ -294,7 +298,8 @@ BEGIN TRY
     UPDATE p SET p.ID = db.ID
     FROM @PeriodosPlano p
     INNER JOIN dbo.TB_PERIODOS db ON db.NOME = p.NOME;
-    INSERT INTO @Periodos (COD, ID) SELECT COD, ID FROM @PeriodosPlano;
+    INSERT INTO @Periodos (COD, ID, TURNO)
+    SELECT COD, ID, TURNO FROM @PeriodosPlano;
 
     /* Contas fictícias. A conta real ID=1 e sua senha/campos ficam intactos. */
     INSERT INTO dbo.TB_USUARIOS
