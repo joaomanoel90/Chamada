@@ -3,6 +3,7 @@ require_once(dirname(__DIR__) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 require_once(__DIR__ . '/fotos.php');
+require_once(__DIR__ . '/inclusao.php');
 ch_db();
 if (empty($_SESSION['usuarioId'])) {
     header('Location: ' . BASEURL . 'login.php');
@@ -20,6 +21,7 @@ if (!$turma || !ch_pode_turma($turmaId)) {
 $alunos = ch_rows(
     'SELECT ID, NOME, MATRICULA, RESPONSAVEL, TELEFONE,
             ALERGIAS, RESTRICOES_ALIMENTARES, MEDICACAO,
+            DEFICIENCIAS_INCLUSAO, SIMBOLO_TEA_INCLUSAO, AUTORIZA_MARCADOR_INCLUSAO,
             CASE WHEN FOTO_DADOS IS NULL THEN 0 ELSE 1 END AS TEM_FOTO
      FROM TB_ALUNOS
      WHERE ID_TURMA = ? AND ATIVO = 1
@@ -83,6 +85,7 @@ $fonteContato = function ($nome) {
       box-shadow: 0 4px 18px rgba(32, 48, 71, .12);
     }
     .cracha {
+      position: relative;
       width: 54mm;
       height: 86mm;
       overflow: hidden;
@@ -145,6 +148,28 @@ $fonteContato = function ($nome) {
       word-break: break-word;
     }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
+    .cracha-inclusao {
+      position: absolute;
+      z-index: 2;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 5mm;
+      display: flex;
+      overflow: hidden;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .cracha-inclusao-item { flex: 1 1 0; min-width: 0; display: grid; place-items: center; color: #fff; }
+    .cracha-inclusao-item svg { display: block; width: 3.5mm; height: 3.5mm; }
+    .cracha-inclusao-acesso { background: #1769aa; }
+    .cracha-inclusao-visual { background: #4357a7; }
+    .cracha-inclusao-auditiva { background: #21778f; }
+    .cracha-inclusao-geral { background: #70459b; }
+    .cracha-inclusao-girassol { background: #347344; color: #ffd74a; }
+    .cracha-inclusao-infinito, .cracha-inclusao-quebra-cabeca {
+      background: linear-gradient(90deg, #e44d5c, #ee9a3a, #e9d24a, #48a76a, #3989c9, #8053ae);
+    }
     /* Verso: só o que NÃO está na frente — saúde/alimentação e responsáveis,
        sem repetir nome, matrícula, turma, unidade ou prefeitura. */
     .cracha.verso {
@@ -211,7 +236,7 @@ $fonteContato = function ($nome) {
       · Sala <?= ch_h($turma['NOME']) ?></h1>
     <p><?= ch_h($turma['UNIDADE']) ?> · <?= ch_h($turma['PERIODO']) ?> · Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></p>
     <p><?= count($alunos) ?> aluno(s) ativo(s); até 9 crachás por folha A4, frente e verso.</p>
-    <p>Para cartão frente e verso, imprima em duplex virando pela borda longa: cada folha de frentes é seguida pela folha de versos já espelhada.</p>
+    <p>Para cartão frente e verso, imprima em duplex virando pela borda longa: cada folha de frentes é seguida pela folha de versos já espelhada. Os marcadores aparecem somente com autorização registrada.</p>
   </header>
 
   <?php if (!$alunos): ?>
@@ -222,6 +247,7 @@ $fonteContato = function ($nome) {
         <?php foreach ($folha as $aluno): ?>
           <?php
             $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'], $aluno['ID']);
+            $marcadoresInclusaoHtml = aluno_inclusao_html_marcadores($aluno);
             /* Fonte do nome pelo tamanho: garante que nomes grandes caibam
                no crachá sem cortar nenhuma letra. */
             $tamNome = mb_strlen($aluno['NOME']);
@@ -245,6 +271,7 @@ $fonteContato = function ($nome) {
               · Sala <?= ch_h($turma['NOME']) ?></div>
             <div class="linha"><?= ch_h($turma['PERIODO']) ?></div>
             <div class="ano">Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></div>
+            <?= $marcadoresInclusaoHtml ?>
           </article>
         <?php endforeach; ?>
       </main>

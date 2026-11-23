@@ -22,8 +22,9 @@ se o seu banco tiver outro nome.
 | 14 | `ATUALIZAR_SEGURANCA_LOGIN.sql` | **Obrigatório antes de publicar o novo código de autenticação em instalações existentes.** Amplia a coluna de senha e cria a tabela persistente de limitação de tentativas. |
 | 15 | `ATUALIZAR_HISTORICO_PROMOCOES.sql` | **Instalações existentes.** Cria o histórico de versões de observações e relatórios e habilita a promoção de alunos com preservação da linha do tempo. Rode depois de `ATUALIZAR_TRANSFERENCIAS.sql`. |
 | 16 | `ATUALIZAR_PROGRESSAO_ESCOLAR.sql` | **Instalações existentes.** Adiciona as séries estruturadas e o resultado de promoção/retenção; rode depois dos scripts de transferência e histórico. |
+| 17 | `ATUALIZAR_INCLUSAO_CRACHA.sql` | **Instalações existentes.** Adiciona as categorias de inclusão, a preferência do símbolo para TEA e autorização (desmarcada por padrão) para os marcadores nos crachás. |
 
-Os scripts 1, 2, 4 e 6 a 16 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 17 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -52,6 +53,9 @@ Os scripts 1, 2, 4 e 6 a 16 podem ser executados mais de uma vez sem duplicar na
 > `ATUALIZAR_SEGURANCA_LOGIN.sql`. Ele preserva as senhas existentes; hashes MD5
 > são substituídos após o primeiro login bem-sucedido.
 > Para usar a progressão escolar, execute também `ATUALIZAR_PROGRESSAO_ESCOLAR.sql`.
+> Para habilitar as categorias de inclusão e os marcadores opcionais na frente
+> do crachá, execute `ATUALIZAR_INCLUSAO_CRACHA.sql`. A autorização começa
+> desmarcada; sem autorização do responsável, nenhum símbolo ou faixa é impresso.
 > Em **Turmas → Editar**, classifique as turmas que já existem; o sistema não
 > tenta adivinhar a série pelo nome. Promoções e transferências exigem séries
 > classificadas. Transferências pendentes antigas sem resultado precisam ser

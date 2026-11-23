@@ -18,6 +18,8 @@ da rede municipal (creches e escolas).
   que está cobrindo; fora do prazo não vê a turma
 - **Saúde do aluno**: alergias, restrições alimentares e medicação, com alerta na
   tela de chamada e no relatório impresso
+- **Inclusão**: categorias na ficha interna e marcadores opcionais na frente dos
+  crachás individual e da turma, somente com autorização do responsável
 - **Foto do aluno e crachá**: envie uma foto no cadastro e imprima o crachá da
   ficha do aluno ou salve em PDF
 - **CPF obrigatório e único do aluno**: o sistema valida os dígitos verificadores
@@ -66,6 +68,11 @@ Para o CPF, execute `sql_inicial/ATUALIZAR_CPF_ALUNO.sql` em instalações
 existentes. Não preencha CPFs antigos com números inventados.
 Para o Diário de Classe, execute `sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql` nas
 instalações existentes.
+Antes de publicar em uma instalação existente, execute
+`sql_inicial/ATUALIZAR_INCLUSAO_CRACHA.sql`. A autorização do responsável fica
+negada por padrão. As categorias não são impressas: o crachá mostra somente os
+símbolos e a faixa colorida autorizados. O mapeamento de pictogramas é uma
+convenção prática deste projeto, não uma classificação oficial universal.
 Para habilitar os níveis de Secretaria de Educação e Secretário Escolar,
 execute `sql_inicial/ATUALIZAR_NIVEIS_ACESSO.sql` nas instalações existentes.
 Para habilitar o histórico de alterações e a promoção de alunos em instalações

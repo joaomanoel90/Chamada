@@ -466,6 +466,14 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 					'TB_ALUNOS.PASSA_AEE', 'TB_ALUNOS.ID_PROFESSOR_AEE', 'TB_ALUNOS.AEE_OBSERVACOES'),
 				'objs'   => array('FK_ALUNOS_PROF_AEE', 'CK_ALUNOS_PROF_AEE', 'IX_ALUNOS_PROF_AEE'),
 			),
+
+			array(
+				'nome'   => 'Necessidades de inclusão e autorização do marcador nos crachás',
+				'script' => 'sql_inicial/ATUALIZAR_INCLUSAO_CRACHA.sql',
+				'cols'   => array('TB_ALUNOS.DEFICIENCIAS_INCLUSAO', 'TB_ALUNOS.SIMBOLO_TEA_INCLUSAO',
+					'TB_ALUNOS.AUTORIZA_MARCADOR_INCLUSAO'),
+				'objs'   => array('CK_ALUNOS_SIMBOLO_TEA_INCLUSAO', 'CK_ALUNOS_DEFICIENCIAS_INCLUSAO_JSON'),
+			),
 			array(
 				'nome'   => 'Categoria de Professor AEE e observações compartilhadas/restritas do AEE',
 				'script' => 'sql_inicial/ATUALIZAR_PROFESSOR_E_OBS_AEE.sql',

@@ -280,6 +280,67 @@ if (!defined('ABSPATH')) {
   })();
   </script>
 
+  <?php $inclusaoSelecionada = aluno_inclusao_codigos($d['DEFICIENCIAS_INCLUSAO'] ?? []); ?>
+  <div class="card-escola mt-4">
+    <div class="card-escola-titulo"><i class="fas fa-universal-access"></i> Necessidades de inclusão e crachá</div>
+    <div class="card-escola-corpo">
+      <p class="text-muted mb-3">As categorias ficam na ficha interna. O crachá exibe apenas os símbolos autorizados, nunca o nome da condição ou o diagnóstico.</p>
+      <fieldset class="border rounded-3 p-3">
+        <legend class="float-none w-auto px-2 fs-6 fw-bold mb-1">Necessidades de inclusão</legend>
+        <div class="row g-2">
+          <?php foreach (aluno_inclusao_opcoes() as $codigoInclusao => $rotuloInclusao): ?>
+            <div class="col-sm-6 col-lg-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="deficiencias_inclusao[]"
+                       id="inclusao-<?= ch_h(strtolower($codigoInclusao)) ?>" value="<?= ch_h($codigoInclusao) ?>"
+                       <?= in_array($codigoInclusao, $inclusaoSelecionada, true) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="inclusao-<?= ch_h(strtolower($codigoInclusao)) ?>"><?= ch_h($rotuloInclusao) ?></label>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </fieldset>
+      <div class="row g-3 mt-1">
+        <div class="form-group col-md-6" id="bloco-simbolo-tea" <?= in_array('TEA', $inclusaoSelecionada, true) ? '' : 'hidden' ?>>
+          <label class="fw-bold" for="sel-simbolo-tea"><i class="fas fa-infinity text-primary"></i> Símbolo para TEA / autismo</label>
+          <select class="form-select" id="sel-simbolo-tea" name="simbolo_tea_inclusao"
+                  <?= in_array('TEA', $inclusaoSelecionada, true) ? '' : 'disabled' ?>>
+            <option value="INFINITO" <?= ($d['SIMBOLO_TEA_INCLUSAO'] ?? 'INFINITO') !== 'QUEBRA_CABECA' ? 'selected' : '' ?>>Infinito colorido — recomendado</option>
+            <option value="QUEBRA_CABECA" <?= ($d['SIMBOLO_TEA_INCLUSAO'] ?? '') === 'QUEBRA_CABECA' ? 'selected' : '' ?>>Peça de quebra-cabeça — somente por preferência da família</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="chk-autoriza-marcador-inclusao"
+                   name="autoriza_marcador_inclusao" value="1"
+                   <?= !empty($d['AUTORIZA_MARCADOR_INCLUSAO']) ? 'checked' : '' ?>>
+            <label class="form-check-label fw-bold" for="chk-autoriza-marcador-inclusao">Autorização do responsável para exibir o marcador na frente do crachá</label>
+            <small class="text-muted d-block">Sem autorização, a impressão continua disponível, mas nenhum símbolo ou faixa é exibido.</small>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-info py-2 small mt-3 mb-0">
+        <strong>Convenção visual deste sistema:</strong> física/motora → acesso; visual e auditiva → pictogramas correspondentes; intelectual/desenvolvimento, múltipla ou outra → ícone genérico; condição não aparente → girassol; neurodivergência, TEA e TDAH → infinito colorido, salvo preferência familiar pelo quebra-cabeça para TEA. É um mapeamento prático, não uma classificação oficial universal.
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var tea = document.querySelector('input[name="deficiencias_inclusao[]"][value="TEA"]');
+    var bloco = document.getElementById('bloco-simbolo-tea');
+    var simbolo = document.getElementById('sel-simbolo-tea');
+    if (!tea || !bloco || !simbolo) return;
+    function sincronizarSimboloTea() {
+      var ativo = tea.checked;
+      bloco.hidden = !ativo;
+      simbolo.disabled = !ativo;
+      if (!ativo) simbolo.value = 'INFINITO';
+    }
+    tea.addEventListener('change', sincronizarSimboloTea);
+    sincronizarSimboloTea();
+  })();
+  </script>
+
   <div class="card-escola mt-4">
     <div class="card-escola-titulo"><i class="fas fa-heart-pulse"></i> Saúde e alimentação</div>
     <div class="card-escola-corpo">

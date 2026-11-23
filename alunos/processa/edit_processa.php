@@ -13,6 +13,8 @@ $turmasDisponiveis = aluno_turmas_disponiveis();
 $professoresAee = ch_professores_aee_opcoes((int)($aluno['ID_PROFESSOR_AEE'] ?? 0));
 $d = $aluno;
 $d['EMAIL'] = (string)($aluno['EMAIL'] ?? '');
+$d['SIMBOLO_TEA_INCLUSAO'] = strtoupper(trim((string)($aluno['SIMBOLO_TEA_INCLUSAO'] ?? 'INFINITO'))) ?: 'INFINITO';
+$d['AUTORIZA_MARCADOR_INCLUSAO'] = (int)($aluno['AUTORIZA_MARCADOR_INCLUSAO'] ?? 0);
 $d['TEM_FOTO'] = !empty($aluno['TEM_FOTO']);
 $d['FAMILIA'] = fam_carregar_para_form($id);
 
@@ -42,7 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     DATA_MATRICULA = ?, RESPONSAVEL = ?, TELEFONE = ?, EMAIL = ?,
                     ALERGIAS = ?, RESTRICOES_ALIMENTARES = ?, MEDICACAO = ?,
                     CONDICAO_ESPECIFICA = ?, OUTROS_ACOMPANHAMENTOS = ?,
-                    PASSA_AEE = ?, ID_PROFESSOR_AEE = ?, AEE_OBSERVACOES = ?' . $sqlFoto . ' WHERE ID = ?',
+                    PASSA_AEE = ?, ID_PROFESSOR_AEE = ?, AEE_OBSERVACOES = ?,
+                    DEFICIENCIAS_INCLUSAO = ?, SIMBOLO_TEA_INCLUSAO = ?, AUTORIZA_MARCADOR_INCLUSAO = ?' . $sqlFoto . ' WHERE ID = ?',
             array_merge([$d['MATRICULA'], $d['CPF'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
              $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
              $d['ALERGIAS'] !== '' ? $d['ALERGIAS'] : null,
@@ -52,7 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              $d['OUTROS_ACOMPANHAMENTOS'] !== '' ? $d['OUTROS_ACOMPANHAMENTOS'] : null,
              (int)$d['PASSA_AEE'],
              (int)$d['ID_PROFESSOR_AEE'] > 0 ? (int)$d['ID_PROFESSOR_AEE'] : null,
-             $d['AEE_OBSERVACOES'] !== '' ? $d['AEE_OBSERVACOES'] : null], $paramsFoto, [$id])
+             $d['AEE_OBSERVACOES'] !== '' ? $d['AEE_OBSERVACOES'] : null,
+             aluno_inclusao_json($d['DEFICIENCIAS_INCLUSAO']), $d['SIMBOLO_TEA_INCLUSAO'],
+             $d['AUTORIZA_MARCADOR_INCLUSAO']], $paramsFoto, [$id])
         );
         $okFam = $ok && fam_salvar_vinculos_aluno($id, $d['FAMILIA'] ?? []);
         if ($ok && $okFam && sqlsrv_commit(ch_db())) {

@@ -214,6 +214,34 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
 </div>
 <?php endif; ?>
 
+<?php $categoriasInclusao = aluno_inclusao_codigos($aluno['DEFICIENCIAS_INCLUSAO'] ?? []); ?>
+<?php if ($categoriasInclusao): ?>
+<div class="row g-3 mt-1">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h5 class="mb-0"><i class="fas fa-universal-access text-primary"></i> Necessidades de inclusão</h5>
+          <span class="badge bg-light text-secondary border"><i class="fas fa-lock me-1"></i> Uso interno na ficha</span>
+        </div>
+        <ul class="mb-2">
+          <?php $opcoesInclusao = aluno_inclusao_opcoes(); ?>
+          <?php foreach ($categoriasInclusao as $codigoInclusao): ?>
+            <?php if (isset($opcoesInclusao[$codigoInclusao])): ?>
+              <li><?= ch_h($opcoesInclusao[$codigoInclusao]) ?></li>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </ul>
+        <div class="small text-muted">Marcador na frente do crachá: <?= (int)($aluno['AUTORIZA_MARCADOR_INCLUSAO'] ?? 0) === 1 ? 'autorizado' : 'não autorizado' ?></div>
+        <?php if (in_array('TEA', $categoriasInclusao, true)): ?>
+          <div class="small text-muted">Símbolo escolhido para TEA: <?= ($aluno['SIMBOLO_TEA_INCLUSAO'] ?? 'INFINITO') === 'QUEBRA_CABECA' ? 'quebra-cabeça' : 'infinito colorido' ?></div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if (ch_tem_acompanhamento_especial($aluno)): ?>
 <div class="row g-3 mt-1">
   <div class="col-12">

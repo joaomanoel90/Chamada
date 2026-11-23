@@ -16,7 +16,8 @@ $d = ['ID_TURMA' => (int)($_GET['turma_id'] ?? 0), 'MATRICULA' => '', 'NOME' => 
       'CONDICAO_ESPECIFICA' => '', 'OUTROS_ACOMPANHAMENTOS' => '',
       'PASSA_AEE' => 0, 'ID_PROFESSOR_AEE' => 0, 'AEE_OBSERVACOES' => '',
       'FAMILIA' => fam_estrutura_vazia(),
-      'TEM_FOTO' => false];
+      'DEFICIENCIAS_INCLUSAO' => [], 'SIMBOLO_TEA_INCLUSAO' => 'INFINITO',
+      'AUTORIZA_MARCADOR_INCLUSAO' => 0, 'TEM_FOTO' => false];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -32,9 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'INSERT INTO TB_ALUNOS (ID_TURMA, MATRICULA, CPF, NOME, NASCIMENTO, DATA_MATRICULA, RESPONSAVEL, TELEFONE, EMAIL,
                                     ALERGIAS, RESTRICOES_ALIMENTARES, MEDICACAO,
                                     CONDICAO_ESPECIFICA, OUTROS_ACOMPANHAMENTOS, PASSA_AEE, ID_PROFESSOR_AEE, AEE_OBSERVACOES,
-                                    FOTO_DADOS, FOTO_MIME)
+                                    FOTO_DADOS, FOTO_MIME, DEFICIENCIAS_INCLUSAO, SIMBOLO_TEA_INCLUSAO, AUTORIZA_MARCADOR_INCLUSAO)
              OUTPUT INSERTED.ID
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [$d['ID_TURMA'], $d['MATRICULA'], $d['CPF'], $d['NOME'], $d['NASCIMENTO'], $d['DATA_MATRICULA'],
              $d['RESPONSAVEL'], $d['TELEFONE'], $d['EMAIL'] !== '' ? $d['EMAIL'] : null,
              $d['ALERGIAS'] !== '' ? $d['ALERGIAS'] : null,
@@ -45,7 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              (int)$d['PASSA_AEE'],
              (int)$d['ID_PROFESSOR_AEE'] > 0 ? (int)$d['ID_PROFESSOR_AEE'] : null,
              $d['AEE_OBSERVACOES'] !== '' ? $d['AEE_OBSERVACOES'] : null,
-             aluno_foto_parametro($fotoNova['dados'] ?? null), $fotoNova['mime'] ?? null]
+             aluno_foto_parametro($fotoNova['dados'] ?? null), $fotoNova['mime'] ?? null,
+             aluno_inclusao_json($d['DEFICIENCIAS_INCLUSAO']), $d['SIMBOLO_TEA_INCLUSAO'],
+             $d['AUTORIZA_MARCADOR_INCLUSAO']]
         );
         $okFam = $novoId > 0 && fam_salvar_vinculos_aluno($novoId, $d['FAMILIA'] ?? []);
         if ($novoId > 0 && $okFam && sqlsrv_commit(ch_db())) {

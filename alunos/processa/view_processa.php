@@ -3,6 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 require_once(ABSPATH . 'alunos/fotos.php');
+require_once(ABSPATH . 'alunos/inclusao.php');
 ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);

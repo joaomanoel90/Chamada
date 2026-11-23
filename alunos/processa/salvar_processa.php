@@ -3,6 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 require_once(ABSPATH . 'alunos/fotos.php');
+require_once(ABSPATH . 'alunos/inclusao.php');
 ch_db();
 /* $turmaFixa > 0 = edição: a turma NÃO vem do formulário. Trocar o aluno de
    turma/escola é a transferência (transferencias/), que tem duas etapas, data
@@ -55,7 +56,16 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         'RESPONSAVEL'    => strip_tags(trim($post['responsavel'] ?? '')),
         'TELEFONE'       => strip_tags(trim($post['telefone'] ?? '')),
         'EMAIL'          => trim($post['email'] ?? ''),
+        'DEFICIENCIAS_INCLUSAO' => aluno_inclusao_codigos($post['deficiencias_inclusao'] ?? []),
+        'SIMBOLO_TEA_INCLUSAO' => null,
+        'AUTORIZA_MARCADOR_INCLUSAO' => !empty($post['autoriza_marcador_inclusao']) ? 1 : 0,
     ];
+    if (in_array('TEA', $d['DEFICIENCIAS_INCLUSAO'], true)) {
+        $simboloTea = strtoupper(trim(strip_tags((string)($post['simbolo_tea_inclusao'] ?? 'INFINITO'))));
+        $d['SIMBOLO_TEA_INCLUSAO'] = in_array($simboloTea, ['INFINITO', 'QUEBRA_CABECA'], true)
+            ? $simboloTea
+            : 'INFINITO';
+    }
 
     /* Saúde: texto livre, como a família ou o laudo informou. Guardamos em
        branco (NULL) quando não há nada, para a tela só alertar quem precisa. */

@@ -3,12 +3,14 @@ require_once(dirname(__DIR__) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 require_once(__DIR__ . '/fotos.php');
+require_once(__DIR__ . '/inclusao.php');
 ch_db();
 
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);
 $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
 $responsaveisFamilia = fam_responsaveis_aluno($id);
+$marcadoresInclusaoHtml = aluno_inclusao_html_marcadores($aluno);
 
 /* Fonte do nome pelo tamanho: garante que nomes grandes caibam no crachá sem
    cortar nenhuma letra. */
@@ -124,6 +126,28 @@ $fonteContato = function ($nome) {
       word-break: break-word;
     }
     .ano { margin-top: 2mm; color: #657487; font-size: 7pt; }
+    .cracha-inclusao {
+      position: absolute;
+      z-index: 2;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 5mm;
+      display: flex;
+      overflow: hidden;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .cracha-inclusao-item { flex: 1 1 0; min-width: 0; display: grid; place-items: center; color: #fff; }
+    .cracha-inclusao-item svg { display: block; width: 3.5mm; height: 3.5mm; }
+    .cracha-inclusao-acesso { background: #1769aa; }
+    .cracha-inclusao-visual { background: #4357a7; }
+    .cracha-inclusao-auditiva { background: #21778f; }
+    .cracha-inclusao-geral { background: #70459b; }
+    .cracha-inclusao-girassol { background: #347344; color: #ffd74a; }
+    .cracha-inclusao-infinito, .cracha-inclusao-quebra-cabeca {
+      background: linear-gradient(90deg, #e44d5c, #ee9a3a, #e9d24a, #48a76a, #3989c9, #8053ae);
+    }
 
     /* Verso: só o que NÃO está na frente — contatos de emergência e dados de
        saúde/alimentação (alergias, restrições alimentares, medicação), sem
@@ -207,6 +231,7 @@ $fonteContato = function ($nome) {
         · Sala <?= ch_h($aluno['TURMA']) ?></div>
       <div class="linha"><?= ch_h($aluno['PERIODO']) ?></div>
       <div class="ano">Ano letivo <?= (int)$aluno['ANO_LETIVO'] ?></div>
+      <?= $marcadoresInclusaoHtml ?>
     </main>
 
     <main class="cracha cracha-verso">
