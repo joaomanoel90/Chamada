@@ -475,6 +475,12 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'objs'   => array('CK_ALUNOS_SIMBOLO_TEA_INCLUSAO', 'CK_ALUNOS_DEFICIENCIAS_INCLUSAO_JSON'),
 			),
 			array(
+				'nome'   => 'Gestão e Histórico Anual de Atendimento do AEE',
+				'script' => 'sql_inicial/ATUALIZAR_GESTAO_AEE.sql',
+				'cols'   => array('TB_ALUNO_AEE.ID_ALUNO', 'TB_ALUNO_AEE.ANO_LETIVO', 'TB_ALUNO_AEE.ID_PROFESSOR_AEE'),
+				'objs'   => array('PK_TB_ALUNO_AEE', 'UQ_ALUNOAEE_ALUNO_ANO'),
+			),
+			array(
 				'nome'   => 'Categoria de Professor AEE e observações compartilhadas/restritas do AEE',
 				'script' => 'sql_inicial/ATUALIZAR_PROFESSOR_E_OBS_AEE.sql',
 				'cols'   => array('TB_OBSERVACOES.RESTRITA_AEE', 'TB_HISTORICO_OBSERVACOES.RESTRITA_AEE'),

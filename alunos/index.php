@@ -54,7 +54,7 @@
       <tr>
         <td><?= ch_h($row['MATRICULA']) ?></td>
         <td>
-          <?= ch_h($row['NOME']) ?>
+          <a href="view.php?id=<?= (int)$row['ID'] ?>" class="text-decoration-none fw-bold text-dark"><?= ch_h($row['NOME']) ?></a>
           <?php if (eq_tem_saude($row)): ?>
             <i class="fas fa-heart-pulse text-<?= eq_tem_alergia($row) ? 'danger' : 'warning' ?>"
                title="<?= ch_h(eq_saude_resumo($row)) ?>"></i>

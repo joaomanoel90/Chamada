@@ -264,7 +264,7 @@ function tr_promocoes_aluno($idAluno)
                    CONVERT(varchar(16), p.REGISTRADA_EM, 120) AS REGISTRADA_EM,
                    tor.NOME AS TURMA_ORIGEM, tor.SERIE AS SERIE_ORIGEM, tor.ANO_LETIVO AS ANO_ORIGEM,
                    tde.NOME AS TURMA_DESTINO, tde.SERIE AS SERIE_DESTINO, tde.ANO_LETIVO AS ANO_DESTINO,
-                   u.NOME AS UNIDADE, us.NOME AS REGISTRADA_POR
+                   u.unidade AS UNIDADE, us.NOME AS REGISTRADA_POR
             FROM TB_PROMOCOES p
             INNER JOIN TB_TURMAS tor ON tor.ID = p.ID_TURMA_ORIGEM
             INNER JOIN TB_TURMAS tde ON tde.ID = p.ID_TURMA_DESTINO

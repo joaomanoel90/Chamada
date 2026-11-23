@@ -214,6 +214,9 @@ function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros)
             $fam[$cod]['CPF'] = ch_cpf_mask($cpfLimpo);
         }
 
+        if ($tel === '') {
+            $erros[] = "Informe o telefone de contato de {$rotulo}.";
+        }
         if ($nome === '') {
             $erros[] = "Informe o nome completo de {$rotulo}.";
         }
@@ -332,4 +335,32 @@ function fam_salvar_vinculos_aluno($idAluno, $fam)
         "DELETE FROM TB_ALUNO_RESPONSAVEIS WHERE ID_ALUNO = ? AND PARENTESCO NOT IN ({$ph})",
         array_merge([$idAluno], $parentescosAtivos)
     );
+}
+
+
+/**
+ * Gera botão/link direto para conversa no WhatsApp a partir de um telefone.
+ */
+function fam_whatsapp_botao($telefone, $mensagem = '', $rotulo = 'WhatsApp')
+{
+    $d = preg_replace('/\D/', '', (string)$telefone);
+    if (strlen($d) < 10 || strlen($d) > 13) {
+        return '';
+    }
+    if (strlen($d) === 10 || strlen($d) === 11) {
+        $d = '55' . $d;
+    }
+    $url = 'https://wa.me/' . $d;
+    if ($mensagem !== '') {
+        $url .= '?text=' . rawurlencode($mensagem);
+    }
+    $textoRotulo = $rotulo !== '' ? ' ' . ch_h($rotulo) : '';
+    return '<a href="' . ch_h($url) . '" target="_blank" rel="noopener noreferrer" '
+        . 'class="btn btn-sm btn-outline-success py-0 px-2 ms-1 align-baseline text-decoration-none" '
+        . 'title="Conversar no WhatsApp"><i class="fab fa-whatsapp"></i>' . $textoRotulo . '</a>';
+}
+
+function ch_whatsapp_link($telefone, $mensagem = '', $rotulo = 'WhatsApp')
+{
+    return fam_whatsapp_botao($telefone, $mensagem, $rotulo);
 }

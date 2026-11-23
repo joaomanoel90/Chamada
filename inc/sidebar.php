@@ -33,6 +33,7 @@ $ch_transf_aguardando = ch_gestao_alunos() ? tr_pendentes_recebidas() : 0;
 
 $ch_links_cadastros = [
     ['alunos',   'Alunos',   'fas fa-child-reaching', 'alunos/index.php',   true],
+    ['aee',      'Atendimento AEE', 'fas fa-hands-holding-child', 'aee/index.php', ch_gestao_alunos() || ch_professor()],
     ['familias', 'Famílias / Responsáveis', 'fas fa-people-roof', 'familias/index.php', true],
     ['transferencias', 'Transferências', 'fas fa-right-left', 'transferencias/index.php', ch_gestao_alunos(), $ch_transf_aguardando],
     ['turmas',   'Turmas',   'fas fa-children',       'turmas/index.php',   ch_gestao_alunos()],

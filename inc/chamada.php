@@ -1199,7 +1199,8 @@ function ch_tem_acompanhamento_especial($aluno)
     if (!$aluno) return false;
     return trim((string)($aluno['CONDICAO_ESPECIFICA'] ?? '')) !== ''
         || trim((string)($aluno['OUTROS_ACOMPANHAMENTOS'] ?? '')) !== ''
-        || (int)($aluno['PASSA_AEE'] ?? 0) === 1;
+        || (int)($aluno['PASSA_AEE'] ?? 0) === 1
+        || (!empty($aluno['DEFICIENCIAS_INCLUSAO']) && $aluno['DEFICIENCIAS_INCLUSAO'] !== '[]');
 }
 
 /** Lista de professores ativos cadastrados na categoria AEE. */
@@ -1377,3 +1378,13 @@ require_once(__DIR__ . '/equipe.php');
    FAMÍLIA E RESPONSÁVEIS VINCULADOS POR CPF
    ============================================================================ */
 require_once(__DIR__ . '/familia.php');
+
+/* ============================================================================
+   ATENDIMENTO EDUCACIONAL ESPECIALIZADO (AEE)
+   ============================================================================ */
+require_once(__DIR__ . '/aee.php');
+
+/* ============================================================================
+   INCLUSÃO E NECESSIDADES ESPECIAIS (CRACHÁS E CATEGORIAS)
+   ============================================================================ */
+require_once(ABSPATH . 'alunos/inclusao.php');

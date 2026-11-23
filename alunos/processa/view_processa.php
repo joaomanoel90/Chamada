@@ -62,3 +62,7 @@ $frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;
 /* Família / Responsáveis vinculados por CPF e irmãos na rede. */
 $responsaveisFamilia = fam_responsaveis_aluno($id);
 $irmaosRede = fam_irmaos_aluno($id);
+
+/* Atendimento Educacional Especializado (AEE) e histórico por ano letivo */
+$historicoAee = aee_historico_aluno($id);
+$atendimentoAeeAtual = aee_atendimento_aluno($id, (int)$aluno['ANO_LETIVO']);

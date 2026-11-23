@@ -67,8 +67,12 @@ if (!defined('ABSPATH')) {
       <label class="fw-bold">Data de nascimento</label>
       <input type="date" class="form-control" name="nascimento" min="1900-01-01" max="<?= ch_hoje() ?>" value="<?= ch_h($d['NASCIMENTO']) ?>" required>
     </div>
+    <div class="form-group col-md-4">
+      <label class="fw-bold">Data de matrícula</label>
+      <input type="date" class="form-control" name="data_matricula" value="<?= ch_h($d['DATA_MATRICULA']) ?>" required>
+    </div>
 
-    <div class="form-group col-md-12">
+    <div class="form-group col-md-8">
       <label class="fw-bold" for="foto-aluno">Foto do aluno <small class="text-muted">(opcional)</small></label>
       <?php if (!empty($d['TEM_FOTO']) && ($fotoSrc = aluno_foto_src($d['TEM_FOTO'], $id ?? 0))): ?>
         <div class="mb-2"><img src="<?= ch_h($fotoSrc) ?>" alt="Foto atual de <?= ch_h($d['NOME']) ?>"
@@ -83,25 +87,6 @@ if (!defined('ABSPATH')) {
         </div>
       <?php endif; ?>
     </div>
-
-    <div class="form-group col-md-5">
-      <label class="fw-bold">Responsável</label>
-      <input type="text" class="form-control" name="responsavel" maxlength="150" value="<?= ch_h($d['RESPONSAVEL']) ?>">
-      <small class="text-muted">Pode ser preenchido pelo contato principal da seção Família abaixo.</small>
-    </div>
-    <div class="form-group col-md-3">
-      <label class="fw-bold">Telefone</label>
-      <input type="text" class="form-control" name="telefone" maxlength="30" value="<?= ch_h($d['TELEFONE']) ?>" placeholder="(15) 99999-9999">
-    </div>
-    <div class="form-group col-md-4">
-      <label class="fw-bold">Data de matrícula</label>
-      <input type="date" class="form-control" name="data_matricula" value="<?= ch_h($d['DATA_MATRICULA']) ?>" required>
-    </div>
-
-    <div class="form-group col-md-12">
-      <label class="fw-bold">E-mail do responsável <small class="text-muted">(opcional)</small></label>
-      <input type="email" class="form-control" name="email" maxlength="150" value="<?= ch_h($d['EMAIL']) ?>">
-    </div>
   </div>
 
   <?php $familia = $d['FAMILIA'] ?? fam_estrutura_vazia(); ?>
@@ -109,12 +94,12 @@ if (!defined('ABSPATH')) {
     <div class="card-escola-titulo"><i class="fas fa-people-roof"></i> Família / Responsáveis (vínculo por CPF)</div>
     <div class="card-escola-corpo">
       <p class="text-muted mb-3">
-        Vincule a <strong>mãe</strong>, o <strong>pai</strong> e/ou <strong>outro responsável</strong> pelo CPF.
+        Cadastre os responsáveis pelo CPF (<strong>mãe</strong>, <strong>pai</strong> e/ou <strong>outro responsável</strong>).
         Se o CPF já estiver cadastrado no sistema, nome, telefone e e-mail são preenchidos automaticamente
-        e o responsável passa a aparecer na tela
-        <a href="<?= ch_url('familias/index.php') ?>"><strong>Famílias</strong></a> com todos os filhos vinculados.
-        O responsável marcado como <strong>contato principal</strong> preenche os campos Responsável, Telefone e E-mail acima.
-        Deixe um bloco em branco quando não houver esse responsável.
+        e o responsável é vinculado a todos os filhos na tela
+        <a href="<?= ch_url('familias/index.php') ?>" target="_blank"><strong>Famílias</strong></a>.
+        O responsável marcado como <strong>contato principal</strong> será o contato de referência do aluno para avisos, relatórios e crachá.
+        Deixe em branco os blocos que não se aplicam.
       </p>
 
       <?php foreach (fam_parentescos() as $cod => $rotulo): ?>
@@ -165,14 +150,10 @@ if (!defined('ABSPATH')) {
   </div>
 
   <script>
-  /* Família por CPF: máscara, preenchimento automático quando o CPF já existe
-     no sistema e sincronização do contato principal com os campos principais. */
+  /* Família por CPF: máscara e preenchimento automático quando o CPF já existe no sistema. */
   (function () {
     var form = document.querySelector('form');
     if (!form) return;
-    var inpResponsavel = form.querySelector('input[name="responsavel"]');
-    var inpTelefone = form.querySelector('input[name="telefone"]');
-    var inpEmail = form.querySelector('input[name="email"]');
     var urlBusca = '<?= ch_url('familias/buscar_cpf.php') ?>';
 
     function digitos(s) { return (s || '').replace(/\D/g, ''); }
@@ -193,33 +174,6 @@ if (!defined('ABSPATH')) {
     function campo(cod, tipo) {
       return form.querySelector('[data-fam-' + tipo + '="' + cod + '"]');
     }
-
-    function blocoPrincipal() {
-      var r = form.querySelector('input[name="fam_contato_principal"]:checked');
-      return r ? r.value : null;
-    }
-
-    /* Preenche Responsável/Telefone/E-mail a partir do contato principal,
-       sem apagar o que a pessoa digitou manualmente nesses campos. */
-    function sincronizarPrincipal() {
-      var cod = blocoPrincipal();
-      if (!cod) return;
-      var nome = campo(cod, 'nome'), tel = campo(cod, 'telefone'), email = campo(cod, 'email');
-      if (inpResponsavel && inpResponsavel.value.trim() === '' && nome && nome.value.trim() !== '') {
-        inpResponsavel.value = nome.value.trim();
-      }
-      if (inpTelefone && inpTelefone.value.trim() === '' && tel && tel.value.trim() !== '') {
-        inpTelefone.value = tel.value.trim();
-      }
-      if (inpEmail && inpEmail.value.trim() === '' && email && email.value.trim() !== '') {
-        inpEmail.value = email.value.trim();
-      }
-    }
-
-    form.querySelectorAll('input[name="fam_contato_principal"]').forEach(function (r) {
-      r.addEventListener('change', sincronizarPrincipal);
-    });
-    form.addEventListener('submit', sincronizarPrincipal);
 
     ['mae', 'pai', 'outro'].forEach(function (cod) {
       var inpCpf = campo(cod, 'cpf');
@@ -248,8 +202,6 @@ if (!defined('ABSPATH')) {
             if (tel && tel.value.trim() === '' && dados.telefone) tel.value = dados.telefone;
             if (email && email.value.trim() === '' && dados.email) email.value = dados.email;
             if (feedback) {
-              /* Os nomes vêm do cadastro: criar nós e usar textContent evita
-                 interpretar dados digitados como HTML. */
               var aviso = document.createElement('div');
               aviso.className = 'alert alert-info py-2 small mb-0';
               var icone = document.createElement('i');
@@ -272,7 +224,6 @@ if (!defined('ABSPATH')) {
               }
               feedback.replaceChildren(aviso);
             }
-            sincronizarPrincipal();
           })
           .catch(function () { /* sem rede: segue o preenchimento manual */ });
       });
@@ -388,61 +339,31 @@ if (!defined('ABSPATH')) {
 
         <div class="col-12">
           <hr class="my-1">
-          <div class="form-check form-switch mt-2">
-            <input class="form-check-input" type="checkbox" role="switch" id="chk-passa-aee" name="passa_aee" value="1"
-                   <?= !empty($d['PASSA_AEE']) ? 'checked' : '' ?>>
-            <label class="form-check-label fw-bold" for="chk-passa-aee">
-              Aluno passa pelo Atendimento Educacional Especializado (AEE)
-            </label>
+          <div class="p-3 border rounded-3 bg-light">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="chk-passa-aee" name="passa_aee" value="1"
+                       <?= !empty($d['PASSA_AEE']) ? 'checked' : '' ?>>
+                <label class="form-check-label fw-bold" for="chk-passa-aee">
+                  Aluno indicado / matriculado no Atendimento Educacional Especializado (AEE)
+                </label>
+              </div>
+              <?php if (!empty($id)): ?>
+                <a class="btn btn-sm btn-outline-primary" href="<?= ch_url('aee/atribuir.php?aluno_id=' . (int)$id . '&ano=' . (int)($d['ANO_LETIVO'] ?? date('Y'))) ?>" target="_blank">
+                  <i class="fas fa-hands-holding-child me-1"></i> Gerenciar professor e horários no painel AEE
+                </a>
+              <?php endif; ?>
+            </div>
+            <div class="small text-muted mt-2">
+              <i class="fas fa-circle-info me-1"></i>
+              A vinculação anual de professor(a) de AEE, dias da semana e horários de atendimento na Sala de Recursos é gerenciada no painel
+              <a href="<?= ch_url('aee/index.php') ?>" target="_blank"><strong>Atendimento AEE</strong></a>, preservando o histórico de cada ano letivo.
+            </div>
           </div>
-        </div>
-
-        <div class="form-group col-md-6" id="bloco-prof-aee">
-          <label class="fw-bold" for="sel-prof-aee"><i class="fas fa-chalkboard-user text-success"></i> Professor(a) de AEE <small class="text-muted">(opcional — dá acesso às observações)</small></label>
-          <select class="form-select" id="sel-prof-aee" name="id_professor_aee">
-            <option value="0">Nenhum professor vinculado no sistema</option>
-            <?php foreach ($professoresAee as $pa): ?>
-              <option value="<?= (int)$pa['ID'] ?>" <?= (int)($d['ID_PROFESSOR_AEE'] ?? 0) === (int)$pa['ID'] ? 'selected' : '' ?>>
-                <?= ch_h($pa['NOME']) ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-          <small class="text-muted">Aparecem aqui os professores cadastrados na categoria <b>Professor de AEE</b> em <i>Usuários</i>. O professor selecionado poderá consultar esta ficha e registrar observações do aluno.</small>
-        </div>
-
-        <div class="form-group col-md-6" id="bloco-obs-aee">
-          <label class="fw-bold" for="inp-obs-aee"><i class="fas fa-clock text-secondary"></i> Dias / horário / observações do AEE <small class="text-muted">(opcional)</small></label>
-          <input type="text" class="form-control" id="inp-obs-aee" name="aee_observacoes" maxlength="500"
-                 value="<?= ch_h($d['AEE_OBSERVACOES'] ?? '') ?>"
-                 placeholder="Ex.: Sala de recursos no contraturno — 3ª e 5ª das 14h às 15h">
         </div>
       </div>
     </div>
   </div>
-
-  <script>
-  (function () {
-    var chk = document.getElementById('chk-passa-aee');
-    var sel = document.getElementById('sel-prof-aee');
-    var obs = document.getElementById('inp-obs-aee');
-    if (!chk || !sel || !obs) return;
-    function syncAee() {
-      var ativo = chk.checked;
-      sel.disabled = !ativo;
-      obs.disabled = !ativo;
-      if (!ativo) {
-        sel.value = '0';
-      }
-    }
-    sel.addEventListener('change', function () {
-      if (parseInt(sel.value, 10) > 0) {
-        chk.checked = true;
-      }
-    });
-    chk.addEventListener('change', syncAee);
-    syncAee();
-  })();
-  </script>
 
   <div class="col-auto my-4">
     <a href="index.php" class="btn btn-outline-success">Cancelar</a>

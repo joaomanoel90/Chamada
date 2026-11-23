@@ -1,0 +1,44 @@
+# ==============================================================================
+# SEGURANÇA E PROTEÇÃO DO SISTEMA CHAMADA
+# ==============================================================================
+
+# Desativa a listagem de diretórios (evita ver arquivos ao abrir pastas no navegador)
+Options -Indexes
+
+# Define charset padrão UTF-8
+AddDefaultCharset UTF-8
+
+# Impede acesso a arquivos e pastas ocultos (como .git, .env, .gitignore)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Impede acesso a scripts SQL, arquivos de documentação sensíveis e logs
+<FilesMatch "\.(sql|log|md|bak|swp|dist|env)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Impede acesso direto a arquivos de instalação e diagnósticos se não autenticado
+<Files "verifica_instalacao.php">
+    # O próprio arquivo já valida se o usuário é Administrador (Nível 1)
+</Files>
+
+# Proteção contra MIME sniffing e Clickjacking via headers se mod_headers estiver ativo
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

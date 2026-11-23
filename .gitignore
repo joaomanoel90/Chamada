@@ -1,1 +1,10 @@
 config.php
+config.local.php
+*.log
+*.bak
+*.tmp
+chamada-push/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

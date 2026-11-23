@@ -53,9 +53,9 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         'NOME'           => strip_tags(trim($post['nome'] ?? '')),
         'NASCIMENTO'     => ch_data_iso($post['nascimento'] ?? ''),
         'DATA_MATRICULA' => ch_data_iso($post['data_matricula'] ?? '', ch_hoje()),
-        'RESPONSAVEL'    => strip_tags(trim($post['responsavel'] ?? '')),
-        'TELEFONE'       => strip_tags(trim($post['telefone'] ?? '')),
-        'EMAIL'          => trim($post['email'] ?? ''),
+        'RESPONSAVEL'    => '',
+        'TELEFONE'       => '',
+        'EMAIL'          => '',
         'DEFICIENCIAS_INCLUSAO' => aluno_inclusao_codigos($post['deficiencias_inclusao'] ?? []),
         'SIMBOLO_TEA_INCLUSAO' => null,
         'AUTORIZA_MARCADOR_INCLUSAO' => !empty($post['autoriza_marcador_inclusao']) ? 1 : 0,
@@ -77,12 +77,13 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
     /* Educação Especial, AEE e outros acompanhamentos (uso interno na ficha). */
     $d['CONDICAO_ESPECIFICA']    = mb_substr(strip_tags(trim((string)($post['condicao_especifica'] ?? ''))), 0, 1000);
     $d['OUTROS_ACOMPANHAMENTOS'] = mb_substr(strip_tags(trim((string)($post['outros_acompanhamentos'] ?? ''))), 0, 1000);
-    $profAee = (int)($post['id_professor_aee'] ?? 0);
+    $alunoExistenteAee = $idAtual > 0 ? ch_aluno($idAtual) : null;
+    $profAee = (int)($post['id_professor_aee'] ?? ($alunoExistenteAee['ID_PROFESSOR_AEE'] ?? 0));
     $passaAee = !empty($post['passa_aee']) || $profAee > 0 ? 1 : 0;
     $d['PASSA_AEE']        = $passaAee;
     $d['ID_PROFESSOR_AEE'] = $passaAee ? $profAee : 0;
     $d['AEE_OBSERVACOES']  = $passaAee
-        ? mb_substr(strip_tags(trim((string)($post['aee_observacoes'] ?? ''))), 0, 500)
+        ? mb_substr(strip_tags(trim((string)($post['aee_observacoes'] ?? ($alunoExistenteAee['AEE_OBSERVACOES'] ?? '')))), 0, 500)
         : '';
 
     $e = [];
@@ -91,14 +92,15 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
     $d['FAMILIA'] = fam_extrair_e_validar($post, $d['CPF'], $e);
     $principalFam = fam_contato_principal_dados($d['FAMILIA']);
     if ($principalFam) {
-        if ($d['RESPONSAVEL'] === '' && $principalFam['NOME'] !== '') {
-            $d['RESPONSAVEL'] = $principalFam['NOME'];
-        }
-        if ($d['TELEFONE'] === '' && $principalFam['TELEFONE'] !== '') {
-            $d['TELEFONE'] = $principalFam['TELEFONE'];
-        }
-        if ($d['EMAIL'] === '' && $principalFam['EMAIL'] !== '') {
-            $d['EMAIL'] = $principalFam['EMAIL'];
+        $d['RESPONSAVEL'] = $principalFam['NOME'] ?? '';
+        $d['TELEFONE']    = $principalFam['TELEFONE'] ?? '';
+        $d['EMAIL']       = $principalFam['EMAIL'] ?? '';
+    } elseif ($idAtual > 0) {
+        $alunoAntigo = ch_aluno($idAtual);
+        if ($alunoAntigo && !empty($alunoAntigo['RESPONSAVEL'])) {
+            $d['RESPONSAVEL'] = (string)$alunoAntigo['RESPONSAVEL'];
+            $d['TELEFONE']    = (string)($alunoAntigo['TELEFONE'] ?? '');
+            $d['EMAIL']       = (string)($alunoAntigo['EMAIL'] ?? '');
         }
     }
 
@@ -128,8 +130,8 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
         $e[] = 'CPF inválido. Confira os números digitados.';
     }
     if ($d['NOME'] === '' || mb_strlen($d['NOME']) > 150)          { $e[] = 'Informe o nome do aluno (até 150 caracteres).'; }
-    if ($d['RESPONSAVEL'] === '' || mb_strlen($d['RESPONSAVEL']) > 150) { $e[] = 'Informe o nome do responsável.'; }
-    if ($d['TELEFONE'] === '' || mb_strlen($d['TELEFONE']) > 30)   { $e[] = 'Informe um telefone de contato.'; }
+    if ($d['RESPONSAVEL'] === '' || mb_strlen($d['RESPONSAVEL']) > 150) { $e[] = 'Informe ao menos um responsável na seção Família (Mãe, Pai ou Outro) com CPF, Nome e Telefone.'; }
+    if ($d['TELEFONE'] === '' || mb_strlen($d['TELEFONE']) > 30)   { $e[] = 'Informe o telefone de contato do responsável na seção Família.'; }
 
     if (!$d['NASCIMENTO']) {
         $e[] = 'Informe a data de nascimento.';

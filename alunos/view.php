@@ -108,7 +108,7 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
           <dt class="col-sm-4">Nascimento</dt><dd class="col-sm-8"><?= ch_data_br($aluno['NASCIMENTO']) ?> <span class="text-muted">(<?= ch_h(ch_idade_texto($aluno['NASCIMENTO'])) ?>)</span></dd>
           <dt class="col-sm-4">Matriculado em</dt><dd class="col-sm-8"><?= ch_data_br($aluno['DATA_MATRICULA']) ?></dd>
           <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8"><?= ch_h($aluno['RESPONSAVEL']) ?></dd>
-          <dt class="col-sm-4">Telefone</dt><dd class="col-sm-8"><?= ch_h($aluno['TELEFONE']) ?></dd>
+          <dt class="col-sm-4">Telefone</dt><dd class="col-sm-8"><?= ch_h($aluno['TELEFONE']) ?><?= fam_whatsapp_botao($aluno['TELEFONE'], 'Olá! Entramos em contato da escola a respeito do(a) aluno(a) ' . $aluno['NOME']) ?></dd>
           <dt class="col-sm-4">E-mail</dt><dd class="col-sm-8"><?= $aluno['EMAIL'] ? ch_h($aluno['EMAIL']) : '<span class="text-muted">—</span>' ?></dd>
           <dt class="col-sm-4">Unidade</dt><dd class="col-sm-8"><?= ch_h($aluno['UNIDADE']) ?></dd>
           <dt class="col-sm-4">Turma</dt><dd class="col-sm-8"><?= ch_h(ch_series_ensino()[$aluno['SERIE'] ?? '']['rotulo'] ?? 'Série não classificada') ?> · <?= ch_h($aluno['TURMA']) ?> — <?= ch_h($aluno['PERIODO']) ?> (<?= (int)$aluno['ANO_LETIVO'] ?>)</dd>
@@ -178,7 +178,7 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
                     <div class="small text-muted">CPF: <?= ch_h(ch_cpf_mask($fr['CPF'])) ?></div>
                   <?php endif; ?>
                   <?php if (!empty($fr['TELEFONE'])): ?>
-                    <div class="small"><i class="fas fa-phone me-1"></i><?= ch_h($fr['TELEFONE']) ?></div>
+                    <div class="small"><i class="fas fa-phone me-1"></i><?= ch_h($fr['TELEFONE']) ?><?= fam_whatsapp_botao($fr['TELEFONE'], 'Olá! Entramos em contato da escola a respeito do(a) aluno(a) ' . $aluno['NOME']) ?></div>
                   <?php endif; ?>
                   <?php if (!empty($fr['EMAIL'])): ?>
                     <div class="small text-muted"><i class="fas fa-envelope me-1"></i><?= ch_h($fr['EMAIL']) ?></div>
@@ -249,7 +249,14 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
           <h5 class="mb-0"><i class="fas fa-puzzle-piece text-primary"></i> Educação Especial, AEE e acompanhamentos</h5>
-          <span class="badge bg-light text-secondary border"><i class="fas fa-lock me-1"></i> Uso interno na ficha</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-secondary border"><i class="fas fa-lock me-1"></i> Uso interno</span>
+            <?php if (ch_gestao_alunos() && !$apenasHistorico): ?>
+              <a class="btn btn-sm btn-outline-primary" href="<?= ch_url('aee/atribuir.php?aluno_id=' . (int)$id . '&ano=' . (int)$aluno['ANO_LETIVO'] . '&origem=ficha') ?>">
+                <i class="fas fa-hands-holding-child me-1"></i> Gerenciar AEE
+              </a>
+            <?php endif; ?>
+          </div>
         </div>
         <div class="row g-3">
           <?php if (trim((string)($aluno['CONDICAO_ESPECIFICA'] ?? '')) !== ''): ?>
@@ -260,19 +267,30 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
               </div>
             </div>
           <?php endif; ?>
-          <?php if ((int)($aluno['PASSA_AEE'] ?? 0) === 1): ?>
+          <?php if ((int)($aluno['PASSA_AEE'] ?? 0) === 1 || !empty($atendimentoAeeAtual)): ?>
             <div class="col-md-4">
               <div class="border rounded-3 p-3 h-100 bg-light bg-opacity-50">
-                <div class="small fw-bold text-success mb-1"><i class="fas fa-chalkboard-user me-1"></i> Atendimento Educacional Especializado (AEE)</div>
-                <div><span class="badge bg-success mb-1">Em atendimento no AEE</span></div>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="small fw-bold text-success"><i class="fas fa-chalkboard-user me-1"></i> Atendimento AEE (<?= (int)$aluno['ANO_LETIVO'] ?>)</span>
+                  <span class="badge bg-<?= !empty($atendimentoAeeAtual['ATIVO']) || (empty($atendimentoAeeAtual) && (int)$aluno['PASSA_AEE'] === 1) ? 'success' : 'secondary' ?>">
+                    <?= !empty($atendimentoAeeAtual['ATIVO']) || (empty($atendimentoAeeAtual) && (int)$aluno['PASSA_AEE'] === 1) ? 'Ativo' : 'Inativo' ?>
+                  </span>
+                </div>
                 <div class="small mt-1">
                   <strong>Professor(a):</strong>
-                  <?= !empty($aluno['PROFESSOR_AEE_NOME'])
-                        ? ch_h($aluno['PROFESSOR_AEE_NOME'])
-                        : '<span class="text-muted">Não vinculado no sistema</span>' ?>
+                  <?= !empty($atendimentoAeeAtual['PROFESSOR_AEE_NOME'])
+                        ? ch_h($atendimentoAeeAtual['PROFESSOR_AEE_NOME'])
+                        : (!empty($aluno['PROFESSOR_AEE_NOME']) ? ch_h($aluno['PROFESSOR_AEE_NOME']) : '<span class="text-muted">Aguardando atribuição</span>') ?>
                 </div>
-                <?php if (trim((string)($aluno['AEE_OBSERVACOES'] ?? '')) !== ''): ?>
-                  <div class="small text-muted mt-1"><i class="fas fa-clock me-1"></i><?= ch_h($aluno['AEE_OBSERVACOES']) ?></div>
+                <?php $diasHor = $atendimentoAeeAtual['DIAS_HORARIOS'] ?? $aluno['AEE_OBSERVACOES'] ?? ''; ?>
+                <?php if (trim((string)$diasHor) !== ''): ?>
+                  <div class="small text-muted mt-1"><i class="fas fa-clock me-1"></i><?= ch_h($diasHor) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($atendimentoAeeAtual['SALA_RECURSOS'])): ?>
+                  <div class="small text-muted mt-1"><i class="fas fa-door-open me-1"></i>SRM: <?= ch_h($atendimentoAeeAtual['SALA_RECURSOS']) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($atendimentoAeeAtual['OBJETIVOS_PLANO'])): ?>
+                  <div class="small text-secondary mt-1"><i class="fas fa-bullseye me-1"></i><?= ch_h($atendimentoAeeAtual['OBJETIVOS_PLANO']) ?></div>
                 <?php endif; ?>
               </div>
             </div>
@@ -286,6 +304,41 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
             </div>
           <?php endif; ?>
         </div>
+        <?php if (!empty($historicoAee)): ?>
+          <div class="mt-3 pt-3 border-top">
+            <div class="small fw-bold text-muted text-uppercase mb-2" style="font-size:.72rem;letter-spacing:.04em">
+              <i class="fas fa-clock-rotate-left me-1"></i> Histórico anual de atendimentos do AEE
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-borderless mb-0 small align-middle">
+                <thead>
+                  <tr class="text-muted border-bottom">
+                    <th>Ano Letivo</th>
+                    <th>Professor(a) de AEE</th>
+                    <th>Dias / Horários</th>
+                    <th>Sala / Polo</th>
+                    <th>Situação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($historicoAee as $ha): ?>
+                    <tr>
+                      <td><strong><?= (int)$ha['ANO_LETIVO'] ?></strong></td>
+                      <td><?= !empty($ha['PROFESSOR_AEE_NOME']) ? ch_h($ha['PROFESSOR_AEE_NOME']) : '<span class="text-muted">—</span>' ?></td>
+                      <td><?= !empty($ha['DIAS_HORARIOS']) ? ch_h($ha['DIAS_HORARIOS']) : '<span class="text-muted">—</span>' ?></td>
+                      <td><?= !empty($ha['SALA_RECURSOS']) ? ch_h($ha['SALA_RECURSOS']) : '<span class="text-muted">—</span>' ?></td>
+                      <td>
+                        <span class="badge bg-<?= !empty($ha['ATIVO']) ? 'success' : 'secondary' ?>">
+                          <?= !empty($ha['ATIVO']) ? 'Ativo' : 'Concluído/Inativo' ?>
+                        </span>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
