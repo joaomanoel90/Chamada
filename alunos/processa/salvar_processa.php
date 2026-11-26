@@ -11,36 +11,12 @@ ch_db();
    nada — e a chamada de datas passadas mudava de turma junto. */
 function aluno_cpf_normalizar($cpf)
 {
-    return preg_replace('/\D/', '', trim((string)$cpf));
+    return ch_digitos($cpf);
 }
 
 function aluno_cpf_valido($cpf)
 {
-    if (!preg_match('/^[0-9]{11}$/D', $cpf) || preg_match('/^([0-9])\1{10}$/D', $cpf)) {
-        return false;
-    }
-
-    $soma = 0;
-    for ($i = 0; $i < 9; $i++) {
-        $soma += (int)$cpf[$i] * (10 - $i);
-    }
-    $digito = ($soma * 10) % 11;
-    if ($digito === 10) {
-        $digito = 0;
-    }
-    if ((int)$cpf[9] !== $digito) {
-        return false;
-    }
-
-    $soma = 0;
-    for ($i = 0; $i < 10; $i++) {
-        $soma += (int)$cpf[$i] * (11 - $i);
-    }
-    $digito = ($soma * 10) % 11;
-    if ($digito === 10) {
-        $digito = 0;
-    }
-    return (int)$cpf[10] === $digito;
+    return ch_cpf_valido($cpf);
 }
 
 function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
@@ -48,9 +24,9 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
     $cpfInformado = trim((string)($post['cpf'] ?? ''));
     $d = [
         'ID_TURMA'       => $turmaFixa > 0 ? (int)$turmaFixa : (int)($post['id_turma'] ?? 0),
-        'MATRICULA'      => strip_tags(trim($post['matricula'] ?? '')),
+        'MATRICULA'      => strip_tags(trim((string)($post['matricula'] ?? ''))),
         'CPF'            => aluno_cpf_normalizar($cpfInformado),
-        'NOME'           => strip_tags(trim($post['nome'] ?? '')),
+        'NOME'           => strip_tags(trim((string)($post['nome'] ?? ''))),
         'NASCIMENTO'     => ch_data_iso($post['nascimento'] ?? ''),
         'DATA_MATRICULA' => ch_data_iso($post['data_matricula'] ?? '', ch_hoje()),
         'RESPONSAVEL'    => '',
@@ -89,8 +65,16 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
     $e = [];
 
     /* Família / Responsáveis vinculados por CPF (Mãe, Pai e/ou Outro). */
-    $d['FAMILIA'] = fam_extrair_e_validar($post, $d['CPF'], $e);
+    $d['FAMILIA'] = fam_extrair_e_validar($post, $d['CPF'], $e, $idAtual);
     $principalFam = fam_contato_principal_dados($d['FAMILIA']);
+    /* Os campos legados do aluno alimentam ficha e relatórios impressos:
+       se o principal estiver restrito, use outro contato liberado quando
+       houver. Se todos estiverem restritos, mantém o principal só para o
+       cadastro interno — o crachá não usa esse fallback. */
+    $principalLiberado = fam_contato_principal_dados($d['FAMILIA'], false);
+    if ($principalFam && !empty($principalFam['RESTRITO_CONTATO']) && $principalLiberado) {
+        $principalFam = $principalLiberado;
+    }
     if ($principalFam) {
         $d['RESPONSAVEL'] = $principalFam['NOME'] ?? '';
         $d['TELEFONE']    = $principalFam['TELEFONE'] ?? '';
@@ -117,7 +101,7 @@ function aluno_validar($post, $idAtual = 0, $turmaFixa = 0)
     $turma = $d['ID_TURMA'] ? ch_turma($d['ID_TURMA']) : null;
     if (!$turma || (int)$turma['ATIVO'] !== 1) {
         $e[] = 'Selecione uma turma ativa.';
-    } elseif (!ch_gestor() && !ch_pode_unidade($turma['ID_UNIDADE'])) {
+    } elseif (!ch_pode_unidade($turma['ID_UNIDADE'])) {
         $e[] = 'Você não tem acesso a essa unidade.';
     }
 
@@ -178,3 +162,4 @@ function aluno_turmas_disponiveis()
         $f['params']
     );
 }
+

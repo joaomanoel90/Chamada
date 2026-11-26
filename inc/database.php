@@ -27,8 +27,8 @@ function open_database()
 		$conn = sqlsrv_connect($serverName, $connectionOptions);
 		return $conn;
 	} catch (Exception $e) {
-		die(print_r(sqlsrv_errors(), true));
-
+		error_log('Falha ao conectar ao banco: ' . print_r(sqlsrv_errors(), true));
+		die('Não foi possível conectar ao banco de dados.');
 	}
 }
 

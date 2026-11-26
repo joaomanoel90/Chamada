@@ -122,7 +122,7 @@
               </a>
               <?php if ((int)$s['ATIVO'] === 1): ?>
                 <form method="post" action="encerrar.php" class="d-inline"
-                      onsubmit="return confirm('Encerrar esta substituição agora?');">
+                      data-confirm="Encerrar esta substituição agora?">
                   <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$s['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-danger" title="Encerrar substituição">

@@ -1,4 +1,6 @@
 <?php
+/* ch-somente-leitura: monta a tela de promoção; a gravação acontece em
+   salvar_processa.php, que valida o token CSRF. */
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');

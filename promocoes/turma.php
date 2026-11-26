@@ -71,14 +71,14 @@
     </div>
     <div class="card-footer bg-white text-end">
       <button class="btn btn-primary" type="submit" <?= !$alunos ? 'disabled' : '' ?>
-              onclick="return confirm('Registrar o resultado escolar e movimentar todos os alunos listados para a turma escolhida?');">
+              data-confirm="Registrar o resultado escolar e movimentar todos os alunos listados para a turma escolhida?">
         <i class="fas fa-check"></i> Confirmar movimentação
       </button>
     </div>
   </form>
 <?php endif; ?>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 (function () {
   var resultado = document.getElementById('resultado');
   var destino = document.getElementById('turma_destino');

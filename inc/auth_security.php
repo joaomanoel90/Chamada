@@ -10,7 +10,29 @@ function ch_auth_security_headers()
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
-    header("Content-Security-Policy: object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+
+    /*
+     * CSP com script-src. Os CDs abaixo são os que o sistema realmente carrega
+     * em inc/tema.php e inc/footer.php. Os <script> inline usam o nonce gerado
+     * em config.php; handlers onclick/onchange foram migrados para
+     * js/csp-handlers.js, então não é preciso 'unsafe-inline' em script-src.
+     *
+     * style-src mantém 'unsafe-inline' porque inc/tema.php e algumas telas
+     * usam <style> próprio — pode ser removido quando esses estilos forem
+     * movidos para arquivos CSS.
+     */
+    $cdns = 'https://code.jquery.com https://cdnjs.cloudflare.com '
+          . 'https://cdn.jsdelivr.net https://cdn.datatables.net';
+    $nonce = function_exists('ch_csp_nonce') ? ch_csp_nonce() : '';
+    $csp = "default-src 'self'; "
+         . "script-src 'self'" . ($nonce !== '' ? " 'nonce-$nonce'" : '') . " $cdns; "
+         . "style-src 'self' 'unsafe-inline' $cdns https://fonts.googleapis.com; "
+         . "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; "
+         . "img-src 'self' data: blob:; "
+         . "connect-src 'self'; "
+         . "form-action 'self'; "
+         . "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+    header('Content-Security-Policy: ' . $csp);
 
     $https = !empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off';
     if (!$https && (int)($_SERVER['SERVER_PORT'] ?? 0) === 443) {
@@ -40,6 +62,63 @@ function ch_auth_session_guard()
     }
 
     $_SESSION['ch_ultima_atividade'] = $agora;
+}
+
+/**
+ * Revalida nível e situação da conta no banco a cada requisição.
+ * Sem isso, um usuário rebaixado ou desativado pela administração mantém
+ * o privilégio antigo na sessão até ela expirar.
+ */
+function ch_auth_revalidar_usuario()
+{
+    if (empty($_SESSION['usuarioId'])) {
+        return;
+    }
+    static $feito = false;
+    if ($feito) {
+        return;
+    }
+    $feito = true;
+
+    global $conn;
+    $db = $conn;
+    if (empty($db) && function_exists('open_database')) {
+        $db = open_database();
+        if ($db !== false && empty($conn)) {
+            $conn = $db;
+        }
+    }
+    if ($db === false) {
+        /* Banco indisponível: não derruba sessões por falha temporária. */
+        error_log('Segurança: não foi possível revalidar a sessão do usuário.');
+        return;
+    }
+
+    $stmt = sqlsrv_query($db, 'SELECT NIVEL, ATIVO FROM TB_USUARIOS WHERE ID = ?', [(int)$_SESSION['usuarioId']]);
+    if ($stmt === false) {
+        error_log('Segurança: falha ao revalidar sessão. ' . print_r(sqlsrv_errors(), true));
+        return;
+    }
+    $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+    sqlsrv_free_stmt($stmt);
+
+    if (!$row || (int)$row['ATIVO'] !== 1) {
+        $_SESSION = [];
+        if (!session_regenerate_id(true)) {
+            error_log('Segurança: não foi possível renovar o ID após desativação da conta.');
+        }
+        $_SESSION['loginErro'] = 'Sua conta foi desativada ou removida. Entre novamente.';
+        if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Conta desativada']);
+            exit;
+        }
+        header('Location: ' . BASEURL . 'login.php');
+        exit;
+    }
+
+    $_SESSION['usuarioNiveisAcessoId'] = (int)$row['NIVEL'];
 }
 
 function ch_auth_password_hash($senha)

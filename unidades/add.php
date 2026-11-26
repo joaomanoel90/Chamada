@@ -13,7 +13,7 @@ require_once('processa/add_processa.php');
   <div class="row">
     <div class="form-group col-md-12">
       <label class="fw-bold">Unidade</label>
-      <input type="text" class="form-control" name="unidade" onkeyup="this.value = this.value.toUpperCase();" required>
+      <input type="text" class="form-control" name="unidade" data-uppercase required>
     </div>
 
 

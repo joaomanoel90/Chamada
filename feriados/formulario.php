@@ -41,7 +41,16 @@ if (!defined('ABSPATH')) {
       <input type="time" class="form-control" name="hora_fim" value="<?= ch_h($d['HORA_FIM'] ?: '18:00') ?>">
     </div>
 
-    <div class="form-group col-md-12">
+    <div class="form-group col-md-6">
+      <label class="fw-bold">Calendário</label>
+      <select name="calendario" class="form-select" required>
+        <option value="AMBOS" <?= $d['CALENDARIO'] === 'AMBOS' ? 'selected' : '' ?>>Ambos os calendários</option>
+        <?php foreach (ch_calendarios_opcoes() as $codigo => $rotulo): ?>
+          <option value="<?= ch_h($codigo) ?>" <?= $d['CALENDARIO'] === $codigo ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-group col-md-6">
       <label class="fw-bold">Abrangência</label>
       <select name="id_unidade" class="form-select">
         <option value="0">Todas as unidades</option>
@@ -53,6 +62,7 @@ if (!defined('ABSPATH')) {
   </div>
 
   <div class="alert alert-info mt-3 mb-0">
+    O feriado vale para o calendário escolhido; <strong>Ambos</strong> atinge creche e ensino fundamental.
     No feriado parcial, informe a faixa em que <strong>não haverá aula</strong>.
     Ex.: das 12:00 às 18:00 bloqueia as turmas da Tarde e Integral, mas libera as da Manhã.
   </div>
@@ -63,7 +73,7 @@ if (!defined('ABSPATH')) {
   </div>
 </form>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
   (function () {
     var tipo = document.getElementById('tipo');
     function sync() {

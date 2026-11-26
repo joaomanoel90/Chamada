@@ -9,6 +9,7 @@
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
+require_once(ABSPATH . 'inc/suspensao.php');
 ch_db();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -22,15 +23,24 @@ if (!ch_csrf_ok()) {
 
 $turmaId   = (int)($_POST['turma_id'] ?? 0);
 $data      = ch_data_iso($_POST['data'] ?? '');
+$aula      = ch_aula_normalizar($_POST['aula'] ?? 1);
 $chamadaId = (int)($_POST['chamada_id'] ?? 0);
 $novo      = strtoupper(trim((string)($_POST['status'] ?? '')));
 $justNova  = strip_tags(trim((string)($_POST['justificativa'] ?? '')));
 $motivo    = strip_tags(trim((string)($_POST['motivo'] ?? '')));
 
-$voltar = 'index.php' . ($turmaId && $data ? '?turma_id=' . $turmaId . '&data=' . $data : '');
+$voltar = 'index.php' . ($turmaId && $data
+    ? '?turma_id=' . $turmaId . '&data=' . $data . '&aula=' . $aula
+    : '?aula=' . $aula);
 
 if (!$data || $chamadaId <= 0) {
     ch_flash('Requisição inválida.', 'danger');
+    header('Location: ' . $voltar);
+    exit;
+}
+
+if ($aula === 2 && !ch_chamada_tem_aula()) {
+    ch_flash('Este banco ainda não tem chamada por aula. Rode sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql.', 'danger');
     header('Location: ' . $voltar);
     exit;
 }
@@ -43,17 +53,21 @@ if (!ch_pode_retificar($turmaId)) {
     exit;
 }
 
-/* A chamada precisa existir, ser deste dia e pertencer a um aluno desta turma. */
+/* A chamada precisa existir, ser deste dia, desta aula e pertencer a um aluno
+   desta turma. O ID sozinho não bastaria: alguém poderia trocar o aula no POST
+   e retificar o registro errado. */
 $registro = ch_row(
-    'SELECT c.ID, c.STATUS, c.JUSTIFICATIVA, c.ID_ALUNO, a.NOME, a.ID_TURMA
+    'SELECT c.ID, c.STATUS, c.JUSTIFICATIVA, c.ID_ALUNO, a.NOME, a.ID_TURMA,
+            ' . ch_aula_col('c') . ' AS AULA_SEQ
      FROM TB_CHAMADA c
      INNER JOIN TB_ALUNOS a ON a.ID = c.ID_ALUNO
      WHERE c.ID = ? AND c.DATA = ?',
     [$chamadaId, $data]
 );
 
-if (!$registro || (int)$registro['ID_TURMA'] !== $turmaId) {
-    ch_flash('Registro de chamada não encontrado para esta turma e data.', 'danger');
+if (!$registro || (int)$registro['ID_TURMA'] !== $turmaId
+    || ch_aula_normalizar($registro['AULA_SEQ']) !== $aula) {
+    ch_flash('Registro de chamada não encontrado para esta turma, data e aula.', 'danger');
     header('Location: ' . $voltar);
     exit;
 }
@@ -113,15 +127,19 @@ try {
     );
     if (!$ok) { throw new Exception('Falha ao registrar o histórico da retificação.'); }
 
-    /* CONFIRMADA_EM e CONFIRMADA_POR preservam quem confirmou originalmente. */
+    /* CONFIRMADA_EM e CONFIRMADA_POR preservam quem confirmou originalmente.
+       Se a falta vinha de suspensão, a retificação manual assume o registro e
+       o desliga da suspensão, para não ser removida num encerramento futuro. */
+    $limparSuspensao = susp_tem_coluna_chamada() ? ', ID_SUSPENSAO = NULL' : '';
     $ok = ch_exec(
-        'UPDATE TB_CHAMADA SET STATUS = ?, JUSTIFICATIVA = ?, ID_USUARIO = ?, MODIFIED = GETDATE() WHERE ID = ?',
+        'UPDATE TB_CHAMADA SET STATUS = ?, JUSTIFICATIVA = ?, ID_USUARIO = ?'
+        . $limparSuspensao . ', MODIFIED = GETDATE() WHERE ID = ?',
         [$novo, $justNovaDb, ch_uid(), $chamadaId]
     );
     if (!$ok) { throw new Exception('Falha ao atualizar a chamada.'); }
 
     sqlsrv_commit(ch_db());
-    ch_flash('Presença de ' . $registro['NOME'] . ' retificada de "'
+    ch_flash(ch_aula_rotulo($aula) . ' de ' . $registro['NOME'] . ' retificada de "'
              . ch_status_rotulo($registro['STATUS']) . '" para "' . ch_status_rotulo($novo)
              . '". O motivo ficou registrado no histórico.');
 } catch (Exception $ex) {

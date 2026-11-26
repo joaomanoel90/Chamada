@@ -211,6 +211,7 @@ function aee_salvar_atendimento($idAluno, $anoLetivo, $dados, &$erros = [])
         $ok = $novoId > 0;
     }
 
+    $idAtendimento = $existente ? (int)$existente['ID'] : (int)$novoId;
     if (!$ok) {
         sqlsrv_rollback($conn);
         $erros[] = 'Não foi possível salvar a atribuição do AEE no banco de dados.';
@@ -235,6 +236,18 @@ function aee_salvar_atendimento($idAluno, $anoLetivo, $dados, &$erros = [])
     }
 
     if (sqlsrv_commit($conn)) {
+        ch_auditar(
+            'AEE',
+            $existente ? 'Atualizar atendimento' : 'Criar atendimento',
+            'ALUNO',
+            $idAluno,
+            [
+                'ID_ATENDIMENTO'   => $idAtendimento,
+                'ANO_LETIVO'       => $anoLetivo,
+                'ATIVO'            => $ativo,
+                'ID_PROFESSOR_AEE' => $idProfAee,
+            ]
+        );
         return true;
     }
 

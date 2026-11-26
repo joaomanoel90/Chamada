@@ -100,16 +100,17 @@ function ch_menu_item($item)
       <hr class="border-light">
       <p class="text-white-50 small mb-1 px-2">GESTÃO</p>
       <?php
-      // Feriados é leitura para todos; só a gestão cadastra ou altera.
+      // Calendário Escolar: leitura para todos; só a gestão altera início e feriados.
       foreach ([
           ['periodos', 'Períodos', 'fas fa-clock', 'periodos/index.php', $ch_gestor],
-          ['feriados', 'Feriados', 'fas fa-calendar-day', 'feriados/index.php', true],
+          ['feriados', 'Calendário Escolar', 'fas fa-calendar-days', 'feriados/index.php', true],
           ['unidades', 'Unidades', 'far fa-building', 'unidades/index.php', $ch_gestor],
           ['vinculos-escolares', 'Vínculos de unidades', 'fas fa-link', 'usuarios/vinculos.php', ch_secretaria_educacao()],
           ['permissoes-relatorios', 'Permissões de relatórios', 'fas fa-file-shield', 'usuarios/secretarios.php', ch_diretor()],
           ['permissoes-observacoes', 'Permissões de observações', 'fas fa-comment-dots', 'usuarios/secretarios.php?observacoes=1', ch_diretor()],
           ['usuarios', 'Usuários', 'fas fa-users', 'usuarios/index.php', $ch_admin],
           ['verificacao', 'Verificar instalação', 'fas fa-stethoscope', 'verifica_instalacao.php', $ch_admin],
+          ['auditoria', 'Auditoria', 'fas fa-clipboard-check', 'auditoria/index.php', $ch_admin],
       ] as $item) ch_menu_item($item);
       ?>
 
@@ -124,7 +125,7 @@ function ch_menu_item($item)
       <hr class="border-light">
     </div>
 
-    <script>
+    <script nonce="<?= ch_csp_nonce() ?>">
       (function () {
         var sidebar = document.getElementById('sidebar');
         var botao   = document.getElementById('sidebarToggle');

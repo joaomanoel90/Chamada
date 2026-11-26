@@ -49,7 +49,7 @@
       <a class="btn btn-outline-primary" href="<?= ch_url('chamada/index.php?turma_id=' . $turmaId) ?>">
         <i class="fas fa-clipboard-user"></i> Chamada da turma
       </a>
-      <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+      <button type="button" class="btn btn-outline-secondary" data-print>
         <i class="fas fa-print"></i> Imprimir diário
       </button>
     </div>
@@ -62,7 +62,7 @@
           <input type="hidden" name="bimestre" value="<?= $bimestre ?>">
           <div class="col-md-8">
             <label class="fw-bold" for="disciplina">Disciplina</label>
-            <select class="form-select" id="disciplina" name="disciplina_id" onchange="this.form.submit()">
+            <select class="form-select" id="disciplina" name="disciplina_id" data-auto-submit>
               <option value="0">Selecione uma disciplina...</option>
               <?php foreach ($disciplinas as $disciplina): ?>
                 <option value="<?= (int)$disciplina['ID'] ?>" <?= (int)$disciplina['ID'] === $disciplinaId ? 'selected' : '' ?>>

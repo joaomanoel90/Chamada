@@ -3,7 +3,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
-ch_require_gestor();
+ch_require_rede();
 
 $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 $periodo = ch_row('SELECT ID, NOME, HORA_INICIO, HORA_FIM, TURNO FROM TB_PERIODOS WHERE ID = ?', [$id]);
@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: edit.php?id=' . $id);
         exit;
     }
-    $nome   = strip_tags(trim($_POST['nome'] ?? ''));
-    $inicio = trim($_POST['hora_inicio'] ?? '');
-    $fim    = trim($_POST['hora_fim'] ?? '');
-    $turno  = strtoupper(trim($_POST['turno'] ?? ''));
+    $nome   = strip_tags(trim((string)($_POST['nome'] ?? '')));
+    $inicio = trim((string)($_POST['hora_inicio'] ?? ''));
+    $fim    = trim((string)($_POST['hora_fim'] ?? ''));
+    $turno  = strtoupper(trim((string)($_POST['turno'] ?? '')));
 
     $horaOk = function ($h) { return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $h); };
 

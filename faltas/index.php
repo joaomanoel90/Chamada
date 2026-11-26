@@ -2,7 +2,7 @@
 <?php include(HEADER_TEMPLATE); ?>
 
 <?php ch_cabecalho('Faltas de Professores', 'fa-user-clock',
-    '<button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>'); ?>
+    '<button type="button" class="btn btn-primary" data-print><i class="fas fa-print"></i> Imprimir</button>'); ?>
 
 <style>
   /* Versão impressa: só o relatório, sem menu, filtros e botões. */

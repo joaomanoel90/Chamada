@@ -223,12 +223,13 @@ $fonteContato = function ($nome) {
       .cracha { break-inside: avoid; }
     }
   </style>
+<script src="<?= BASEURL ?>js/csp-handlers.js"></script>
 </head>
 <body>
   <nav class="acoes" aria-label="Ações dos crachás">
     <a href="<?= ch_url('turmas/index.php') ?>">Voltar para turmas</a>
     <?php if ($alunos): ?>
-      <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+      <button type="button" data-print>Imprimir / salvar PDF</button>
     <?php endif; ?>
   </nav>
   <header class="resumo">
@@ -236,7 +237,7 @@ $fonteContato = function ($nome) {
       · Sala <?= ch_h($turma['NOME']) ?></h1>
     <p><?= ch_h($turma['UNIDADE']) ?> · <?= ch_h($turma['PERIODO']) ?> · Ano letivo <?= (int)$turma['ANO_LETIVO'] ?></p>
     <p><?= count($alunos) ?> aluno(s) ativo(s); até 9 crachás por folha A4, frente e verso.</p>
-    <p>Para cartão frente e verso, imprima em duplex virando pela borda longa: cada folha de frentes é seguida pela folha de versos já espelhada. Os marcadores aparecem somente com autorização registrada.</p>
+    <p>Frentes e versos seguem a mesma ordem dos alunos: cada folha de frentes é seguida da folha de versos correspondente, na mesma sequência. Antes de imprimir a turma inteira, faça um teste com uma folha e confira a correspondência na sua impressora. Os marcadores aparecem somente com autorização registrada.</p>
   </header>
 
   <?php if (!$alunos): ?>
@@ -275,18 +276,13 @@ $fonteContato = function ($nome) {
           </article>
         <?php endforeach; ?>
       </main>
-      <?php
-        /* Verso espelhado por linha (3 colunas): ao virar a folha pela borda
-           longa no duplex, cada verso cai atrás da sua frente. */
-        $folhaVerso = [];
-        foreach (array_chunk($folha, 3) as $linha) {
-            $folhaVerso = array_merge($folhaVerso, array_reverse($linha));
-        }
-      ?>
       <main class="folha">
-        <?php foreach ($folhaVerso as $aluno): ?>
+        <?php /* Mesma ordem da frente: sem espelhamento, o verso de cada
+                 crachá acompanha a posição do aluno na página correspondente. */ ?>
+        <?php foreach ($folha as $aluno): ?>
           <?php
-            $responsaveisFamilia = fam_responsaveis_aluno($aluno['ID']);
+            $vinculosFamilia = fam_responsaveis_aluno($aluno['ID']);
+            $responsaveisFamilia = fam_contatos_cracha($aluno['ID']);
             $alertasSaude = eq_saude_alertas($aluno);
           ?>
           <article class="cracha verso">
@@ -318,7 +314,7 @@ $fonteContato = function ($nome) {
                     <?php endif; ?>
                   </div>
                 <?php endforeach; ?>
-              <?php elseif (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+              <?php elseif (!$vinculosFamilia && (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== '')): ?>
                 <div class="contato">
                   <div class="contato-vinculo">Responsável</div>
                   <?php if (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== ''): ?>

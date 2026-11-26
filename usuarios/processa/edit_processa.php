@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$erros) {
-        $senha = trim($_POST['senha'] ?? '');
+        $senha = trim((string)($_POST['senha'] ?? ''));
         sqlsrv_begin_transaction(ch_db());
         if ($senha !== '') {
             $hash = ch_auth_password_hash($senha);
@@ -133,6 +133,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sqlsrv_rollback(ch_db());
         }
         if ($ok) {
+            ch_auditar('Usuários', 'Atualizar usuário', 'USUARIO', $id, [
+                'ANTES' => [
+                    'NOME'  => (string)$usuario['NOME'],
+                    'NIVEL' => (int)$usuario['NIVEL'],
+                    'ATIVO' => (int)($usuario['ATIVO'] ?? 1),
+                ],
+                'DEPOIS' => [
+                    'NOME'  => $d['nome'],
+                    'NIVEL' => $d['nivel'],
+                    'ATIVO' => $d['ativo'],
+                ],
+                'SENHA_ALTERADA' => $senha !== '' ? 1 : 0,
+            ]);
             ch_flash('Usuário "' . $d['nome'] . '" atualizado.' . ($senha !== '' ? ' A senha foi alterada.' : ''));
             header('Location: index.php');
             exit;

@@ -66,7 +66,7 @@
       <tr>
         <th width="30%">Aluno</th>
         <th width="26%">Turma / Unidade</th>
-        <th width="10%">Dias lançados</th>
+        <th width="10%">Aulas lançadas</th>
         <th width="10%">Observações</th>
         <th width="12%">Parecer</th>
         <th width="12%">Relatório</th>
@@ -77,7 +77,7 @@
       <tr>
         <td><?= ch_h($row['NOME']) ?><br><small class="text-muted"><?= ch_h($row['MATRICULA']) ?></small></td>
         <td><?= ch_h($row['TURMA']) ?><br><small class="text-muted"><?= ch_h($row['UNIDADE']) ?></small></td>
-        <td class="text-center"><?= (int)$row['DIAS'] ?></td>
+        <td class="text-center"><?= (int)$row['AULAS'] ?></td>
         <td class="text-center"><?= (int)$row['OBSERVACOES'] ?></td>
         <td class="text-center">
           <span class="badge bg-<?= (int)$row['TEM_PARECER'] ? 'success' : 'secondary' ?>">

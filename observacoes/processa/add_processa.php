@@ -21,7 +21,7 @@ $d = ['ID_ALUNO' => (int)($_GET['aluno_id'] ?? 0),
       'CATEGORIA' => ch_usuario_eh_professor_aee() ? 'Atendimento AEE' : 'Desenvolvimento geral',
       'TEXTO' => '',
       'RESTRITA_AEE' => 0];
-$voltar = trim($_GET['voltar'] ?? $_POST['voltar'] ?? '');
+$voltar = ch_caminho_interno($_GET['voltar'] ?? $_POST['voltar'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($ok) {
             sqlsrv_commit(ch_db());
             ch_flash('Observação registrada com sucesso.');
-            if ($voltar !== '' && strpos($voltar, '://') === false) {
+            if ($voltar !== '') {
                 header('Location: ' . ch_url($voltar));
             } else {
                 header('Location: ' . ch_url('alunos/view.php?id=' . $d['ID_ALUNO']));

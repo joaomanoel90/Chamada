@@ -152,6 +152,10 @@ Ao publicar uma versão nova, regenere o manifesto antes:
 php ferramentas/gera_manifesto.php
 ```
 
+Em bancos instalados antes da chamada por aula, rode também
+`sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql`. Ele é idempotente e converte os
+registros antigos para a 1ª aula.
+
 ---
 
 ## 3. Regras de negócio
@@ -264,7 +268,7 @@ porque o CSS de impressão esconde essa classe.
 
 ### Confirmação e retificação
 
-- A presença é **confirmada uma vez** por aluno/dia. `salvar_processa.php` só
+- A presença é **confirmada uma vez** por aluno/aula. `salvar_processa.php` só
   faz `INSERT`; se o registro já existe, ele **não sobrescreve** e orienta a usar
   a retificação. Há rechecagem dentro da transação contra gravação simultânea.
 - Corrigir exige **retificação** (`retificar.php`), com **motivo obrigatório**.
@@ -274,6 +278,28 @@ porque o CSS de impressão esconde essa classe.
 - Retificar sem mudança efetiva é recusado.
 - Falta justificada exige justificativa tanto na confirmação quanto na
   retificação (validado em PHP e por `CHECK` no banco).
+
+### Suspensão do aluno
+
+`alunos/suspensao.php` registra suspensão por período (início, fim e motivo) e
+lança **falta em todas as aulas letivas** do intervalo, inclusive em datas
+futuras. Cada data respeita o calendário da turma vigente naquele dia; fins de
+semana, feriados e exceções não letivas são ignorados. Presença, atraso ou falta
+justificada existentes são convertidos em falta com retificação automática, e a
+justificativa passa a conter `Suspensão: <motivo>`. Falta já registrada pelo
+professor não é alterada.
+
+As faltas geradas ficam ligadas à suspensão por `TB_CHAMADA.ID_SUSPENSAO`. A
+liberação é por data/aula: `susp_liberar()` confirma que o registro ainda está
+ligado, grava `TB_SUSPENSOES_ALUNOS_LIBERACOES` e, nos dias que já passaram,
+pode virar presença com retificação (`F` → `P`) ou apenas remover a falta. Nas
+aulas futuras, a remoção deixa a chamada pendente para o professor lançar. Como
+o histórico de retificações tem chave estrangeira para a chamada, as retificações
+criadas pela própria suspensão são removidas junto com a falta liberada. Quando
+não resta falta ligada, a suspensão passa a `ENCERRADA`. Uma retificação manual
+posterior desfaz o vínculo, preservando o registro do professor.
+Histórico e auditoria guardam período, motivo, autor e cada liberação. A migração
+é `sql_inicial/ATUALIZAR_SUSPENSAO_ALUNOS.sql`.
 
 ### Alcance por nível
 
@@ -295,8 +321,13 @@ porque o CSS de impressão esconde essa classe.
 | `F` | Falta | não conta |
 | `J` | Falta justificada | **exige justificativa**; não conta |
 
-- Um registro por aluno por dia (índice único `ID_ALUNO + DATA`). Depois de
-  confirmado, salvar de novo **não** atualiza: a correção é por retificação.
+- Um registro por aluno **por aula** (índice único
+  `ID_ALUNO + DATA + AULA_SEQ`). A tela abre na 1ª ou na 2ª aula; os registros
+  antigos ficaram como `AULA_SEQ = 1`. Depois de confirmada aquela aula, salvar
+  de novo **não** atualiza: a correção é por retificação. A outra aula do mesmo
+  dia continua livre para lançamento independente.
+- A frequência conta **cada aula lançada**; falta na 1ª e presença na 2ª valem
+  uma falta e uma presença no denominador.
 - **Data futura** é bloqueada.
 - A data precisa pertencer ao **ano letivo da turma**.
 - Turma inativa não aceita novos lançamentos.
@@ -322,8 +353,8 @@ porque o CSS de impressão esconde essa classe.
 
 ### Relatório anual
 
-- A frequência é calculada **somente sobre os dias com chamada lançada** — dias
-  sem lançamento não entram na conta, para não distorcer o percentual.
+- A frequência é calculada **somente sobre as aulas com chamada lançada** —
+  aulas sem lançamento não entram na conta, para não distorcer o percentual.
 - Traz o consolidado **mês a mês**, a lista de faltas, e **todas as observações
   do ano** agrupadas por área.
 - Tem campos de **parecer descritivo** e **encaminhamentos**, salvos por

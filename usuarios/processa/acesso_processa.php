@@ -55,6 +55,11 @@ if (ch_diretor() && isset($_GET['relatorios'])) {
             $permissoes[$idUnidade] = (int)$valor;
         }
 
+        $anteriores = [];
+        foreach ($unidadesRelatorio as $u) {
+            $anteriores[(int)$u['id']] = (int)$u['PERMITIDO'];
+        }
+
         if (!sqlsrv_begin_transaction(ch_db())) {
             error_log('Falha ao iniciar transação para autorização de relatórios: ' . print_r(sqlsrv_errors(), true));
             ch_flash('Não foi possível iniciar a autorização. Tente novamente.', 'danger');
@@ -82,6 +87,17 @@ if (ch_diretor() && isset($_GET['relatorios'])) {
             }
             if (!sqlsrv_commit(ch_db())) {
                 throw new Exception('Falha ao confirmar autorização: ' . ch_erro_sql());
+            }
+            $alteracoes = [];
+            foreach ($permissoes as $unidadeId => $permitido) {
+                $antes = $anteriores[$unidadeId] ?? 0;
+                if ($antes !== $permitido) {
+                    $alteracoes[] = ['ID_UNIDADE' => $unidadeId, 'DE' => $antes, 'PARA' => $permitido];
+                }
+            }
+            if ($alteracoes) {
+                ch_auditar('Permissões', 'Atualizar leitura de relatórios', 'USUARIO', $id,
+                    ['ALTERACOES' => $alteracoes]);
             }
             ch_flash('Permissões de leitura de relatórios atualizadas.');
         } catch (Exception $e) {
@@ -147,6 +163,12 @@ if (ch_diretor() && isset($_GET['observacoes'])) {
             }
             $permissoes[$idUnidade] = $valor;
         }
+
+        $anteriores = [];
+        foreach ($unidadesObservacoes as $u) {
+            $anteriores[(int)$u['id']] = (int)$u['PERMITIDO'];
+        }
+
         if (!sqlsrv_begin_transaction(ch_db())) {
             error_log('Falha ao iniciar transação para autorização de observações: ' . print_r(sqlsrv_errors(), true));
             ch_flash('Não foi possível iniciar a autorização. Tente novamente.', 'danger');
@@ -174,6 +196,17 @@ if (ch_diretor() && isset($_GET['observacoes'])) {
             }
             if (!sqlsrv_commit(ch_db())) {
                 throw new Exception('Falha ao confirmar autorização: ' . ch_erro_sql());
+            }
+            $alteracoes = [];
+            foreach ($permissoes as $unidadeId => $permitido) {
+                $antes = $anteriores[$unidadeId] ?? 0;
+                if ($antes !== $permitido) {
+                    $alteracoes[] = ['ID_UNIDADE' => $unidadeId, 'DE' => $antes, 'PARA' => $permitido];
+                }
+            }
+            if ($alteracoes) {
+                ch_auditar('Permissões', 'Atualizar observações', 'USUARIO', $id,
+                    ['ALTERACOES' => $alteracoes]);
             }
             ch_flash('Permissões para registrar observações atualizadas.');
         } catch (Exception $e) {
@@ -269,6 +302,10 @@ if ($id) {
             header('Location: ' . ch_url('usuarios/acesso.php?id=' . $id));
             exit;
         }
+        $afetadas = (int)sqlsrv_rows_affected($stmt_insert_all);
+        sqlsrv_free_stmt($stmt_insert_all);
+        ch_auditar('Permissões', 'Vincular todas as unidades', 'USUARIO', $id,
+            ['UNIDADES_INSERIDAS' => $afetadas]);
 
         ch_flash('Unidades vinculadas com sucesso.');
         header('Location: ' . ch_url('usuarios/acesso.php?id=' . $id));
@@ -307,6 +344,7 @@ if ($id) {
             exit;
         }
 
+        $acaoVinculo = $vinculoExistente ? 'Reativar vínculo' : 'Vincular unidade';
         if ($vinculoExistente) {
             $stmt_insert = sqlsrv_query(
                 $conn,
@@ -327,6 +365,8 @@ if ($id) {
             header('Location: ' . ch_url('usuarios/acesso.php?id=' . $id));
             exit;
         }
+        sqlsrv_free_stmt($stmt_insert);
+        ch_auditar('Permissões', $acaoVinculo, 'USUARIO', $id, ['ID_UNIDADE' => $id_unidade]);
 
         ch_flash('Unidade vinculada com sucesso.');
         header('Location: ' . ch_url('usuarios/acesso.php?id=' . $id));

@@ -104,7 +104,7 @@ if (!defined('ABSPATH')) {
   </div>
 </form>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 (function () {
   var mapaTitulares = <?= json_encode($op['titularesPorTurma'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   var selTurma = document.getElementById('id_turma');

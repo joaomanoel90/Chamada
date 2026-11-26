@@ -30,7 +30,7 @@ if (!defined('ABSPATH')) {
   </div>
 </div>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 // Passa o ID do botão para o campo hidden do modal
 var acessoModal = document.getElementById('acesso-modal')
 acessoModal.addEventListener('show.bs.modal', function (event) {

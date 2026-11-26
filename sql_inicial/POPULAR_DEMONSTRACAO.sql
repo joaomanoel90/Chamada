@@ -469,6 +469,50 @@ WHERE NOT EXISTS (SELECT 1 FROM dbo.TB_FERIADOS x
                   WHERE x.DATA = f.data AND x.ID_UNIDADE IS NULL);
 PRINT '  + feriados criados: ' + CAST(@@ROWCOUNT AS varchar(10)) + ' (2 deles parciais)';
 
+/* Calendários escolares de demonstração, se o banco já foi migrado. */
+IF OBJECT_ID(N'dbo.TB_CALENDARIOS', N'U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM dbo.TB_CALENDARIOS
+                    WHERE ANO_LETIVO = @AnoLetivo AND CALENDARIO = 'CRECHE')
+        INSERT INTO dbo.TB_CALENDARIOS (ANO_LETIVO, CALENDARIO, INICIO_ANO, FIM_ANO)
+        OUTPUT 'TB_CALENDARIOS', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+        VALUES (@AnoLetivo, 'CRECHE', DATEFROMPARTS(@AnoLetivo, 2, 1), DATEFROMPARTS(@AnoLetivo, 12, 31));
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.TB_CALENDARIOS
+                    WHERE ANO_LETIVO = @AnoLetivo AND CALENDARIO = 'FUNDAMENTAL')
+        INSERT INTO dbo.TB_CALENDARIOS (ANO_LETIVO, CALENDARIO, INICIO_ANO, FIM_ANO)
+        OUTPUT 'TB_CALENDARIOS', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+        VALUES (@AnoLetivo, 'FUNDAMENTAL', DATEFROMPARTS(@AnoLetivo, 1, 20), DATEFROMPARTS(@AnoLetivo, 12, 31));
+
+    PRINT '  + calendários escolares criados';
+END
+
+/* Um sábado letivo e um dia útil dispensado para demonstrar as exceções. */
+IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NOT NULL
+BEGIN
+    DECLARE @PrimeiroSabadoNovembro date = DATEADD(DAY,
+        (5 - DATEDIFF(DAY, '19000101', DATEFROMPARTS(@AnoLetivo, 11, 1)) % 7 + 7) % 7,
+        DATEFROMPARTS(@AnoLetivo, 11, 1));
+
+    INSERT INTO dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, TIPO, MOTIVO)
+    OUTPUT 'TB_CALENDARIO_EXCECOES', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+    SELECT c.ID, @PrimeiroSabadoNovembro, N'LETIVO', N'Sábado letivo de reposição (demonstração)'
+      FROM dbo.TB_CALENDARIOS c
+     WHERE c.ANO_LETIVO = @AnoLetivo AND c.CALENDARIO = 'FUNDAMENTAL'
+       AND NOT EXISTS (SELECT 1 FROM dbo.TB_CALENDARIO_EXCECOES x
+                        WHERE x.ID_CALENDARIO = c.ID AND x.DATA = @PrimeiroSabadoNovembro);
+
+    INSERT INTO dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, TIPO, MOTIVO)
+    OUTPUT 'TB_CALENDARIO_EXCECOES', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+    SELECT c.ID, DATEFROMPARTS(@AnoLetivo, 10, 10), N'NAO_LETIVO', N'Recesso pedagógico (demonstração)'
+      FROM dbo.TB_CALENDARIOS c
+     WHERE c.ANO_LETIVO = @AnoLetivo AND c.CALENDARIO = 'CRECHE'
+       AND NOT EXISTS (SELECT 1 FROM dbo.TB_CALENDARIO_EXCECOES x
+                        WHERE x.ID_CALENDARIO = c.ID AND x.DATA = DATEFROMPARTS(@AnoLetivo, 10, 10));
+
+    PRINT '  + exceções do calendário criadas';
+END
+
 /* ----------------------------------------------------------------------------
    11. Chamada — dias úteis de @MesesHistorico até ONTEM
        O dia da semana não depende de idioma nem de SET DATEFIRST:
@@ -523,6 +567,23 @@ BEGIN
            c.id_usuario
     FROM @chamada c;
     PRINT '  + registros de chamada: ' + CAST(@@ROWCOUNT AS varchar(10));
+
+    /* 2ª aula para parte dos alunos: a situação é independente da 1ª. Quem
+       faltou na 1ª compareceu na 2ª, e vice-versa. */
+    INSERT INTO dbo.TB_CHAMADA
+        (ID_ALUNO, DATA, AULA_SEQ, STATUS, JUSTIFICATIVA, ID_USUARIO,
+         CONFIRMADA_EM, CONFIRMADA_POR)
+    OUTPUT 'TB_CHAMADA', INSERTED.ID INTO dbo.TB_DEMO_IDS (TABELA, REGISTRO_ID)
+    SELECT c.id_aluno, c.data, 2,
+           CASE WHEN c.status IN (N'F', N'J') THEN N'P' ELSE N'F' END,
+           NULL,
+           c.id_usuario,
+           DATEADD(MINUTE, 600, CAST(c.data AS datetime)),
+           c.id_usuario
+    FROM @chamada c
+    WHERE ABS(CHECKSUM(CONCAT(N'aula2', c.id_aluno, N'|',
+                              CONVERT(varchar(10), c.data, 23))) % 5) = 0;
+    PRINT '  + registros de 2ª aula: ' + CAST(@@ROWCOUNT AS varchar(10));
 
     /* ------------------------------------------------------------------------
        12. Retificações: 12 faltas viram falta justificada, com histórico

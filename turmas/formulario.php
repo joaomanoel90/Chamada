@@ -160,7 +160,7 @@ function turma_linha_disciplina($d, $op)
   </div>
 </form>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 /* Linhas de matéria: adicionar e remover, com o contador. */
 (function () {
   var lista = document.getElementById('lista-disciplinas');

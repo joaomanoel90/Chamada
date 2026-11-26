@@ -83,7 +83,7 @@ foreach ($turmasAno as $t) {
 <form method="get" action="contexto.php" class="row g-2 align-items-end mb-4">
   <div class="col-md-4">
     <label class="fw-bold" for="ano">Ano letivo</label>
-    <select name="ano" id="ano" class="form-select" onchange="this.form.submit()">
+    <select name="ano" id="ano" class="form-select" data-auto-submit>
       <?php foreach ($anos as $a): ?>
         <option value="<?= $a ?>" <?= $a === $anoSel ? 'selected' : '' ?>><?= $a ?><?= $a === $anoAtual ? ' (atual)' : '' ?></option>
       <?php endforeach; ?>

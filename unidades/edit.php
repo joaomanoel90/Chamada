@@ -11,9 +11,9 @@ if (!isset($unidade['id'])) {
 
 <h2><i class="far fa-edit"></i> Editar Unidade: <?= htmlspecialchars($unidade['unidade']) ?></h2>
 
-<form action="edit.php?id=<?= $id ?>" method="post">
+<form action="edit.php?id=<?= (int)$id ?>" method="post">
   <?= ch_csrf_campo() ?>
-  <input type="hidden" class="form-control" name="id" id="id" value="<?= $id ?>" required>
+  <input type="hidden" class="form-control" name="id" id="id" value="<?= (int)$id ?>" required>
 
   <hr />
 
@@ -21,7 +21,7 @@ if (!isset($unidade['id'])) {
   <div class="row">
     <div class="form-group col-md-12">
       <label class="fw-bold">Unidade</label>
-      <input type="text" class="form-control" name="unidade" value="<?= htmlspecialchars($unidade['unidade']) ?>" onkeyup="this.value = this.value.toUpperCase();" id="unidade" maxlength="230" required>
+      <input type="text" class="form-control" name="unidade" value="<?= htmlspecialchars($unidade['unidade']) ?>" data-uppercase id="unidade" maxlength="230" required>
     </div>
 
   </div>

@@ -12,11 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: index.php');
         exit;
     }
-    $id = strip_tags(trim($_POST['id'] ?? ''));
-    $unidade = strip_tags(trim($_POST['unidade'] ?? ''));
+    $id = (int)($_POST['id'] ?? 0);
+    $unidade = strip_tags(trim((string)($_POST['unidade'] ?? '')));
 
-    if (!$id) {
+    if ($id <= 0) {
         echo "ID não informado.";
+        exit;
+    }
+    if ($unidade === '' || mb_strlen($unidade) > 230) {
+        echo "Informe o nome da unidade (até 230 caracteres).";
         exit;
     }
 
@@ -29,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_check = sqlsrv_query($conn, $sql_check, $params_check);
         $unidade_existente = sqlsrv_fetch_array($stmt_check, SQLSRV_FETCH_ASSOC);
 
-        if (!$unidade_existente) {
+        if (!$unidade_existente || !ch_pode_unidade($id)) {
             throw new Exception("Unidade não encontrada.");
         }
 
@@ -40,11 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_update = sqlsrv_query($conn, $sql_update, $params_update);
 
         if ($stmt_update === false) {
-            throw new Exception("Erro ao atualizar a unidade: " . print_r(sqlsrv_errors(), true));
+            error_log('Erro ao atualizar a unidade: ' . print_r(sqlsrv_errors(), true));
+            throw new Exception("Não foi possível atualizar a unidade.");
         }
 
         // Commit da transação
         sqlsrv_commit($conn);
+        ch_auditar('Unidades', 'Atualizar unidade', 'UNIDADE', $id, [
+            'ANTES' => (string)($unidade_existente['unidade'] ?? ''),
+            'DEPOIS' => $unidade,
+        ]);
         header("Location: index.php?msg=sucesso");
         exit;
 
@@ -54,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "Erro: " . $e->getMessage();
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['id'])) {
-    $id = $_GET['id'];
+    $id = (int)$_GET['id'];
 
     // Consulta a unidade para preenchimento do formulário de edição
     $sql = "SELECT * FROM TB_UNIDADES WHERE id = ?";
@@ -62,12 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt_select = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt_select === false) {
-        die(print_r(sqlsrv_errors(), true));
+        error_log('Erro ao consultar a unidade: ' . print_r(sqlsrv_errors(), true));
+        die("Não foi possível consultar a unidade.");
     }
 
     $unidade = sqlsrv_fetch_array($stmt_select, SQLSRV_FETCH_ASSOC);
 
-    if (!$unidade) {
+    if (!$unidade || !ch_pode_unidade($id)) {
         die("Unidade não encontrada.");
     }
 }

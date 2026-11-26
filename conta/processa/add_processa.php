@@ -21,6 +21,19 @@ $senhaEnviada = $_POST['senha'] ?? '';
 $senha = is_string($senhaEnviada) ? $senhaEnviada : '';
 $email = $_POST['email'] ?? '';
 
+if (!is_string($email)) {
+    ch_flash('O e-mail informado é inválido.', 'danger');
+    header('Location: ' . BASEURL . 'conta/index.php');
+    exit;
+}
+$emailAtual = (string)(ch_val('SELECT EMAIL FROM TB_USUARIOS WHERE ID = ?', [$id]) ?? '');
+if ($email !== $emailAtual
+    && (mb_strlen($email) > 150 || ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)))) {
+    ch_flash('Informe um e-mail válido (até 150 caracteres) ou deixe em branco.', 'danger');
+    header('Location: ' . BASEURL . 'conta/index.php');
+    exit;
+}
+
 if (!is_string($senhaEnviada)) {
     ch_flash('A senha informada é inválida.', 'danger');
     header('Location: ' . BASEURL . 'conta/index.php');

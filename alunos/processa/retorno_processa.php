@@ -73,31 +73,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$erros && $turma) {
-            sqlsrv_begin_transaction(ch_db());
-            $saidaAtualizada = ch_afetadas(
-                'UPDATE TB_ALUNO_SAIDAS_EXTERNAS
-                 SET DATA_RETORNO = ?, ID_TURMA_RETORNO = ?, ID_USUARIO_RETORNO = ?, RETORNADA_EM = GETDATE()
-                 WHERE ID = ? AND DATA_RETORNO IS NULL',
-                [$d['DATA_RETORNO'], (int)$turma['ID'], ch_uid(), (int)$aluno['ID_SAIDA']]
-            );
-            $alunoAtualizado = $saidaAtualizada === 1
-                ? ch_afetadas(
-                    'UPDATE TB_ALUNOS SET ID_TURMA = ?, DATA_MATRICULA = ?, ATIVO = 1
-                     WHERE ID = ? AND ATIVO = 0',
-                    [(int)$turma['ID'], $d['DATA_RETORNO'], (int)$aluno['ID']]
-                )
-                : false;
-            if ($saidaAtualizada === 1 && $alunoAtualizado === 1) {
-                if (sqlsrv_commit(ch_db())) {
-                    ch_flash('Retorno registrado no cadastro existente. A matrícula e a turma foram atualizadas, sem duplicar o aluno.');
-                    header('Location: ' . ch_url('alunos/view.php?id=' . (int)$aluno['ID']));
-                    exit;
+            if (!sqlsrv_begin_transaction(ch_db())) {
+                $erros[] = 'Não foi possível iniciar o registro do retorno.';
+            } else {
+                /* Revalida a lotação com lock: duas requisições não podem estourar a capacidade. */
+                $turmaBloqueada = ch_row(
+                    'SELECT ID, CAPACIDADE FROM TB_TURMAS WITH (UPDLOCK, HOLDLOCK) WHERE ID = ?',
+                    [(int)$turma['ID']]
+                );
+                $ocupadas = $turmaBloqueada
+                    ? (int)ch_val(
+                        'SELECT COUNT(*) FROM TB_ALUNOS WITH (UPDLOCK, HOLDLOCK) WHERE ID_TURMA = ? AND ATIVO = 1',
+                        [(int)$turma['ID']]
+                    )
+                    : 0;
+                if (!$turmaBloqueada || $ocupadas >= (int)$turmaBloqueada['CAPACIDADE']) {
+                    sqlsrv_rollback(ch_db());
+                    $erros[] = 'A turma ' . $turma['NOME'] . ' não está mais disponível ou já atingiu a capacidade.';
+                } else {
+                    $saidaAtualizada = ch_afetadas(
+                        'UPDATE TB_ALUNO_SAIDAS_EXTERNAS
+                         SET DATA_RETORNO = ?, ID_TURMA_RETORNO = ?, ID_USUARIO_RETORNO = ?, RETORNADA_EM = GETDATE()
+                         WHERE ID = ? AND DATA_RETORNO IS NULL',
+                        [$d['DATA_RETORNO'], (int)$turma['ID'], ch_uid(), (int)$aluno['ID_SAIDA']]
+                    );
+                    $alunoAtualizado = $saidaAtualizada === 1
+                        ? ch_afetadas(
+                            'UPDATE TB_ALUNOS SET ID_TURMA = ?, DATA_MATRICULA = ?, ATIVO = 1
+                             WHERE ID = ? AND ATIVO = 0',
+                            [(int)$turma['ID'], $d['DATA_RETORNO'], (int)$aluno['ID']]
+                        )
+                        : false;
+                    if ($saidaAtualizada === 1 && $alunoAtualizado === 1 && sqlsrv_commit(ch_db())) {
+                        ch_flash('Retorno registrado no cadastro existente. A matrícula e a turma foram atualizadas, sem duplicar o aluno.');
+                        header('Location: ' . ch_url('alunos/view.php?id=' . (int)$aluno['ID']));
+                        exit;
+                    }
+
+                    sqlsrv_rollback(ch_db());
+                    $erros[] = 'O cadastro mudou durante o processo ou não foi possível registrar o retorno. Atualize a página e tente novamente.';
+                    if (ch_admin()) { $erros[] = ch_erro_sql(); }
                 }
             }
-
-            sqlsrv_rollback(ch_db());
-            $erros[] = 'O cadastro mudou durante o processo ou não foi possível registrar o retorno. Atualize a página e tente novamente.';
-            if (ch_admin()) { $erros[] = ch_erro_sql(); }
         }
     }
 }

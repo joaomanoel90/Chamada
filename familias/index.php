@@ -101,6 +101,9 @@ ch_cabecalho('Famílias e Responsáveis', 'fa-people-roof', $botaoAlunos);
                     <?php if (!empty($f['CONTATO_PRINCIPAL'])): ?>
                       <span class="badge bg-info text-dark" title="Contato principal">Principal</span>
                     <?php endif; ?>
+                    <?php if (!empty($f['RESTRITO_CONTATO'])): ?>
+                      <span class="badge bg-danger" title="Não exibido no crachá">Restrito</span>
+                    <?php endif; ?>
                   </td>
                   <td>
                     <a class="fw-bold text-decoration-none" href="<?= ch_url('alunos/view.php?id=' . (int)$f['ID_ALUNO']) ?>">
@@ -126,6 +129,11 @@ ch_cabecalho('Famílias e Responsáveis', 'fa-people-roof', $botaoAlunos);
                        href="<?= ch_url('alunos/cracha.php?id=' . (int)$f['ID_ALUNO']) ?>" title="Gerar crachá frente e verso">
                       <i class="fas fa-id-card"></i>
                     </a>
+                    <?php if (ch_gestao_alunos() && (int)$f['ATIVO'] === 1): ?>
+                      <a class="btn btn-sm btn-outline-danger" href="<?= ch_url('alunos/restricao.php?aluno_id=' . (int)$f['ID_ALUNO']) ?>" title="Restrição familiar">
+                        <i class="fas fa-lock"></i>
+                      </a>
+                    <?php endif; ?>
                   </td>
                 </tr>
               <?php endforeach; ?>

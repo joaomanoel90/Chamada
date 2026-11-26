@@ -12,6 +12,9 @@ $anoAtual = (int)date('Y');
 
 $idAluno = (int)($_POST['id_aluno'] ?? $_GET['aluno_id'] ?? 0);
 $aluno = $idAluno > 0 ? ch_aluno($idAluno) : null;
+if ($aluno && !ch_pode_unidade($aluno['ID_UNIDADE'])) {
+    $aluno = null;
+}
 
 $anoLetivo = (int)($_POST['ano_letivo'] ?? $_GET['ano'] ?? ($aluno['ANO_LETIVO'] ?? $anoAtual));
 if (!in_array($anoLetivo, $anos, true)) {
@@ -63,11 +66,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $d['sala_recursos']    = trim((string)($_POST['sala_recursos'] ?? ''));
     $d['objetivos_plano']  = trim((string)($_POST['objetivos_plano'] ?? ''));
 
+    $alunoPost = $idAluno > 0 ? ch_aluno($idAluno) : null;
     if ($idAluno <= 0) {
         $erros[] = 'Selecione o aluno para o atendimento de AEE.';
+    } elseif (!$alunoPost || !ch_pode_unidade($alunoPost['ID_UNIDADE'])) {
+        $erros[] = 'Você não tem acesso a este aluno.';
     }
     if ($anoLetivo <= 0) {
         $erros[] = 'Informe o ano letivo de referência.';
+    } elseif (!in_array($anoLetivo, $anos, true)) {
+        $erros[] = 'Ano letivo inválido.';
     }
 
     if (!$erros) {

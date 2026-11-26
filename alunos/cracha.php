@@ -9,7 +9,8 @@ ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);
 $fotoSrc = aluno_foto_src($aluno['TEM_FOTO'] ?? false, $id);
-$responsaveisFamilia = fam_responsaveis_aluno($id);
+$vinculosFamilia = fam_responsaveis_aluno($id);
+$responsaveisFamilia = fam_contatos_cracha($id);
 $marcadoresInclusaoHtml = aluno_inclusao_html_marcadores($aluno);
 
 /* Fonte do nome pelo tamanho: garante que nomes grandes caibam no crachá sem
@@ -152,7 +153,7 @@ $fonteContato = function ($nome) {
     /* Verso: só o que NÃO está na frente — contatos de emergência e dados de
        saúde/alimentação (alergias, restrições alimentares, medicação), sem
        repetir nome, matrícula, turma, unidade ou prefeitura. A lista de
-       contatos prioriza o contato principal cadastrado. */
+       contatos prioriza o contato principal e omite os marcados com restrição familiar. */
     .cracha-verso {
       padding: 4mm;
       text-align: left;
@@ -205,11 +206,12 @@ $fonteContato = function ($nome) {
       .cracha:last-child { page-break-after: auto; break-after: auto; }
     }
   </style>
+<script src="<?= BASEURL ?>js/csp-handlers.js"></script>
 </head>
 <body>
   <nav class="acoes" aria-label="Ações do crachá">
     <a href="<?= ch_url('alunos/view.php?id=' . (int)$id) ?>">Voltar à ficha</a>
-    <button type="button" onclick="window.print()">Imprimir frente e verso / salvar PDF</button>
+    <button type="button" data-print>Imprimir frente e verso / salvar PDF</button>
   </nav>
   <p class="orientacao">O crachá contém duas páginas: frente (identificação) e verso (saúde, alimentação e responsáveis). Para imprimir em cartão frente e verso, selecione impressão duplex e vire pela borda longa.</p>
 
@@ -265,7 +267,7 @@ $fonteContato = function ($nome) {
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
-        <?php elseif (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== ''): ?>
+        <?php elseif (!$vinculosFamilia && (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== '' || trim((string)($aluno['TELEFONE'] ?? '')) !== '')): ?>
           <div class="contato">
             <div class="contato-vinculo">Responsável</div>
             <?php if (trim((string)($aluno['RESPONSAVEL'] ?? '')) !== ''): ?>

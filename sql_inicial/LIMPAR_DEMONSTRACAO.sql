@@ -241,6 +241,23 @@ FROM dbo.TB_FERIADOS f
 INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_FERIADOS' AND d.REGISTRO_ID = f.ID;
 PRINT '  - feriados: ' + CAST(@@ROWCOUNT AS varchar(10));
 
+/* 10.1 Exceções e calendários escolares criados pelo script */
+IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NOT NULL
+BEGIN
+    DELETE e
+    FROM dbo.TB_CALENDARIO_EXCECOES e
+    INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_CALENDARIO_EXCECOES' AND d.REGISTRO_ID = e.ID;
+    PRINT '  - exceções do calendário: ' + CAST(@@ROWCOUNT AS varchar(10));
+END
+
+IF OBJECT_ID(N'dbo.TB_CALENDARIOS', N'U') IS NOT NULL
+BEGIN
+    DELETE c
+    FROM dbo.TB_CALENDARIOS c
+    INNER JOIN dbo.TB_DEMO_IDS d ON d.TABELA = 'TB_CALENDARIOS' AND d.REGISTRO_ID = c.ID;
+    PRINT '  - calendários: ' + CAST(@@ROWCOUNT AS varchar(10));
+END
+
 /* 11. Acessos dos usuários de demonstração */
 DELETE ac
 FROM dbo.TB_ACESSO ac INNER JOIN @usuarios u ON u.id = ac.id_usuario;

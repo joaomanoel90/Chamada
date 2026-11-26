@@ -6,6 +6,8 @@ $botoesTopo = ['<a class="btn btn-outline-secondary" href="index.php"><i class="
 $botoesTopo[] = '<a class="btn btn-outline-primary" target="_blank" rel="noopener" href="cracha.php?id=' . (int)$id . '"><i class="fas fa-id-card"></i> Crachá frente e verso</a>';
 if (ch_gestao_alunos() && !$apenasHistorico) {
     $botoesTopo[] = '<a class="btn btn-success" href="edit.php?id=' . (int)$id . '"><i class="far fa-edit"></i> Editar</a>';
+    $botoesTopo[] = '<a class="btn btn-outline-danger" href="' . ch_url('alunos/restricao.php?aluno_id=' . (int)$id) . '"><i class="fas fa-lock"></i> Restrição familiar</a>';
+    $botoesTopo[] = '<a class="btn btn-outline-warning" href="' . ch_url('alunos/suspensao.php?aluno_id=' . (int)$id) . '"><i class="fas fa-calendar-xmark"></i> Suspensão</a>';
 }
 $botoesAluno = '<div class="d-inline-flex flex-wrap justify-content-sm-end gap-2">' . implode('', $botoesTopo) . '</div>';
 ch_cabecalho($aluno['NOME'], 'fa-child-reaching', $botoesAluno);
@@ -50,6 +52,21 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
     <b><?= ch_h($saidaExternaAberta['ESCOLA_DESTINO']) ?></b>,
     <?= ch_h($saidaExternaAberta['MUNICIPIO_DESTINO']) ?>/<?= ch_h($saidaExternaAberta['UF_DESTINO']) ?>.
     Para matricular novamente, use <b>Alunos → Retorno à rede</b> e localize pelo CPF.
+  </div>
+<?php endif; ?>
+
+<?php if ($suspensaoAtiva): ?>
+  <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span>
+      <i class="fas fa-ban me-1"></i>
+      Aluno <b>suspenso</b> de <?= ch_h(ch_data_br($suspensaoAtiva['DATA_INICIO_TXT'])) ?> a
+      <?= ch_h(ch_data_br($suspensaoAtiva['DATA_FIM_TXT'])) ?> ·
+      <?= ch_h($suspensaoAtiva['MOTIVO']) ?> ·
+      registrado por <?= ch_h($suspensaoAtiva['USUARIO_NOME']) ?>.
+    </span>
+    <?php if (ch_gestor() && !$apenasHistorico): ?>
+      <a class="btn btn-sm btn-outline-dark" href="<?= ch_url('alunos/suspensao.php?aluno_id=' . (int)$id) ?>">Gerenciar suspensão</a>
+    <?php endif; ?>
   </div>
 <?php endif; ?>
 
@@ -127,7 +144,7 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
           <?php else: ?>
             <div class="d-flex align-items-baseline gap-2 mb-1">
               <h2 class="mb-0"><?= number_format($frequencia, 1, ',', '.') ?>%</h2>
-              <span class="text-muted small">(<?= $presencas ?> presenças em <?= $dias ?> dias)</span>
+              <span class="text-muted small">(<?= $presencas ?> presenças em <?= $aulas ?> aulas)</span>
             </div>
             <div class="progress rounded-pill mb-3" style="height: 10px;">
               <div class="progress-bar bg-<?= $frequencia >= 75 ? 'success' : 'warning' ?>" role="progressbar"
@@ -158,6 +175,9 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
           <h5 class="mb-0"><i class="fas fa-people-roof text-success"></i> Família / Responsáveis</h5>
+          <?php if (ch_gestao_alunos() && !$apenasHistorico): ?>
+            <a class="btn btn-sm btn-outline-danger" href="<?= ch_url('alunos/restricao.php?aluno_id=' . (int)$id) ?>"><i class="fas fa-lock me-1"></i> Gerenciar restrições</a>
+          <?php endif; ?>
           <?php if (ch_gestao_alunos()): ?>
             <a class="btn btn-sm btn-outline-secondary" href="<?= ch_url('familias/index.php') ?>"><i class="fas fa-magnifying-glass me-1"></i> Buscar família</a>
           <?php endif; ?>
@@ -171,6 +191,9 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
                     <span class="badge bg-success"><?= ch_h(fam_parentesco_rotulo($fr['PARENTESCO'], $fr['DESCRICAO_OUTRO'])) ?></span>
                     <?php if (!empty($fr['CONTATO_PRINCIPAL'])): ?>
                       <span class="badge bg-warning text-dark"><i class="fas fa-star me-1"></i> Contato principal</span>
+                    <?php endif; ?>
+                    <?php if (!empty($fr['RESTRITO_CONTATO'])): ?>
+                      <span class="badge bg-danger" title="Não exibido no crachá"><i class="fas fa-lock me-1"></i> Restrito</span>
                     <?php endif; ?>
                   </div>
                   <div class="fw-bold"><?= ch_h($fr['NOME']) ?></div>
@@ -187,6 +210,29 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
                     <a class="small" href="<?= ch_url('familias/index.php?q=' . rawurlencode((string)$fr['CPF'])) ?>">Ver todos os filhos</a>
                   <?php endif; ?>
                 </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+        <?php if (!empty($historicoRestricoes)): ?>
+          <div class="mt-3 border-top pt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <div class="small fw-bold text-muted text-uppercase" style="font-size:.72rem;letter-spacing:.04em">
+                <i class="fas fa-clock-rotate-left me-1"></i> Histórico de restrições familiares
+              </div>
+              <?php if (ch_gestao_alunos() && !$apenasHistorico): ?>
+                <a class="small" href="<?= ch_url('alunos/restricao.php?aluno_id=' . (int)$id) ?>">Ver histórico completo</a>
+              <?php endif; ?>
+            </div>
+            <?php foreach (array_slice($historicoRestricoes, 0, 3) as $hr): ?>
+              <div class="small mb-1">
+                <span class="badge bg-<?= $hr['ACAO'] === 'RESTRINGIR' ? 'danger' : 'success' ?>">
+                  <?= $hr['ACAO'] === 'RESTRINGIR' ? 'Restringiu' : 'Liberou' ?>
+                </span>
+                <?= ch_h($hr['CRIADO_EM_TXT']) ?> ·
+                <?= ch_h(fam_parentesco_rotulo($hr['PARENTESCO'], $hr['DESCRICAO_OUTRO'] ?? '')) ?>
+                · <?= ch_h($hr['NOME_RESPONSAVEL']) ?> · por <?= ch_h($hr['USUARIO_NOME']) ?>
+                <span class="text-muted">— <?= ch_h($hr['MOTIVO']) ?></span>
               </div>
             <?php endforeach; ?>
           </div>
@@ -369,11 +415,12 @@ if (ch_gestao_alunos() && !$apenasHistorico && (int)$aluno['ATIVO'] === 1 && !$t
         <h5 class="mb-3"><i class="fas fa-clipboard-user"></i> Últimos registros de chamada</h5>
         <?php if (!$ultimas): ?><p class="text-muted">Nenhum registro.</p><?php else: ?>
         <table class="table table-sm align-middle mb-0">
-          <thead><tr><th>Data</th><th>Status</th><th>Lançado por</th></tr></thead>
+          <thead><tr><th>Data</th><th>Aula</th><th>Status</th><th>Lançado por</th></tr></thead>
           <tbody>
             <?php foreach ($ultimas as $c): $sl = ch_status_lista(); ?>
             <tr>
               <td><?= ch_data_br($c['DATA']) ?></td>
+              <td><small><?= ch_h(ch_aula_rotulo($c['AULA_SEQ'])) ?></small></td>
               <td><span class="badge bg-<?= $sl[$c['STATUS']]['cor'] ?>"><?= ch_status_rotulo($c['STATUS']) ?></span>
                 <?php if ($c['JUSTIFICATIVA']): ?><br><small class="text-muted"><?= ch_h($c['JUSTIFICATIVA']) ?></small><?php endif; ?>
               </td>

@@ -11,15 +11,15 @@ function observacao_validar($post)
     $d = [
         'ID_ALUNO'     => $idAluno,
         'DATA'         => ch_data_iso($post['data'] ?? '', ch_hoje()),
-        'CATEGORIA'    => trim($post['categoria'] ?? ''),
-        'TEXTO'        => trim(strip_tags($post['texto'] ?? '')),
+        'CATEGORIA'    => trim((string)($post['categoria'] ?? '')),
+        'TEXTO'        => trim(strip_tags((string)($post['texto'] ?? ''))),
         'RESTRITA_AEE' => (!empty($post['restrita_aee']) && ch_pode_marcar_obs_restrita_aee($idAluno)) ? 1 : 0,
     ];
     $e = [];
 
     /* Escrita exige a turma ATUAL: a escola de origem, depois da
        transferência, fica só com a consulta ao histórico. */
-    if (!ch_pode_escrever_observacao_aluno($d['ID_ALUNO'])) {
+    if (!ch_pode_escrever_observacao_aluno($d['ID_ALUNO'], $d['DATA'])) {
         $e[] = ch_secretario_escolar()
             ? 'O Diretor precisa autorizar o registro de observações nesta unidade.'
             : 'Selecione um aluno da sua unidade.';
@@ -31,6 +31,27 @@ function observacao_validar($post)
     elseif (mb_strlen($d['TEXTO']) > 5000) { $e[] = 'A observação deve ter no máximo 5000 caracteres.'; }
 
     return [$d, $e];
+}
+
+/**
+ * Observação automática de restrição familiar. Avisa que é preciso gerar
+ * outro crachá sem os dados do contato restrito. Chamada pela tela própria
+ * de restrição (alunos/restricao.php), dentro da transação da ação. Só grava
+ * se o usuário tiver autorização para escrever observações no aluno; a falha
+ * aqui não aborta a restrição já salva.
+ */
+function observacao_inserir_restricao_familiar($idAluno, $texto)
+{
+    $idAluno = (int)$idAluno;
+    $texto = trim(strip_tags((string)$texto));
+    if ($idAluno <= 0 || $texto === '' || mb_strlen($texto) > 5000) return false;
+    if (!ch_pode_escrever_observacao_aluno($idAluno, ch_hoje())) return false;
+
+    return ch_exec(
+        'INSERT INTO TB_OBSERVACOES (ID_ALUNO, DATA, CATEGORIA, TEXTO, ID_USUARIO, RESTRITA_AEE)
+         VALUES (?, ?, ?, ?, ?, 0)',
+        [$idAluno, ch_hoje(), 'Contato com a família', $texto, ch_uid()]
+    );
 }
 
 /** Alunos que o usuário pode observar. */

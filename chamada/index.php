@@ -3,9 +3,9 @@
 
 <?php ch_cabecalho('Chamada de Alunos', 'fa-clipboard-user'); ?>
 
-<form method="get" action="index.php" class="row g-2 align-items-end mb-4">
-  <div class="col-md-6">
-    <label class="fw-bold">Turma</label>
+<form method="get" action="index.php" class="row g-3 align-items-end mb-4">
+  <div class="col-md-5">
+    <label class="form-label small fw-bold mb-1">Turma</label>
     <select name="turma_id" class="form-select" required>
       <option value="">Selecione...</option>
       <?php foreach ($turmas as $t): ?>
@@ -17,10 +17,18 @@
     </select>
   </div>
   <div class="col-md-3">
-    <label class="fw-bold">Data</label>
+    <label class="form-label small fw-bold mb-1">Data</label>
     <input type="date" name="data" class="form-control" max="<?= ch_hoje() ?>" value="<?= ch_h($data) ?>" required>
   </div>
-  <div class="col-md-3">
+  <div class="col-md-2">
+    <label class="form-label small fw-bold mb-1">Aula</label>
+    <select name="aula" class="form-select" required>
+      <?php foreach (ch_aula_lista() as $numero => $rotulo): ?>
+        <option value="<?= (int)$numero ?>" <?= $aula === (int)$numero ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+  <div class="col-md-2">
     <button class="btn btn-primary w-100"><i class="fas fa-magnifying-glass"></i> Abrir chamada</button>
   </div>
 </form>
@@ -45,6 +53,14 @@
           <i class="far fa-clock"></i> <?= ch_h($turma['PERIODO']) ?>
           (<?= ch_h($turma['HORA_INICIO']) ?>–<?= ch_h($turma['HORA_FIM']) ?>)
           &nbsp;·&nbsp; <i class="far fa-calendar"></i> <?= ch_data_longa($data) ?>
+        </div>
+        <div class="mt-2 d-flex flex-wrap gap-2">
+          <span class="badge bg-primary"><i class="fas fa-chalkboard-user"></i> <?= ch_h(ch_aula_rotulo($aula)) ?></span>
+          <?php foreach ($porAula as $numero => $quantidade): ?>
+            <span class="badge bg-<?= $quantidade > 0 ? 'success' : 'light text-dark border' ?>">
+              <?= ch_h(ch_aula_rotulo($numero)) ?>: <?= (int)$quantidade ?> lançamento(s)
+            </span>
+          <?php endforeach; ?>
         </div>
         <?php if ($equipe): ?>
         <div class="painel-turma-equipe">
@@ -116,7 +132,7 @@
         <i class="fas fa-check-double"></i> Marcar pendentes como presentes
       </button>
     <?php endif; ?>
-    <a class="btn btn-sm btn-outline-secondary" href="exportar.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
+    <a class="btn btn-sm btn-outline-secondary" href="exportar.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>&aula=<?= (int)$aula ?>">
       <i class="fas fa-file-csv"></i> Exportar CSV
     </a>
     <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener"
@@ -124,7 +140,7 @@
       <i class="fas fa-id-card"></i> Imprimir crachás da turma
     </a>
     <?php if ($confirmados): ?>
-      <a class="btn btn-sm btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>">
+      <a class="btn btn-sm btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>&data=<?= ch_h($data) ?>&aula=<?= (int)$aula ?>">
         <i class="fas fa-clock-rotate-left"></i> Histórico de retificações
       </a>
     <?php endif; ?>
@@ -135,6 +151,7 @@
     <?= ch_csrf_campo() ?>
     <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
     <input type="hidden" name="data" value="<?= ch_h($data) ?>">
+    <input type="hidden" name="aula" value="<?= (int)$aula ?>">
 
     <div class="secao-chamada">
       <h3 class="secao-titulo">
@@ -143,8 +160,9 @@
         <span class="badge bg-warning text-dark"><?= count($pendentes) ?></span>
       </h3>
       <p class="text-muted small mb-3">
-        A presença é confirmada <strong>uma única vez</strong> por aluno no dia.
-        Depois disso, correções são feitas por <strong>retificação</strong>, com motivo registrado.
+        A presença é confirmada <strong>uma vez por aluno e por aula</strong>.
+        A <strong><?= ch_h(ch_aula_rotulo($aula)) ?></strong> é independente da outra; depois de
+        confirmada, a correção é feita por <strong>retificação</strong>, com motivo registrado.
       </p>
 
       <div class="grade-alunos">
@@ -158,7 +176,7 @@
             </div>
             <?php if (ch_pode_escrever_observacao_turma($turmaId, $turma['ID_UNIDADE'])): ?>
             <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
-               href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
+               href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data . '&aula=' . $aula)) ?>">
               <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
             </a>
             <?php endif; ?>
@@ -184,7 +202,7 @@
     <div class="my-4">
       <a href="index.php" class="btn btn-outline-secondary">Cancelar</a>
       <button type="submit" class="btn btn-success btn-lg">
-        <i class="fas fa-lock"></i> Confirmar presença de <?= count($pendentes) ?> aluno(s)
+        <i class="fas fa-lock"></i> Confirmar <?= ch_h(ch_aula_rotulo($aula)) ?> de <?= count($pendentes) ?> aluno(s)
       </button>
     </div>
   </form>
@@ -198,8 +216,9 @@
       <span class="badge bg-success"><?= count($confirmados) ?></span>
     </h3>
     <p class="text-muted small mb-3">
-      Estes registros estão <strong>travados</strong>. Para corrigir, use
-      <strong>Retificar</strong> e informe o motivo — a alteração fica no histórico.
+      Estes registros da <strong><?= ch_h(ch_aula_rotulo($aula)) ?></strong> estão
+      <strong>travados</strong>. Para corrigir, use <strong>Retificar</strong> e informe o
+      motivo — a alteração fica no histórico.
     </p>
 
     <div class="grade-alunos">
@@ -213,7 +232,7 @@
           </div>
           <?php if (ch_pode_escrever_observacao_turma($turmaId, $turma['ID_UNIDADE'])): ?>
           <a class="btn btn-sm btn-outline-primary botao-obs" title="Registrar observação"
-             href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data)) ?>">
+             href="<?= ch_url('observacoes/add.php?aluno_id=' . (int)$a['ID'] . '&data=' . ch_h($data) . '&voltar=' . rawurlencode('chamada/index.php?turma_id=' . $turmaId . '&data=' . $data . '&aula=' . $aula)) ?>">
             <i class="far fa-comment-dots"></i><?= isset($obsPorAluno[(int)$a['ID']]) ? ' ' . $obsPorAluno[(int)$a['ID']] : '' ?>
           </a>
           <?php endif; ?>
@@ -258,8 +277,8 @@
   <?php if (!$bloqueio && !$pendentes && $confirmados): ?>
     <div class="alert alert-success mt-4">
       <i class="fas fa-circle-check"></i>
-      <strong>Chamada do dia concluída.</strong>
-      Todos os <?= count($confirmados) ?> alunos tiveram a presença confirmada.
+      <strong>Chamada da <?= ch_h(ch_aula_rotulo($aula)) ?> concluída.</strong>
+      Todos os <?= count($confirmados) ?> alunos tiveram a presença confirmada nesta aula.
     </div>
   <?php endif; ?>
 
@@ -270,12 +289,13 @@
         <form method="post" action="retificar.php" id="form-retificar">
           <?= ch_csrf_campo() ?>
           <div class="modal-header cabecalho-modal">
-            <h5 class="modal-title"><i class="fas fa-pen-to-square"></i> Retificar presença</h5>
+            <h5 class="modal-title"><i class="fas fa-pen-to-square"></i> Retificar <?= ch_h(ch_aula_rotulo($aula)) ?></h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
           </div>
           <div class="modal-body">
             <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
             <input type="hidden" name="data" value="<?= ch_h($data) ?>">
+            <input type="hidden" name="aula" value="<?= (int)$aula ?>">
             <input type="hidden" name="chamada_id" id="ret-chamada" value="">
 
             <div class="alert alert-light border">
@@ -315,7 +335,7 @@
     </div>
   </div>
 
-  <script>
+  <script nonce="<?= ch_csp_nonce() ?>">
     /* "Marcar pendentes como presentes" só toca nos cartões ainda não confirmados. */
     document.querySelectorAll('[data-marcar-todos]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -352,7 +372,7 @@
           alert('Marque a situação de pelo menos um aluno antes de confirmar.');
           return;
         }
-        var aviso = 'Confirmar a presença de ' + marcados + ' aluno(s)?\n\n'
+        var aviso = 'Confirmar <?= ch_aula_rotulo($aula) ?> de ' + marcados + ' aluno(s)?\n\n'
                   + 'Depois de confirmada, a presença só poderá ser alterada por retificação.';
         if (semMarcacao > 0) {
           aviso += '\n\n' + semMarcacao + ' aluno(s) sem marcação continuarão aguardando confirmação.';

@@ -15,7 +15,7 @@ $rotuloPeriodo = ch_periodo_rotulo($periodo);
 $aluno   = ch_exige_relatorio_aluno($alunoId);
 
 $meses = ch_rows(
-    "SELECT MONTH(DATA) AS MES, COUNT(*) AS DIAS,
+    "SELECT MONTH(DATA) AS MES, COUNT(*) AS AULAS,
             SUM(CASE WHEN STATUS = 'P' THEN 1 ELSE 0 END) AS P,
             SUM(CASE WHEN STATUS = 'F' THEN 1 ELSE 0 END) AS F,
             SUM(CASE WHEN STATUS = 'J' THEN 1 ELSE 0 END) AS J,
@@ -40,9 +40,9 @@ fputcsv($out, ['Matrícula', $aluno['MATRICULA']], ';', '"', '');
 fputcsv($out, ['Unidade', $aluno['UNIDADE']], ';', '"', '');
 fputcsv($out, ['Turma', $aluno['TURMA']], ';', '"', '');
 fputcsv($out, [], ';', '"', '');
-fputcsv($out, ['Mês', 'Dias lançados', 'Presente', 'Atraso', 'Falta', 'Justificada', 'Frequência %'], ';', '"', '');
+fputcsv($out, ['Mês', 'Aulas lançadas', 'Presente', 'Atraso', 'Falta', 'Justificada', 'Frequência %'], ';', '"', '');
 foreach ($meses as $m) {
-    $d = (int)$m['DIAS']; $p = (int)$m['P'] + (int)$m['A'];
+    $d = (int)$m['AULAS']; $p = (int)$m['P'] + (int)$m['A'];
     fputcsv($out, [ch_mes_nome((int)$m['MES']), $d, (int)$m['P'], (int)$m['A'], (int)$m['F'], (int)$m['J'],
                    $d > 0 ? number_format($p * 100 / $d, 1, ',', '') : '0,0'], ';', '"', '');
 }

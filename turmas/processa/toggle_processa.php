@@ -15,10 +15,12 @@ if (!ch_csrf_ok()) {
 }
 
 $id = (int)($_POST['id'] ?? 0);
-$t = ch_row('SELECT ID, NOME, ATIVO FROM TB_TURMAS WHERE ID = ?', [$id]);
+$t = ch_row('SELECT ID, NOME, ATIVO, ID_UNIDADE FROM TB_TURMAS WHERE ID = ?', [$id]);
 
 if (!$t) {
     ch_flash('Turma não encontrada.', 'danger');
+} elseif (!ch_pode_unidade($t['ID_UNIDADE'])) {
+    ch_flash('Turma fora do seu alcance.', 'danger');
 } else {
     $novo = (int)$t['ATIVO'] === 1 ? 0 : 1;
     if (ch_exec('UPDATE TB_TURMAS SET ATIVO = ? WHERE ID = ?', [$novo, $id])) {

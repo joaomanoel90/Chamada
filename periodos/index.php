@@ -1,8 +1,9 @@
 <?php require_once('processa/index_processa.php'); ?>
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
-<?php ch_cabecalho('Períodos', 'fa-clock',
-    '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Período</a>'); ?>
+<?php ch_cabecalho('Períodos', 'fa-clock', ch_rede()
+    ? '<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Novo Período</a>'
+    : ''); ?>
 
 <div class="table-responsive-sm">
   <table id="item" data-vazio="Nenhum período cadastrado." class="table table-light table-striped table-sm align-middle">
@@ -35,6 +36,7 @@
           <?php endif; ?>
         </td>
         <td class="text-sm-end">
+          <?php if (ch_rede()): ?>
           <div class="btn-group">
             <button type="button" class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="fa-solid fa-gear"></i>
@@ -46,13 +48,14 @@
                   <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
-                          onclick="return confirm('Confirmar a alteração de situação deste período?');">
+                          data-confirm="Confirmar a alteração de situação deste período?">
                     <?= (int)$row['ATIVO'] === 1 ? 'Inativar' : 'Reativar' ?>
                   </button>
                 </form>
               </li>
             </ul>
           </div>
+          <?php endif; ?>
         </td>
       </tr>
       <?php endforeach; ?>

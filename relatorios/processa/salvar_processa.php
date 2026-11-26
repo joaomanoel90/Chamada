@@ -15,7 +15,11 @@ if (!ch_csrf_ok()) {
 $alunoId = (int)($_POST['aluno_id'] ?? 0);
 $ano     = (int)($_POST['ano'] ?? 0);
 $periodo = strtoupper(trim((string)($_POST['periodo'] ?? '')));
-if (!ch_periodo_valido($periodo)) { $periodo = ch_periodo_atual(); }
+if (!ch_periodo_valido($periodo)) {
+    ch_flash('Período inválido.', 'danger');
+    header('Location: index.php');
+    exit;
+}
 $voltar = 'ver.php?aluno_id=' . $alunoId . '&ano=' . $ano . '&periodo=' . $periodo;
 if (ch_secretario_escolar()) {
     ch_flash('O Secretário Escolar pode consultar o relatório, mas não editar o parecer pedagógico.', 'danger');
@@ -23,8 +27,8 @@ if (ch_secretario_escolar()) {
     exit;
 }
 
-$parecer = trim(strip_tags($_POST['parecer'] ?? ''));
-$encam   = trim(strip_tags($_POST['encaminhamentos'] ?? ''));
+$parecer = trim(strip_tags((string)($_POST['parecer'] ?? '')));
+$encam   = trim(strip_tags((string)($_POST['encaminhamentos'] ?? '')));
 
 if (!ch_pode_aluno_atual($alunoId)) {
     ch_flash('Você não tem acesso a esse aluno.', 'danger');

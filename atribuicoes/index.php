@@ -173,7 +173,7 @@ $camposFiltroPost = '<input type="hidden" name="ano" value="' . (int)$fAno . '">
                       <input type="hidden" name="acao" value="remover_direto">
                       <input type="hidden" name="id_turma_prof" value="<?= (int)$regInt['ID'] ?>">
                       <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover"
-                              onclick="return confirm('Remover <?= ch_h(addslashes($regInt['PROFESSOR'])) ?> da turma?');">
+                              data-confirm="Remover <?= ch_h($regInt['PROFESSOR']) ?> da turma?">
                         <i class="fas fa-times"></i>
                       </button>
                     </form>
@@ -194,7 +194,7 @@ $camposFiltroPost = '<input type="hidden" name="ano" value="' . (int)$fAno . '">
                               <input type="hidden" name="acao" value="remover_direto">
                               <input type="hidden" name="id_turma_prof" value="<?= (int)$regAtual['ID'] ?>">
                               <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover deste período"
-                                      onclick="return confirm('Remover <?= ch_h(addslashes($regAtual['PROFESSOR'])) ?> deste período?');">
+                                      data-confirm="Remover <?= ch_h($regAtual['PROFESSOR']) ?> deste período?">
                                 <i class="fas fa-times"></i>
                               </button>
                             </form>
@@ -236,7 +236,7 @@ $camposFiltroPost = '<input type="hidden" name="ano" value="' . (int)$fAno . '">
                                 <input type="hidden" name="acao" value="remover_direto">
                                 <input type="hidden" name="id_turma_prof" value="<?= (int)$ap['ID'] ?>">
                                 <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover professor de apoio"
-                                        onclick="return confirm('Remover <?= ch_h(addslashes($ap['PROFESSOR'])) ?> do apoio desta turma?');">
+                                        data-confirm="Remover <?= ch_h($ap['PROFESSOR']) ?> do apoio desta turma?">
                                   <i class="fas fa-times"></i>
                                 </button>
                               </form>
@@ -284,7 +284,7 @@ $camposFiltroPost = '<input type="hidden" name="ano" value="' . (int)$fAno . '">
                           <input type="hidden" name="acao" value="remover_direto">
                           <input type="hidden" name="id_turma_prof" value="<?= (int)$rg['ID'] ?>">
                           <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover regente"
-                                  onclick="return confirm('Remover <?= ch_h(addslashes($rg['PROFESSOR'])) ?> desta turma?');">
+                                  data-confirm="Remover <?= ch_h($rg['PROFESSOR']) ?> desta turma?">
                             <i class="fas fa-times"></i>
                           </button>
                         </form>
@@ -371,7 +371,7 @@ $camposFiltroPost = '<input type="hidden" name="ano" value="' . (int)$fAno . '">
                           <input type="hidden" name="acao" value="remover_atribuicao">
                           <input type="hidden" name="id_atribuicao" value="<?= (int)$a['ID'] ?>">
                           <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover atribuição"
-                                  onclick="return confirm('Remover a atribuição de <?= ch_h(addslashes($a['PROFESSOR'])) ?>?')">
+                                  data-confirm="Remover a atribuição de <?= ch_h($a['PROFESSOR']) ?>?">
                             <i class="fas fa-times"></i>
                           </button>
                         </form>

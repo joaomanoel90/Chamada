@@ -117,7 +117,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 (function () {
   var resultado = document.getElementById('resultado');
   var bloco = document.getElementById('motivo-retencao-bloco');

@@ -227,6 +227,9 @@ $funcoes = array(
 		'ch_aluno', 'ch_pode_aluno', 'ch_pode_aluno_atual', 'ch_exige_aluno_atual',
 		'ch_csrf_token', 'ch_csrf_campo', 'ch_csrf_ok', 'ch_flash', 'ch_bloqueio_chamada',
 		'ch_feriados_do_periodo', 'ch_turma_equipe_texto',
+		'ch_tabela_excecoes_calendario', 'ch_calendario_tem_fim', 'ch_calendario_dados', 'ch_calendario_fim',
+		'ch_calendario_contador', 'ch_chamada_tem_aula', 'ch_aula_col', 'ch_aula_lista',
+		'ch_aula_normalizar', 'ch_aula_rotulo',
 	),
 );
 
@@ -234,7 +237,7 @@ $funcoes = array(
  * Uma lista fixa envelhece — foi o que aconteceu com eq_professores_opcoes(),
  * que existia no equipe.php mas nao estava na conferencia. Lendo o arquivo,
  * toda funcao nova entra na checagem automaticamente. */
-foreach (array('inc/transferencias.php', 'inc/equipe.php') as $modulo) {
+foreach (array('inc/transferencias.php', 'inc/equipe.php', 'inc/familia.php', 'inc/suspensao.php') as $modulo) {
 	if (!file_exists($raiz . '/' . $modulo)) continue;
 	$fonte_mod = (string) file_get_contents($raiz . '/' . $modulo);
 	if (preg_match_all('/^function\s+([a-z0-9_]+)\s*\(/mi', $fonte_mod, $m)) {
@@ -286,7 +289,7 @@ if (!$carregou) {
 	}
 
 	/* A causa classica: chamada.php antigo nao puxa os modulos novos. */
-	foreach (array('inc/transferencias.php', 'inc/equipe.php') as $modulo) {
+	foreach (array('inc/transferencias.php', 'inc/equipe.php', 'inc/familia.php') as $modulo) {
 		if (!file_exists($raiz . '/' . $modulo)) continue;
 		$fonte = (string) file_get_contents($raiz . '/inc/chamada.php');
 		$nome  = basename($modulo);
@@ -359,7 +362,9 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 			'TB_ALUNO_SAIDAS_EXTERNAS',
 			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
 			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS', 'TB_ATRIBUICOES',
-			'TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS');
+			'TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS', 'TB_RESTRICAO_FAMILIA_HISTORICO',
+			'TB_SUSPENSOES_ALUNOS', 'TB_SUSPENSOES_ALUNOS_LIBERACOES',
+			'TB_CALENDARIOS', 'TB_AUDITORIA');
 
 		$falta = array_values(array_diff($tabelas, $tem_tabela));
 		if ($falta) {
@@ -492,6 +497,57 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 				'cols'   => array('TB_TURMA_PROFESSORES.VINCULO_DIRETO'),
 				'objs'   => array('TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS', 'UQ_RESPONSAVEIS_CPF',
 					'FK_ALUNORESP_ALUNO', 'FK_ALUNORESP_RESP', 'CK_TURMAPROF_VINCULO_DIRETO'),
+			),
+			array(
+				'nome'   => 'Calendário escolar (início/fim, exceções e feriados por calendário)',
+				'script' => 'sql_inicial/ATUALIZAR_CALENDARIO_ESCOLAR.sql',
+				'cols'   => array('TB_CALENDARIOS.INICIO_ANO', 'TB_CALENDARIOS.FIM_ANO',
+					'TB_FERIADOS.CALENDARIO', 'TB_CALENDARIO_EXCECOES.ID_CALENDARIO',
+					'TB_CALENDARIO_EXCECOES.DATA', 'TB_CALENDARIO_EXCECOES.TIPO',
+					'TB_CALENDARIO_EXCECOES.MOTIVO'),
+				'objs'   => array('TB_CALENDARIOS', 'PK_TB_CALENDARIOS', 'UQ_CALENDARIO_ANO',
+					'CK_CALENDARIO_TIPO', 'TB_CALENDARIO_EXCECOES',
+					'PK_TB_CALENDARIO_EXCECOES', 'UQ_CAL_EXC_DATA',
+					'FK_CAL_EXC_CALENDARIO', 'CK_CAL_EXC_TIPO',
+					'CK_FERIADOS_CALENDARIO',
+					'UQ_FERIADOS_DATA_TODAS', 'UQ_FERIADOS_DATA_UNIDADE'),
+			),
+			array(
+				'nome'   => 'Chamada por aula (1ª e 2ª aula no mesmo dia)',
+				'script' => 'sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql',
+				'cols'   => array('TB_CHAMADA.AULA_SEQ'),
+				'objs'   => array('UQ_CHAMADA_ALUNO_DATA_AULA', 'CK_CHAMADA_AULA',
+					'IX_CHAMADA_DATA_AULA'),
+			),
+			array(
+				'nome'   => 'Restrição familiar de contato no crachá',
+				'script' => 'sql_inicial/ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql',
+				'cols'   => array('TB_ALUNO_RESPONSAVEIS.RESTRITO_CONTATO',
+					'TB_RESTRICAO_FAMILIA_HISTORICO.DESCRICAO_OUTRO'),
+				'objs'   => array('CK_ALUNORESP_RESTRITO_CONTATO', 'TB_RESTRICAO_FAMILIA_HISTORICO',
+					'PK_TB_RESTFAM_HIST', 'FK_RESTFAM_ALUNO', 'FK_RESTFAM_USUARIO',
+					'CK_RESTFAM_ACAO', 'IX_RESTFAM_ALUNO'),
+			),
+			array(
+				'nome'   => 'Suspensão de alunos por período',
+				'script' => 'sql_inicial/ATUALIZAR_SUSPENSAO_ALUNOS.sql',
+				'cols'   => array('TB_CHAMADA.ID_SUSPENSAO'),
+				'objs'   => array('TB_SUSPENSOES_ALUNOS', 'PK_TB_SUSP_ALUNOS',
+					'FK_SUSP_ALUNO_ALUNO', 'FK_SUSP_ALUNO_USUARIO', 'FK_SUSP_ALUNO_USUARIO_FIM',
+					'CK_SUSP_ALUNO_PERIODO', 'CK_SUSP_ALUNO_MOTIVO',
+					'CK_SUSP_ALUNO_MOTIVO_FIM', 'CK_SUSP_ALUNO_SITUACAO',
+					'CK_SUSP_ALUNO_ENCERRAMENTO', 'IX_SUSP_ALUNO_PERIODO',
+					'TB_SUSPENSOES_ALUNOS_LIBERACOES', 'PK_TB_SUSP_LIB',
+					'FK_SUSP_LIB_SUSP', 'FK_SUSP_LIB_USUARIO', 'UQ_SUSP_LIB_DIA_AULA',
+					'CK_SUSP_LIB_AULA', 'CK_SUSP_LIB_MOTIVO', 'IX_SUSP_LIB_SUSP_DIA',
+					'FK_CHAMADA_SUSPENSAO', 'IX_CHAMADA_SUSPENSAO'),
+			),
+			array(
+				'nome'   => 'Log de auditoria de operações sensíveis',
+				'script' => 'sql_inicial/ATUALIZAR_AUDITORIA.sql',
+				'cols'   => array('TB_AUDITORIA.CRIADO_EM', 'TB_AUDITORIA.DETALHES'),
+				'objs'   => array('TB_AUDITORIA', 'PK_TB_AUDITORIA', 'FK_AUDITORIA_USUARIO',
+					'IX_AUDITORIA_DATA', 'IX_AUDITORIA_MODULO'),
 			),
 		);
 

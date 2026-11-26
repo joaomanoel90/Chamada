@@ -83,12 +83,12 @@ if (!defined('ABSPATH')) {
   </div>
 
   <div class="col-auto my-4">
-    <a href="<?= $voltar ? ch_url($voltar) : 'index.php' ?>" class="btn btn-outline-success">Cancelar</a>
+    <a href="<?= $voltar ? ch_h(ch_url($voltar)) : 'index.php' ?>" class="btn btn-outline-success">Cancelar</a>
     <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> <?= $rotuloBotao ?></button>
   </div>
 </form>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 (function () {
   var radios = document.querySelectorAll('input[name="restrita_aee"]');
   var ajuda = document.getElementById('ajuda-texto-obs');

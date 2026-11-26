@@ -85,7 +85,7 @@ if ($modoLiberacaoRelatorios): ?>
 
 <?php
 if (!empty($_GET['id'])) {
-    $id = $_GET['id'];
+    $id = (int)$_GET['id'];
 
     if ($rows_usuario) {
         $usuario = sqlsrv_fetch_array($stmt_usuario, SQLSRV_FETCH_ASSOC);
@@ -150,7 +150,7 @@ if (!empty($_GET['id'])) {
     <form action="acesso.php?id=<?php echo $id; ?>" method="post" style="margin:0;">
         <?= ch_csrf_campo() ?>
         <button type="submit" name="add_all" class="btn btn-danger"
-            onclick="return confirm('Tem certeza que deseja adicionar TODAS as unidades? Essa ação pode gerar muitos acessos.')">
+            data-confirm="Tem certeza que deseja adicionar TODAS as unidades? Essa ação pode gerar muitos acessos.">
             Adicionar Todas
         </button>
     </form>

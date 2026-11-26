@@ -6,10 +6,11 @@ ch_db();
 
 $turmaId = (int)($_GET['turma_id'] ?? 0);
 $data    = ch_data_iso($_GET['data'] ?? '', null);
+$aula    = ch_aula_normalizar($_GET['aula'] ?? 1);
 
 if (!$turmaId || !ch_pode_turma($turmaId)) {
     ch_flash('Você não tem acesso a essa turma.', 'danger');
-    header('Location: index.php');
+    header('Location: index.php?aula=' . $aula);
     exit;
 }
 
@@ -19,6 +20,7 @@ $sql = 'SELECT r.ID, r.STATUS_ANTERIOR, r.STATUS_NOVO,
                r.JUSTIFICATIVA_ANTERIOR, r.JUSTIFICATIVA_NOVA, r.MOTIVO,
                CONVERT(varchar(16), r.CREATED, 120) AS QUANDO,
                CONVERT(varchar(10), c.DATA, 23)     AS DATA_CHAMADA,
+               ' . ch_aula_col('c') . ' AS AULA_SEQ,
                a.NOME AS ALUNO, a.MATRICULA,
                u.NOME AS USUARIO
         FROM TB_CHAMADA_RETIFICACOES r

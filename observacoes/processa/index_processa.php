@@ -5,7 +5,7 @@ require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
 $fAluno = (int)($_GET['aluno_id'] ?? 0);
 $fTurma = (int)($_GET['turma_id'] ?? 0);
-$fCategoria = trim($_GET['categoria'] ?? '');
+$fCategoria = trim((string)($_GET['categoria'] ?? ''));
 $fInicio = ch_data_iso($_GET['inicio'] ?? '', date('Y-m-01'));
 $fFim    = ch_data_iso($_GET['fim'] ?? '', ch_hoje());
 

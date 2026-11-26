@@ -2,14 +2,16 @@
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
+require_once(ABSPATH . 'inc/suspensao.php');
 require_once(ABSPATH . 'alunos/fotos.php');
 require_once(ABSPATH . 'alunos/inclusao.php');
 ch_db();
 $id = (int)($_GET['id'] ?? 0);
 $aluno = ch_exige_aluno($id);
+$suspensaoAtiva = susp_em_vigor($id);
 
 $resumo = ch_row(
-    "SELECT COUNT(*) AS DIAS,
+    "SELECT COUNT(*) AS AULAS,
             SUM(CASE WHEN STATUS = 'P' THEN 1 ELSE 0 END) AS P,
             SUM(CASE WHEN STATUS = 'F' THEN 1 ELSE 0 END) AS F,
             SUM(CASE WHEN STATUS = 'J' THEN 1 ELSE 0 END) AS J,
@@ -20,9 +22,10 @@ $resumo = ch_row(
 );
 
 $ultimas = ch_rows(
-    'SELECT TOP 15 CONVERT(varchar(10), c.DATA, 23) AS DATA, c.STATUS, c.JUSTIFICATIVA, u.NOME AS LANCADO_POR
+    'SELECT TOP 15 CONVERT(varchar(10), c.DATA, 23) AS DATA,
+            ' . ch_aula_col('c') . ' AS AULA_SEQ, c.STATUS, c.JUSTIFICATIVA, u.NOME AS LANCADO_POR
      FROM TB_CHAMADA c INNER JOIN TB_USUARIOS u ON u.ID = c.ID_USUARIO
-     WHERE c.ID_ALUNO = ? ORDER BY c.DATA DESC',
+     WHERE c.ID_ALUNO = ? ORDER BY c.DATA DESC, ' . ch_aula_col('c') . ' DESC',
     [$id]
 );
 
@@ -55,12 +58,13 @@ $podeTransferir          = tr_pode_solicitar($aluno);
 /* quem vê esta ficha só porque o aluno já foi da sua escola */
 $apenasHistorico         = !ch_pode_turma($aluno['ID_TURMA']) && !ch_eh_professor_aee_aluno($aluno);
 
-$dias = (int)($resumo['DIAS'] ?? 0);
+$aulas = (int)($resumo['AULAS'] ?? 0);
 $presencas = (int)($resumo['P'] ?? 0) + (int)($resumo['A'] ?? 0);
-$frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;
+$frequencia = $aulas > 0 ? round($presencas * 100 / $aulas, 1) : null;
 
 /* Família / Responsáveis vinculados por CPF e irmãos na rede. */
 $responsaveisFamilia = fam_responsaveis_aluno($id);
+$historicoRestricoes = fam_historico_restricoes($id);
 $irmaosRede = fam_irmaos_aluno($id);
 
 /* Atendimento Educacional Especializado (AEE) e histórico por ano letivo */

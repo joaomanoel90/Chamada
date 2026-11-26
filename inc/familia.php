@@ -32,38 +32,45 @@ function fam_parentesco_rotulo($parentesco, $descricaoOutro = '')
     return fam_parentescos()[$p] ?? 'Responsável';
 }
 
-/** Mantém apenas os dígitos do CPF. */
+/** Mantém apenas os dígitos do CPF (alias do helper central). */
 function fam_cpf_limpo($cpf)
 {
-    return preg_replace('/\D/', '', trim((string)$cpf));
+    return ch_digitos($cpf);
 }
 
-/** Valida CPF de 11 dígitos com dígitos verificadores. */
+/** Valida CPF com dígitos verificadores (alias do helper central). */
 function fam_cpf_valido($cpf)
 {
-    $cpf = fam_cpf_limpo($cpf);
-    if (!preg_match('/^[0-9]{11}$/D', $cpf) || preg_match('/^([0-9])\1{10}$/D', $cpf)) {
-        return false;
+    return ch_cpf_valido($cpf);
+}
+
+/** Bases antigas não tinham a flag de restrição: todo contato era liberado. */
+function fam_tem_restricao()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.columns
+              WHERE object_id = OBJECT_ID(N'dbo.TB_ALUNO_RESPONSAVEIS') AND name = N'RESTRITO_CONTATO'"
+        );
     }
-    for ($t = 9; $t < 11; $t++) {
-        $soma = 0;
-        for ($i = 0; $i < $t; $i++) {
-            $soma += (int)$cpf[$i] * (($t + 1) - $i);
-        }
-        $dig = ($soma * 10) % 11;
-        if ($dig === 10) $dig = 0;
-        if ((int)$cpf[$t] !== $dig) return false;
-    }
-    return true;
+    return $tem;
+}
+
+/** Coluna segura para leituras em bancos migrados e não migrados. */
+function fam_restricao_col($alias = '')
+{
+    $prefix = $alias !== '' ? rtrim((string)$alias, '.') . '.' : '';
+    return fam_tem_restricao() ? $prefix . 'RESTRITO_CONTATO' : 'CAST(0 AS bit)';
 }
 
 /** Estrutura vazia para os 3 blocos familiares do formulário do aluno. */
 function fam_estrutura_vazia()
 {
     return [
-        'MAE'   => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 1],
-        'PAI'   => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 0],
-        'OUTRO' => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 0],
+        'MAE'   => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 1, 'RESTRITO_CONTATO' => 0],
+        'PAI'   => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 0, 'RESTRITO_CONTATO' => 0],
+        'OUTRO' => ['CPF' => '', 'NOME' => '', 'TELEFONE' => '', 'EMAIL' => '', 'DESCRICAO_OUTRO' => '', 'CONTATO_PRINCIPAL' => 0, 'RESTRITO_CONTATO' => 0],
     ];
 }
 
@@ -75,6 +82,7 @@ function fam_responsaveis_aluno($idAluno)
     return ch_rows(
         "SELECT ar.ID, ar.ID_ALUNO, ar.ID_RESPONSAVEL, ar.PARENTESCO,
                 ar.DESCRICAO_OUTRO, ar.CONTATO_PRINCIPAL,
+                " . fam_restricao_col('ar') . " AS RESTRITO_CONTATO,
                 r.CPF, r.NOME, r.TELEFONE, r.EMAIL
            FROM TB_ALUNO_RESPONSAVEIS ar
            INNER JOIN TB_RESPONSAVEIS r ON r.ID = ar.ID_RESPONSAVEL
@@ -103,6 +111,7 @@ function fam_carregar_para_form($idAluno)
             'EMAIL'             => (string)($l['EMAIL'] ?? ''),
             'DESCRICAO_OUTRO'   => (string)($l['DESCRICAO_OUTRO'] ?? ''),
             'CONTATO_PRINCIPAL' => (int)$l['CONTATO_PRINCIPAL'],
+            'RESTRITO_CONTATO'  => (int)($l['RESTRITO_CONTATO'] ?? 0),
         ];
     }
     return $est;
@@ -160,11 +169,12 @@ function fam_irmaos_aluno($idAluno)
 
 /**
  * Extrai e valida os dados de Mãe, Pai e Outro responsável enviados no POST
- * do cadastro/edição do aluno.
+ * do cadastro/edição do aluno. Na edição, preserva a restrição já registrada
+ * para cada CPF vinculado: a restrição é gerida fora deste formulário.
  *
  * Devolve o array normalizado no mesmo formato de fam_estrutura_vazia().
  */
-function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros)
+function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros, $idAluno = 0)
 {
     $principalEscolhido = strtoupper(trim((string)($post['fam_contato_principal'] ?? 'MAE')));
     if (!isset(fam_parentescos()[$principalEscolhido])) {
@@ -195,6 +205,7 @@ function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros)
             'EMAIL'             => $email,
             'DESCRICAO_OUTRO'   => $desc,
             'CONTATO_PRINCIPAL' => $principalEscolhido === $cod ? 1 : 0,
+            'RESTRITO_CONTATO'  => 0,
             'PREENCHIDO'        => $temAlgo ? 1 : 0,
         ];
 
@@ -212,6 +223,22 @@ function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros)
         } else {
             $cpfsUsados[$cpfLimpo] = $rotulo;
             $fam[$cod]['CPF'] = ch_cpf_mask($cpfLimpo);
+
+            /* A edição do cadastro não altera a restrição: ela é registrada
+               pela tela própria, com motivo e histórico. Recupera o estado
+               atual deste CPF para não reinserir o vínculo como liberado. */
+            if ((int)$idAluno > 0 && fam_tem_restricao()) {
+                $vinculoAtual = ch_row(
+                    'SELECT ar.RESTRITO_CONTATO
+                       FROM TB_ALUNO_RESPONSAVEIS ar
+                       INNER JOIN TB_RESPONSAVEIS r ON r.ID = ar.ID_RESPONSAVEL
+                      WHERE ar.ID_ALUNO = ? AND r.CPF = ?',
+                    [(int)$idAluno, $cpfLimpo]
+                );
+                if ($vinculoAtual) {
+                    $fam[$cod]['RESTRITO_CONTATO'] = (int)$vinculoAtual['RESTRITO_CONTATO'];
+                }
+            }
         }
 
         if ($tel === '') {
@@ -243,24 +270,215 @@ function fam_extrair_e_validar($post, $cpfAlunoLimpo, &$erros)
 }
 
 /** Devolve o responsável principal preenchido na estrutura familiar, ou null. */
-function fam_contato_principal_dados($fam)
+function fam_contato_principal_dados($fam, $incluirRestritos = true)
 {
+    if ($incluirRestritos) {
+        foreach (['MAE', 'PAI', 'OUTRO'] as $cod) {
+            if (!empty($fam[$cod]['PREENCHIDO']) && !empty($fam[$cod]['CONTATO_PRINCIPAL'])) {
+                return $fam[$cod];
+            }
+        }
+        foreach (['MAE', 'PAI', 'OUTRO'] as $cod) {
+            if (!empty($fam[$cod]['PREENCHIDO'])) {
+                return $fam[$cod];
+            }
+        }
+        return null;
+    }
+
+    /* Preferência para os campos legados do aluno: um contato liberado no
+       crachá, mesmo que o principal marcado seja restrito. */
     foreach (['MAE', 'PAI', 'OUTRO'] as $cod) {
-        if (!empty($fam[$cod]['PREENCHIDO']) && !empty($fam[$cod]['CONTATO_PRINCIPAL'])) {
+        if (!empty($fam[$cod]['PREENCHIDO']) && empty($fam[$cod]['RESTRITO_CONTATO'])
+            && !empty($fam[$cod]['CONTATO_PRINCIPAL'])) {
             return $fam[$cod];
         }
     }
     foreach (['MAE', 'PAI', 'OUTRO'] as $cod) {
-        if (!empty($fam[$cod]['PREENCHIDO'])) {
+        if (!empty($fam[$cod]['PREENCHIDO']) && empty($fam[$cod]['RESTRITO_CONTATO'])) {
             return $fam[$cod];
         }
     }
     return null;
 }
 
+/** Contatos liberados para impressão no crachá (restritos ficam de fora). */
+function fam_contatos_cracha($idAluno)
+{
+    $liberados = [];
+    foreach (fam_responsaveis_aluno($idAluno) as $resp) {
+        if (empty($resp['RESTRITO_CONTATO'])) {
+            $liberados[] = $resp;
+        }
+    }
+    return $liberados;
+}
+
+/** Tabela de histórico das ações de restrição já foi criada pela migração? */
+function fam_tem_historico_restricao()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.objects
+              WHERE object_id = OBJECT_ID(N'dbo.TB_RESTRICAO_FAMILIA_HISTORICO') AND type = 'U'"
+        );
+    }
+    return $tem;
+}
+
+/**
+ * Histórico append-only de restringir/liberar contatos de um aluno.
+ * Cada linha guarda data, ação, motivo e quem fez — mesmo que o vínculo tenha
+ * sido recriado por uma edição posterior do cadastro.
+ */
+function fam_historico_restricoes($idAluno)
+{
+    $idAluno = (int)$idAluno;
+    if ($idAluno <= 0 || !fam_tem_historico_restricao()) return [];
+    $colDesc = fam_tem_coluna_historico_restricao() ? 'h.DESCRICAO_OUTRO' : "CAST(NULL AS nvarchar(60))";
+    return ch_rows(
+        'SELECT TOP 50 h.ID, h.ACAO, h.PARENTESCO, ' . $colDesc . ' AS DESCRICAO_OUTRO,
+                h.NOME_RESPONSAVEL, h.MOTIVO,
+                CONVERT(varchar(16), h.CRIADO_EM, 120) AS CRIADO_EM_TXT,
+                ISNULL(u.NOME, N\'Usuário removido\') AS USUARIO_NOME
+           FROM TB_RESTRICAO_FAMILIA_HISTORICO h
+           LEFT JOIN TB_USUARIOS u ON u.ID = h.ID_USUARIO
+          WHERE h.ID_ALUNO = ?
+          ORDER BY h.CRIADO_EM DESC, h.ID DESC',
+        [$idAluno]
+    ) ?: [];
+}
+
+/** Bases sem a coluna de descrição (versão inicial da migração) continuam legíveis. */
+function fam_tem_coluna_historico_restricao()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.columns
+              WHERE object_id = OBJECT_ID(N'dbo.TB_RESTRICAO_FAMILIA_HISTORICO')
+                AND name = N'DESCRICAO_OUTRO'"
+        );
+    }
+    return $tem;
+}
+
+/** Texto da observação gerada ao restringir um contato do crachá. */
+function fam_restricao_texto_observacao($parentesco, $descricaoOutro, $nome, $motivo)
+{
+    $rotulo = fam_parentesco_rotulo($parentesco, (string)$descricaoOutro);
+    $nome   = trim((string)$nome);
+    $motivo = trim(strip_tags((string)$motivo));
+    $texto  = 'Restrição familiar registrada para ' . $rotulo
+        . ($nome !== '' ? ' (' . $nome . ')' : '')
+        . '. Gerar outro crachá para este aluno, suprimindo a informação do contato restrito. '
+        . 'Os crachás anteriores devem ser substituídos.';
+    if ($motivo !== '') $texto .= ' Motivo informado: ' . $motivo . '.';
+    return mb_substr($texto, 0, 5000, 'UTF-8');
+}
+
+/**
+ * Aplica restringir/liberar a um vínculo aluno/responsável e grava o histórico.
+ * Deve rodar dentro da transação aberta pela tela de restrição. Não grava a
+ * observação: quem decide é o processador, que também tratava a auditoria.
+ * Devolve ok, ja_estava (evita observação duplicada) e erro, quando há.
+ */
+function fam_restricao_aplicar($idAluno, $idVinculo, $acao, $motivo)
+{
+    $res = [
+        'ok'          => false,
+        'ja_estava'   => false,
+        'erro'        => '',
+        'parentesco'  => '',
+        'descricao_outro' => '',
+        'nome'        => '',
+        'motivo'      => trim(strip_tags((string)$motivo)),
+        'historico_id'=> 0,
+    ];
+
+    if (!fam_tem_restricao() || !fam_tem_historico_restricao()) {
+        $res['erro'] = 'A restrição familiar não está instalada neste banco. Rode sql_inicial/ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql.';
+        return $res;
+    }
+    $acao = strtoupper(trim((string)$acao));
+    if (!in_array($acao, ['RESTRINGIR', 'LIBERAR'], true)) {
+        $res['erro'] = 'Ação inválida.';
+        return $res;
+    }
+    $idAluno  = (int)$idAluno;
+    $idVinculo = (int)$idVinculo;
+    if ($idAluno <= 0 || $idVinculo <= 0) {
+        $res['erro'] = 'Contato inválido.';
+        return $res;
+    }
+    if ($res['motivo'] === '' || mb_strlen($res['motivo']) > 500) {
+        $res['erro'] = 'Informe o motivo da ação (até 500 caracteres).';
+        return $res;
+    }
+
+    $linha = ch_row(
+        'SELECT ar.ID, ar.PARENTESCO, ar.DESCRICAO_OUTRO, ar.RESTRITO_CONTATO, r.NOME
+           FROM TB_ALUNO_RESPONSAVEIS ar WITH (UPDLOCK, HOLDLOCK)
+           INNER JOIN TB_RESPONSAVEIS r ON r.ID = ar.ID_RESPONSAVEL
+          WHERE ar.ID = ? AND ar.ID_ALUNO = ?',
+        [$idVinculo, $idAluno]
+    );
+    if (!$linha) {
+        $res['erro'] = 'Este contato não está mais vinculado ao aluno. Atualize a página antes de tentar novamente.';
+        return $res;
+    }
+
+    $res['parentesco']     = (string)$linha['PARENTESCO'];
+    $res['descricao_outro'] = (string)($linha['DESCRICAO_OUTRO'] ?? '');
+    $res['nome']           = (string)$linha['NOME'];
+
+    $desejado = $acao === 'RESTRINGIR' ? 1 : 0;
+    $atual    = (int)$linha['RESTRITO_CONTATO'];
+    if ($atual === $desejado) {
+        $res['ok'] = true;
+        $res['ja_estava'] = true;
+        return $res;
+    }
+
+    $n = ch_afetadas(
+        'UPDATE TB_ALUNO_RESPONSAVEIS
+            SET RESTRITO_CONTATO = ?
+          WHERE ID = ? AND ID_ALUNO = ? AND RESTRITO_CONTATO = ?',
+        [$desejado, $idVinculo, $idAluno, $atual]
+    );
+    if ($n !== 1) {
+        $res['erro'] = 'Outra pessoa alterou este contato enquanto você editava. Atualize a página antes de tentar novamente.';
+        return $res;
+    }
+
+    $comDesc = fam_tem_coluna_historico_restricao();
+    $histId = ch_insert_id(
+        'INSERT INTO TB_RESTRICAO_FAMILIA_HISTORICO
+            (ID_ALUNO, ID_ALUNO_RESPONSAVEIS, PARENTESCO' . ($comDesc ? ', DESCRICAO_OUTRO' : '') . ',
+             NOME_RESPONSAVEL, ACAO, MOTIVO, ID_USUARIO)
+         OUTPUT INSERTED.ID
+         VALUES (?, ?, ?' . ($comDesc ? ', ?' : '') . ', ?, ?, ?, ?)',
+        array_merge(
+            [$idAluno, $idVinculo, $res['parentesco']],
+            $comDesc ? [$res['descricao_outro'] !== '' ? mb_substr($res['descricao_outro'], 0, 60, 'UTF-8') : null] : [],
+            [mb_substr($res['nome'], 0, 150, 'UTF-8'), $acao, $res['motivo'], ch_uid()]
+        )
+    );
+    if ($histId <= 0) {
+        $res['erro'] = 'Não foi possível registrar o histórico da restrição.';
+        return $res;
+    }
+
+    $res['ok'] = true;
+    $res['historico_id'] = (int)$histId;
+    return $res;
+}
+
 /**
  * Grava/atualiza TB_RESPONSAVEIS (por CPF) e sincroniza TB_ALUNO_RESPONSAVEIS
- * para o aluno informado. Deve rodar dentro de uma transação aberta.
+ * para o aluno informado. Deve rodar dentro de uma transação aberta. A restrição
+ * familiar já registrada vem em $fam e é preservada na reinserção do vínculo.
  */
 function fam_salvar_vinculos_aluno($idAluno, $fam)
 {
@@ -305,6 +523,8 @@ function fam_salvar_vinculos_aluno($idAluno, $fam)
 
         $descOutro = $cod === 'OUTRO' && $item['DESCRICAO_OUTRO'] !== '' ? $item['DESCRICAO_OUTRO'] : null;
         $principal = !empty($item['CONTATO_PRINCIPAL']) ? 1 : 0;
+        $restrito = !empty($item['RESTRITO_CONTATO']) ? 1 : 0;
+        $comRestricao = fam_tem_restricao();
 
         /* Remove qualquer linha antiga conflitante deste aluno para este parentesco ou este responsável. */
         if (!ch_exec(
@@ -316,9 +536,10 @@ function fam_salvar_vinculos_aluno($idAluno, $fam)
         }
         if (!ch_exec(
             'INSERT INTO TB_ALUNO_RESPONSAVEIS
-                (ID_ALUNO, ID_RESPONSAVEL, PARENTESCO, DESCRICAO_OUTRO, CONTATO_PRINCIPAL)
-             VALUES (?, ?, ?, ?, ?)',
-            [$idAluno, $idResp, $cod, $descOutro, $principal]
+                (ID_ALUNO, ID_RESPONSAVEL, PARENTESCO, DESCRICAO_OUTRO, CONTATO_PRINCIPAL'
+                . ($comRestricao ? ', RESTRITO_CONTATO' : '') . ')
+             VALUES (?, ?, ?, ?, ?' . ($comRestricao ? ', ?' : '') . ')',
+            array_merge([$idAluno, $idResp, $cod, $descOutro, $principal], $comRestricao ? [$restrito] : [])
         )) {
             return false;
         }

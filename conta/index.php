@@ -44,7 +44,7 @@ $currentEmail = $userRow['EMAIL'] ?? '';
   <div class="row">
     <div class="form-group col-md-3">
       <label for="name">Nome</label>
-      <input type="text" class="form-control" value="<?php echo $_SESSION['usuarioNome']; ?>" disabled>
+      <input type="text" class="form-control" value="<?php echo ch_h($_SESSION['usuarioNome']); ?>" disabled>
     </div>
 
     <div class="form-group col-md-3">
@@ -54,7 +54,7 @@ $currentEmail = $userRow['EMAIL'] ?? '';
 
     <div class="form-group col-md-3">
       <label for="campo1">CPF</label>
-      <input type="text" class="form-control" value="<?php echo $_SESSION['usuarioCPF']; ?>" disabled>
+      <input type="text" class="form-control" value="<?php echo ch_h($_SESSION['usuarioCPF']); ?>" disabled>
     </div>
 
     <div class="form-group col-md-3">

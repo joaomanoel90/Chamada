@@ -69,7 +69,7 @@
   </form>
 <?php endif; ?>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 (function () {
   var resultado = document.getElementById('resultado');
   var destino = document.getElementById('turma_destino');

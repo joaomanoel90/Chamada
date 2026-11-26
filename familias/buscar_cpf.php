@@ -4,6 +4,8 @@
    Usado no formulário de cadastro/edição de aluno: quando o CPF do pai, da mãe
    ou de outro responsável já existe em TB_RESPONSAVEIS, devolve nome, telefone,
    e-mail e os filhos já vinculados no sistema para preenchimento automático.
+
+   ch-somente-leitura: consulta JSON, não grava; por isso não exige token CSRF.
    ============================================================================ */
 require_once(dirname(__DIR__) . '/config.php');
 require_once(DBAPI);

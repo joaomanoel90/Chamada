@@ -7,7 +7,7 @@ require_once("tema.php");
 if (isset($_SESSION['usuarioId'])) {
 ?>
 
-  <script>
+  <script nonce="<?= ch_csp_nonce() ?>">
     var usuarioLogado = <?php echo $_SESSION['usuarioId']; ?>;
     var projeto1Prefixo = "<?php echo BASEURL; ?>";
   </script>
@@ -16,7 +16,7 @@ if (isset($_SESSION['usuarioId'])) {
   <?php /* O body NÃO pode ter a classe no-print: inc/tema.php esconde .no-print
          na impressão, e com a classe aqui o documento INTEIRO sumia — o
          relatório e o "Imprimir" das tabelas saíam em folha branca. */ ?>
-  <body onload="applyAccessibilitySettings()">
+  <body>
     <?php require_once(ABSPATH . 'inc/sidebar.php'); ?>
 
     <!-- Conteúdo Principal -->
@@ -28,7 +28,7 @@ if (isset($_SESSION['usuarioId'])) {
   }
     ?>
 
-    <script>
+    <script nonce="<?= ch_csp_nonce() ?>">
       let showingAlert = false;
       const title = '<?php echo 'Chamada de Alunos' ?>';
       const messages = 'Prefeitura de Angatuba';

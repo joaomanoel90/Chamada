@@ -115,7 +115,7 @@
 </div>
 </div>
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
   document.addEventListener('DOMContentLoaded', function () {
     if (window.jQuery && $.fn.select2) { $('#nivel').select2({ theme: 'bootstrap-5' }); }
 

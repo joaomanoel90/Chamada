@@ -4,7 +4,7 @@
 <?php ch_cabecalho('Relatório de Desenvolvimento — ' . $rotuloPeriodo . ' de ' . (int)$ano, 'fa-file-lines',
     '<a class="btn btn-outline-secondary" href="index.php?ano=' . (int)$ano . '&periodo=' . ch_h($periodo) . '"><i class="fas fa-arrow-left"></i> Voltar</a> ' .
     '<a class="btn btn-outline-primary" href="exportar.php?aluno_id=' . (int)$alunoId . '&ano=' . (int)$ano . '&periodo=' . ch_h($periodo) . '"><i class="fas fa-file-csv"></i> CSV</a> ' .
-    '<button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>'); ?>
+    '<button type="button" class="btn btn-primary" data-print><i class="fas fa-print"></i> Imprimir</button>'); ?>
 
 <style>
   /* ============================================================
@@ -153,7 +153,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
       <input type="hidden" name="aluno_id" value="<?= (int)$alunoId ?>">
       <div class="col-md-5">
         <label class="form-label small mb-1 fw-semibold">Qual relatório abrir / iniciar (período)</label>
-        <select name="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+        <select name="periodo" class="form-select form-select-sm" data-auto-submit>
           <optgroup label="Bimestral">
             <?php foreach (ch_periodos_relatorio() as $cod => $info): if ($info['tipo'] !== 'Bimestral') continue; ?>
               <option value="<?= ch_h($cod) ?>" <?= $periodo === $cod ? 'selected' : '' ?>><?= ch_h($info['rotulo']) ?></option>
@@ -168,7 +168,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
       </div>
       <div class="col-md-3">
         <label class="form-label small mb-1 fw-semibold">Ano letivo</label>
-        <select name="ano" class="form-select form-select-sm" onchange="this.form.submit()">
+        <select name="ano" class="form-select form-select-sm" data-auto-submit>
           <?php for ($a = (int)date('Y') + 1; $a >= 2020; $a--): ?>
             <option value="<?= $a ?>" <?= $a === (int)$ano ? 'selected' : '' ?>><?= $a ?></option>
           <?php endfor; ?>
@@ -222,7 +222,7 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
         <?php else: ?>
           <div class="text-muted">Frequência no período</div>
           <h1 class="mb-0"><?= number_format($frequencia, 1, ',', '.') ?>%</h1>
-          <small class="text-muted"><?= $presencas ?> presenças em <?= $dias ?> dias lançados</small>
+          <small class="text-muted"><?= $presencas ?> presenças em <?= $aulas ?> aulas lançadas</small>
           <div class="mt-2">
             <span class="badge bg-success">P <?= (int)$totais['P'] ?></span>
             <span class="badge bg-info">A <?= (int)$totais['A'] ?></span>
@@ -244,10 +244,10 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
           <p class="text-muted">Nenhum mês com chamada lançada.</p>
         <?php else: ?>
         <table class="table table-sm align-middle">
-          <thead><tr><th>Mês</th><th class="text-center">Dias</th><th class="text-center">P</th><th class="text-center">A</th><th class="text-center">F</th><th class="text-center">J</th><th class="text-center">%</th></tr></thead>
+          <thead><tr><th>Mês</th><th class="text-center">Aulas</th><th class="text-center">P</th><th class="text-center">A</th><th class="text-center">F</th><th class="text-center">J</th><th class="text-center">%</th></tr></thead>
           <tbody>
             <?php foreach ($meses as $n => $m):
-              $d = (int)$m['DIAS']; $p = (int)$m['P'] + (int)$m['A'];
+              $d = (int)$m['AULAS']; $p = (int)$m['P'] + (int)$m['A'];
               $pc = $d > 0 ? round($p * 100 / $d, 1) : 0; ?>
             <tr>
               <td><?= ch_mes_nome($n) ?></td>
@@ -313,11 +313,12 @@ $classeParecer = mb_strlen($textoParecer) > 1200 ? ' cartao-longo' : '';
     <h5 class="mb-3"><i class="fas fa-calendar-xmark"></i> Faltas e faltas justificadas no período (<?= count($faltasDetalhadas) ?>)</h5>
     <div class="lista-rolavel">
       <table class="table table-sm mb-0">
-        <thead><tr><th>Data</th><th>Situação</th><th>Justificativa</th></tr></thead>
+        <thead><tr><th>Data</th><th>Aula</th><th>Situação</th><th>Justificativa</th></tr></thead>
         <tbody>
         <?php foreach ($faltasDetalhadas as $f): ?>
           <tr>
             <td><?= ch_data_br($f['DATA']) ?></td>
+            <td><small><?= ch_h(ch_aula_rotulo($f['AULA_SEQ'])) ?></small></td>
             <td><span class="badge bg-<?= $f['STATUS'] === 'F' ? 'danger' : 'warning text-dark' ?>"><?= ch_status_rotulo($f['STATUS']) ?></span></td>
             <td><small><?= ch_h($f['JUSTIFICATIVA']) ?></small></td>
           </tr>

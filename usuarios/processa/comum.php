@@ -21,8 +21,8 @@ ch_require_admin();
 function usuario_validar($post, &$d, $idAtual = 0)
 {
     $erros = [];
-    $d['nome']  = trim(strip_tags($post['nome'] ?? ''));
-    $d['email'] = trim($post['email'] ?? '');
+    $d['nome']  = trim(strip_tags((string)($post['nome'] ?? '')));
+    $d['email'] = trim((string)($post['email'] ?? ''));
     $d['cpf']   = ch_cpf_mask($post['cpf'] ?? '');
     $d['nivel'] = (int)($post['nivel'] ?? 0);
     $d['ativo'] = !empty($post['ativo']) ? 1 : 0;
@@ -68,8 +68,13 @@ function usuario_validar($post, &$d, $idAtual = 0)
         $erros[] = 'O nome pode ter no máximo 255 caracteres.';
     }
 
-    if (strlen(ch_digitos($d['cpf'])) !== 11) {
-        $erros[] = 'O CPF deve ter 11 dígitos.';
+    if (!ch_cpf_valido($d['cpf'])) {
+        /* Cadastros antigos podem ter CPF sem dígito verificador: tolera somente
+           o valor já gravado, sem permitir que um CPF inválido novo entre. */
+        $cpfAtual = $idAtual > 0 ? ch_val('SELECT CPF FROM TB_USUARIOS WHERE ID = ?', [$idAtual]) : null;
+        if ($idAtual <= 0 || ch_digitos($cpfAtual) !== ch_digitos($d['cpf'])) {
+            $erros[] = 'Informe um CPF válido com 11 dígitos.';
+        }
     }
 
     if ($d['email'] !== '') {

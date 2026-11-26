@@ -2,7 +2,7 @@
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
 <?php ch_cabecalho('Histórico de retificações', 'fa-clock-rotate-left',
-  '<a class="btn btn-outline-secondary" href="index.php?turma_id=' . (int)$turmaId . ($data ? '&data=' . ch_h($data) : '') . '">'
+  '<a class="btn btn-outline-secondary" href="index.php?turma_id=' . (int)$turmaId . ($data ? '&data=' . ch_h($data) : '') . '&aula=' . (int)$aula . '">'
   . '<i class="fas fa-arrow-left"></i> Voltar à chamada</a>'); ?>
 
 <div class="painel-turma mb-4">
@@ -20,13 +20,14 @@
 
 <form method="get" action="historico.php" class="row g-2 align-items-end mb-4">
   <input type="hidden" name="turma_id" value="<?= (int)$turmaId ?>">
+  <input type="hidden" name="aula" value="<?= (int)$aula ?>">
   <div class="col-md-4">
     <label class="fw-bold">Filtrar por data</label>
     <input type="date" name="data" class="form-control" value="<?= ch_h($data ?? '') ?>">
   </div>
   <div class="col-md-4">
     <button class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
-    <a class="btn btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>">Ver todas</a>
+    <a class="btn btn-outline-secondary" href="historico.php?turma_id=<?= (int)$turmaId ?>&aula=<?= (int)$aula ?>">Ver todas</a>
   </div>
 </form>
 
@@ -50,6 +51,7 @@
           <small class="text-muted"><?= ch_h($r['MATRICULA']) ?></small>
           <span class="ms-auto text-muted small">
             <i class="far fa-calendar"></i> <?= ch_data_br($r['DATA_CHAMADA']) ?>
+            &nbsp;·&nbsp; <?= ch_h(ch_aula_rotulo($r['AULA_SEQ'])) ?>
             &nbsp;·&nbsp; retificado em <?= ch_h(ch_confirma_texto($r['QUANDO'])) ?>
           </span>
         </div>

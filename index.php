@@ -293,7 +293,7 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 </div>
 
 <?php if ($dadosFreq): ?>
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
 	new Chart(document.getElementById('graficoFrequencia'), {
 		type: 'line',
 		data: {

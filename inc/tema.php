@@ -88,6 +88,8 @@ ch_auth_session_guard();
 
 	<script src="<?php echo BASEURL; ?>js/accessibility.js"></script>
 	<script src="<?php echo BASEURL; ?>js/mask.js"></script>
+	<!-- Handlers migrados de atributos inline para permitir CSP sem unsafe-inline. -->
+	<script src="<?php echo BASEURL; ?>js/csp-handlers.js"></script>
 
 
 	<link rel="preconnect" href="https://fonts.googleapis.com">

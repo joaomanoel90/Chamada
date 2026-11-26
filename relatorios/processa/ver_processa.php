@@ -1,4 +1,6 @@
 <?php
+/* ch-somente-leitura: monta o relatório; a gravação do parecer acontece em
+   salvar_processa.php, que valida o token CSRF. */
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once(DBAPI);
 require_once(ABSPATH . 'inc/chamada.php');
@@ -35,7 +37,7 @@ foreach (tr_vinculos($alunoId) as $v) {
 $houveTransferencia = count($vinculosAno) > 1;
 
 $totais = ch_row(
-    "SELECT COUNT(*) AS DIAS,
+    "SELECT COUNT(*) AS AULAS,
             SUM(CASE WHEN STATUS = 'P' THEN 1 ELSE 0 END) AS P,
             SUM(CASE WHEN STATUS = 'F' THEN 1 ELSE 0 END) AS F,
             SUM(CASE WHEN STATUS = 'J' THEN 1 ELSE 0 END) AS J,
@@ -45,7 +47,7 @@ $totais = ch_row(
 );
 
 $porMes = ch_rows(
-    "SELECT MONTH(DATA) AS MES, COUNT(*) AS DIAS,
+    "SELECT MONTH(DATA) AS MES, COUNT(*) AS AULAS,
             SUM(CASE WHEN STATUS = 'P' THEN 1 ELSE 0 END) AS P,
             SUM(CASE WHEN STATUS = 'F' THEN 1 ELSE 0 END) AS F,
             SUM(CASE WHEN STATUS = 'J' THEN 1 ELSE 0 END) AS J,
@@ -82,9 +84,10 @@ foreach ($observacoes as $o) {
 }
 
 $faltasDetalhadas = ch_rows(
-    "SELECT CONVERT(varchar(10), DATA, 23) AS DATA, STATUS, ISNULL(JUSTIFICATIVA, '') AS JUSTIFICATIVA
+    "SELECT CONVERT(varchar(10), DATA, 23) AS DATA, " . ch_aula_col() . " AS AULA_SEQ,
+            STATUS, ISNULL(JUSTIFICATIVA, '') AS JUSTIFICATIVA
      FROM TB_CHAMADA WHERE ID_ALUNO = ? AND DATA >= ? AND DATA <= ? AND STATUS IN ('F', 'J')
-     ORDER BY DATA",
+     ORDER BY DATA, " . ch_aula_col(),
     [$alunoId, $inicio, $fim]
 );
 
@@ -113,8 +116,8 @@ $historicoParecer = $parecer
     )
     : [];
 
-$dias       = (int)($totais['DIAS'] ?? 0);
+$aulas      = (int)($totais['AULAS'] ?? 0);
 $presencas  = (int)($totais['P'] ?? 0) + (int)($totais['A'] ?? 0);
-$frequencia = $dias > 0 ? round($presencas * 100 / $dias, 1) : null;
+$frequencia = $aulas > 0 ? round($presencas * 100 / $aulas, 1) : null;
 /* A turma pode ter vários professores: mostra a equipe inteira. */
 $professor  = ch_turma_equipe_texto((int)$aluno['ID_TURMA']);

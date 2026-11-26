@@ -11,7 +11,9 @@ require_once('processa/index_processa.php');
 		</div>
 
 		<div class="col-sm-6 text-sm-end h2">
+			<?php if (ch_rede()): ?>
 			<a class="btn btn-success" href="add.php"><i class="fa fa-plus"></i> Nova Unidade</a>
+			<?php endif; ?>
 
 		</div>
 

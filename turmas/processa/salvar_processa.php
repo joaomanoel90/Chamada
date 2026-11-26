@@ -17,7 +17,7 @@ function turma_validar($post, $idAtual = 0)
 
     $d = [
         'ID_UNIDADE'   => (int)($post['id_unidade'] ?? 0),
-        'NOME'         => strip_tags(trim($post['nome'] ?? '')),
+        'NOME'         => strip_tags(trim((string)($post['nome'] ?? ''))),
         'ANO_LETIVO'   => (int)($post['ano_letivo'] ?? 0),
         'SERIE'        => is_string($post['serie'] ?? null) ? $post['serie'] : '',
         'ETAPA_ENSINO' => '',

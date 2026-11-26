@@ -113,7 +113,7 @@
                   <?= ch_csrf_campo() ?>
                   <input type="hidden" name="id" value="<?= (int)$row['ID'] ?>">
                   <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
-                          onclick="return confirm('Alterar a situação desta turma?');">
+                          data-confirm="Alterar a situação desta turma?">
                     <?= (int)$row['ATIVO'] === 1 ? 'Inativar' : 'Reativar' ?>
                   </button>
                 </form>

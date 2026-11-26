@@ -5,7 +5,7 @@ require_once(ABSPATH . 'inc/chamada.php');
 ch_db();
 $anoAtual = (int)date('Y');
 $fTurma    = (int)($_GET['turma_id'] ?? 0);
-$fBusca    = trim($_GET['busca'] ?? '');
+$fBusca    = trim((string)($_GET['busca'] ?? ''));
 $fSituacao = $_GET['situacao'] ?? 'ativos';
 
 $filtro = ch_filtro_turma('t');

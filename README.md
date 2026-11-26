@@ -26,7 +26,9 @@ da rede municipal (creches e escolas).
   e impede a repetição do CPF, inclusive em cadastros simultâneos
 - **Diário escolar**: notas de 0 a 10 por disciplina e bimestre, com habilitação
   por turma; a frequência continua integrada à chamada existente
-- **Feriados** de dia inteiro ou parciais (por faixa de horário e por unidade)
+- **Calendário Escolar**: início e fim do ano letivo, contador de dias letivos,
+  exceções (sábado/feriado letivo ou dia útil dispensado) e feriados de dia
+  inteiro ou parciais (por faixa de horário, calendário e unidade)
 - **Observações** por aluno, organizadas por área do desenvolvimento
 - **Histórico de alterações** das observações e dos pareceres, com versões anteriores,
   usuário responsável e data/hora
@@ -93,6 +95,19 @@ por unidade em **Permissões de observações**, escolhendo entre **Somente ler*
 e **Ler e inserir**. Sem liberação, as observações não ficam visíveis.
 Antes de publicar as melhorias de autenticação em uma instalação existente,
 execute `sql_inicial/ATUALIZAR_SEGURANCA_LOGIN.sql`.
+Para o log de operações sensíveis, execute `sql_inicial/ATUALIZAR_AUDITORIA.sql`.
+Ele cria `TB_AUDITORIA`, a FK para `TB_USUARIOS` e pode ser rodado de novo sem
+apagar histórico. Usuários são **desativados**, nunca excluídos.
+Para o Calendário Escolar, execute `sql_inicial/ATUALIZAR_CALENDARIO_ESCOLAR.sql`.
+Ele cria `TB_CALENDARIOS` (início e fim), `TB_CALENDARIO_EXCECOES`, acrescenta
+`CALENDARIO` em `TB_FERIADOS` e converte os feriados existentes em **Ambos**, sem
+alterar o comportamento anterior. Em bancos já migrados, rode o script novamente
+para receber `FIM_ANO` e as exceções; ele é idempotente.
+Para lançar 1ª e 2ª aula no mesmo dia, execute
+`sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql`. Ele acrescenta `AULA_SEQ`,
+substitui a chave única `ID_ALUNO + DATA` por `ID_ALUNO + DATA + AULA_SEQ` e
+marca todos os registros existentes como **1ª aula**. Também pode ser rodado
+mais de uma vez.
 
 ## Instalação
 
@@ -146,11 +161,39 @@ ALTER ROLE db_datawriter ADD MEMBER [user_chamada];
 3. **Usuários** — cadastre os professores e vincule às unidades
 4. **Turmas** — unidade, ano letivo, período, professor e capacidade
 5. **Alunos** — matrícula dos alunos nas turmas
-6. **Feriados** — feriados do ano letivo
+6. **Calendário Escolar** — defina o início e o fim do ano letivo da creche e do
+   fundamental, cadastre feriados e marque exceções (dias letivos ou não letivos)
 7. **Chamada do Dia** — lançamento diário
 8. **Diário de Classe** — classifique a turma, habilite notas somente nas
    etapas escolares, cadastre as disciplinas com seus professores responsáveis
    e lance as notas por bimestre
+
+## Calendário Escolar
+
+A tela **Calendário Escolar** (endereço `/feriados/`) reúne os dois calendários
+globais de cada ano letivo: **Creche** (Berçário I/II e Maternal I/II) e
+**Ensino Fundamental** (Pré-Escola e 1º ao 9º ano). Somente a gestão da rede
+(níveis 1 e 4) define início, fim e exceções; a pré-escola segue o calendário do
+fundamental. A chamada recusa datas fora do período, fins de semana e feriados,
+salvo quando a data estiver marcada como **Letivo**.
+
+O contador parte dos dias úteis entre início e fim, desconta os feriados
+integrais **globais** do calendário (feriados de uma única unidade não entram na
+contagem) e aplica as exceções: **Letivo** acrescenta um sábado, domingo ou
+feriado; **Não letivo** dispensa um dia útil e bloqueia o lançamento.
+
+O painel **Dias do calendário** reúne feriados e exceções em uma única lista e
+mostra a situação efetiva de cada dia: feriado integral aparece como
+**Não letivo**, feriado parcial como **Letivo parcial**, e uma exceção pode
+mudar a data para **Letivo** ou **Não letivo**. Um feriado pode receber uma
+exceção diretamente na sua linha, sem sair da tela.
+
+Cada feriado é cadastrado para **Ambos**, **Creche** ou **Ensino Fundamental** e
+pode continuar restrito a uma unidade. Quando há mais de uma regra na mesma data,
+a da unidade prevalece sobre a global e um feriado integral prevalece sobre um
+parcial. A opção **Abrir novo ano letivo** cria, de uma vez, o período da creche
+e do ensino fundamental de um ano ainda não cadastrado. Período, exceções e
+alterações de feriados são registrados em `TB_AUDITORIA`.
 
 ## Estrutura
 
@@ -162,14 +205,14 @@ processa/               dados do dashboard
 
 inc/                    layout, conexão e funções compartilhadas
   database.php          open_database() via sqlsrv
-  chamada.php           acesso por unidade, datas, regras de feriado
+  chamada.php           acesso por unidade, calendário, datas e feriados
   tema.php header.php header2.php footer.php
 
 chamada/                lançamento e exportação da chamada
 diario/                 notas escolares por disciplina e bimestre
 alunos/                 cadastro e ficha do aluno
 turmas/  periodos/      cadastro de turmas e períodos
-feriados/               feriados integrais e parciais
+feriados/               Calendário Escolar: período, contador, exceções e feriados
 observacoes/            observações por aluno
 relatorios/             relatório anual de desenvolvimento
 
@@ -255,6 +298,60 @@ da turma, organizados em folhas A4 (até 9 por página). Professores também
 encontram a ação na tela da chamada da turma.
 A foto só é exibida para usuários com acesso à ficha.
 
+### Restrição familiar no crachá
+
+A restrição **não** fica no formulário de edição do aluno. Na ficha, o botão
+**Restrição familiar** abre `alunos/restricao.php`, onde cada contato vinculado
+pode ser restringido ou liberado por uma ação própria, com **motivo obrigatório**.
+A restrição é do vínculo com aquele aluno (o mesmo CPF pode atender outros
+alunos normalmente). O contato continua no cadastro e na ficha, mas é omitido
+no crachá individual e no crachá em lote; se todos os contatos estiverem
+restritos, o crachá orienta a procurar a unidade escolar.
+
+Cada restringir/liberar grava um **histórico** com data, ação, motivo e usuário
+responsável, além da auditoria do sistema. Ao restringir, o sistema grava
+também uma observação na categoria **Contato com a família** orientando a
+**gerar outro crachá suprimindo a informação do contato restrito** e substituir
+os crachás anteriores. A observação só é criada na mudança do estado, não se
+repetindo em ações seguintes. Se o usuário não puder escrever observações no
+aluno, a restrição é salva e o aviso aparece no flash.
+
+A edição do cadastro preserva a restrição já registrada para cada CPF; trocar
+o CPF do contato cria um vínculo novo, liberado. Para instalações existentes,
+rode `sql_inicial/ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql`; a tela
+**Verificar instalação** confere a coluna, a tabela de histórico e as
+constraints.
+
+### Suspensão do aluno
+
+Na ficha do aluno, o botão **Suspensão** abre `alunos/suspensao.php`. A gestão
+escolar informa **início, fim e motivo**; o aluno passa a ter **falta em todas as
+aulas letivas do período**, inclusive as já lançadas. Quando já havia presença,
+atraso ou falta justificada, a mudança vira falta com **retificação automática**
+(antes/depois e motivo ficam no histórico de retificações). Falta registrada pelo
+professor é preservada.
+
+Só entram no cálculo as datas em que há aula para a turma vigente naquele dia:
+o calendário escolar, fins de semana, feriados e exceções são respeitados. Se a
+turma mudar durante o período, cada data usa o vínculo da turma correspondente.
+A justificativa das faltas geradas traz o texto `Suspensão: <motivo>`.
+
+Cada suspensão fica no histórico com período, motivo, data do registro, usuário
+que determinou e aulas ainda suspensas. Para **tirar dias**, marque na tela as
+datas e as aulas (1ª e/ou 2ª) que devem voltar ao normal e informe o motivo
+obrigatório. Nos dias que já passaram, escolha **lançar presença** (com
+retificação) ou **remover a falta e deixar a chamada pendente**. Nas aulas de
+hoje em diante, a falta apenas é removida. Cada data/aula liberada gera uma linha
+no histórico com motivo e usuário; a suspensão continua ativa nas demais e só é
+encerrada quando não sobra nenhuma aula ligada a ela. As liberações continuam
+aparecendo na tela mesmo depois do encerramento. Retificações feitas à mão pelo
+professor permanecem. A ação também vai para a auditoria (módulo **Alunos**).
+
+Para instalações existentes, rode
+`sql_inicial/ATUALIZAR_SUSPENSAO_ALUNOS.sql`. A tela **Verificar instalação**
+confere as tabelas de suspensões e liberações, as constraints e a coluna
+`TB_CHAMADA.ID_SUSPENSAO`.
+
 ## CPF do aluno
 
 O CPF é obrigatório no cadastro e na edição, validado pelo sistema e armazenado
@@ -293,23 +390,26 @@ Nas instalações existentes, execute `sql_inicial/ATUALIZAR_DIARIO_CLASSE.sql`.
 Ela preserva turmas e disciplinas atuais: classifique as turmas ao editá-las e
 atribua o professor às disciplinas existentes no diário antes de lançar notas.
 
-## Chamada: confirmar uma vez, depois retificar
+## Chamada: por aula, confirmar uma vez, depois retificar
 
-A presença de cada aluno é **confirmada uma única vez por dia**.
+A presença é confirmada **uma vez por aluno e por aula**. Na chamada, o
+professor escolhe **1ª aula** ou **2ª aula**; as duas são independentes no mesmo
+dia. Assim ele pode dar falta na primeira e presença na segunda, ou o contrário.
+Os registros antigos passaram a valer como **1ª aula**.
 
 1. **Aguardando confirmação** — o professor escolhe Presente / Falta /
-   Justificada / Atraso e confirma. Há um aviso de confirmação antes de gravar.
-2. **Presença confirmada** — o cartão fica **travado**, mostrando a situação,
-   quem confirmou e quando. Não existe mais botão de confirmar para esse aluno
-   no dia.
-3. **Retificar** — única forma de corrigir. Abre uma janela que exige:
+   Justificada / Atraso e confirma a aula aberta. Há um aviso antes de gravar.
+2. **Presença confirmada** — o cartão fica **travado** naquela aula, mostrando a
+   situação, quem confirmou e quando. A outra aula continua disponível.
+3. **Retificar** — única forma de corrigir uma aula já confirmada. Abre uma
+   janela que exige:
    - a nova situação;
    - a justificativa, se for falta justificada;
    - **o motivo da retificação** (obrigatório).
 
 Cada retificação grava em `TB_CHAMADA_RETIFICACOES` o status anterior, o novo,
-as justificativas, o motivo, o autor e a data/hora. Consulte em
-**Chamada → Histórico de retificações**.
+as justificativas, o motivo, o autor e a data/hora; a aula vem do registro
+vinculado em `TB_CHAMADA`. Consulte em **Chamada → Histórico de retificações**.
 
 Quem pode retificar: a gestão da unidade e qualquer professor da equipe da turma.
 `CONFIRMADA_POR` e `CONFIRMADA_EM` continuam apontando para quem confirmou
@@ -338,8 +438,10 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_TURMAS` | turmas por unidade e ano letivo (`ID_PROFESSOR` é legado, espelha um dos responsáveis) |
 | `TB_ALUNOS` | alunos e responsáveis |
 | `TB_ALUNO_SAIDAS_EXTERNAS` | saídas da rede e retorno dos alunos pelo cadastro original |
-| `TB_FERIADOS` | feriados integrais e parciais |
-| `TB_CHAMADA` | presença por aluno/dia, com data e autor da confirmação |
+| `TB_CALENDARIOS` | início e fim do ano letivo da creche e do ensino fundamental |
+| `TB_CALENDARIO_EXCECOES` | dias letivos/não letivos por calendário, com motivo |
+| `TB_FERIADOS` | feriados integrais e parciais, por calendário e unidade |
+| `TB_CHAMADA` | presença por aluno/aula (`AULA_SEQ` 1 ou 2), com data e autor da confirmação |
 | `TB_TURMA_PROFESSORES` | equipe da turma: papel, turno e prazo do substituto |
 | `TB_CHAMADA_RETIFICACOES` | histórico de retificações, com motivo e autor |
 | `TB_OBSERVACOES` | observações de desenvolvimento |
@@ -347,6 +449,7 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_RELATORIOS_ANUAIS` | parecer e encaminhamentos por aluno/ano |
 | `TB_HISTORICO_RELATORIOS` | versões anteriores dos pareceres, com autores e data/hora |
 | `TB_PROMOCOES` | mudanças de turma para o ano seguinte, com vigência e responsável |
+| `TB_AUDITORIA` | quem, quando e o quê de permissões, AEE, feriados, unidades e usuários |
 | `VIEW_ACESSOS_USUARIOS` | view de apoio às permissões |
 
 ## Documentação adicional
@@ -374,13 +477,45 @@ política de referência e restrições a objetos e enquadramento. HSTS só é e
 em HTTPS.
 
 Formulários de alteração, login e logout usam token CSRF de sessão; as
-operações de escrita são enviadas por POST.
+operações de escrita são enviadas por POST. Handlers de interface (confirmação,
+impressão, envio automático de filtros e caixa alta) ficam em
+`js/csp-handlers.js` como atributos `data-confirm`, `data-print`,
+`data-auto-submit` e `data-uppercase` — nenhum `onclick`/`onchange` inline.
+
+A **Content-Security-Policy** é enviada em todas as respostas e fixa
+`default-src 'self'`, `script-src 'self' 'nonce-…'` mais os CDs efetivamente
+usados, `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'` e
+`form-action 'self'`. Cada `<script>` inline carrega o nonce gerado por
+requisição em `config.php`. `style-src` ainda mantém `'unsafe-inline'` por
+causa dos blocos `<style>` das telas.
+
+`ch_caminho_interno()` (`inc/chamada.php`) é o único filtro para parâmetros de
+retorno: só aceita caminhos relativos internos, rejeita esquemas, `//`, `..`,
+barras invertidas, caracteres de controle e separadores codificados (`%2f`,
+`%5c`). O valor é inspecionado **decodificado** e devolvido no formato original.
+Nunca use um parâmetro de retorno diretamente em `header('Location: …')`.
+
+Antes de publicar, rode o verificador dos invariantes de POST/CSRF:
+
+```
+php ferramentas/testa_post_seguro.php
+```
+
+Ele confere se todo formulário POST emite `ch_csrf_campo()`, se todo action é
+interno e se todo processador que grava chama `ch_csrf_ok()`. Processadores
+somente leitura precisam declarar `ch-somente-leitura` no cabeçalho; o código
+retorna 1 se houver qualquer falha. Gere também o manifesto com
+`php ferramentas/gera_manifesto.php`.
+
+As operações sensíveis são registradas em `TB_AUDITORIA` e consultadas em
+**Gestão → Auditoria** (somente administrador). A tabela tem FK para
+`TB_USUARIOS`: a conta é inativada, nunca removida, para preservar o histórico.
 
 **Configuração operacional ainda necessária:** `config.php` foi preservado e
 continua contendo as credenciais atuais. Em produção, mova-as para fora do
 controle de versão, rotacione-as e use privilégio mínimo no SQL Server. Configure
-backups protegidos. Como o `config.php` não foi alterado, defina as opções de
-cookie da sessão antes de `session_start()` no PHP/servidor: `session.use_strict_mode=1`,
+backups protegidos. O `config.php` já define as opções de cookie antes de
+`session_start()`: `session.use_strict_mode=1`,
 `session.use_only_cookies=1`, `session.cookie_httponly=1` e
 `session.cookie_samesite=Lax`; habilite `session.cookie_secure=1` somente com
 HTTPS. Se houver proxy reverso, configure-o para informar HTTPS corretamente.

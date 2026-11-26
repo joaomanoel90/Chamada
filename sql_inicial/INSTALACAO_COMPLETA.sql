@@ -554,12 +554,58 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes
 GO
 
 /* ============================================================================ 
-   8. TB_FERIADOS
+   8. TB_CALENDARIOS e TB_FERIADOS
       TIPO = INTEGRAL: bloqueia o dia todo.
       TIPO = PARCIAL : HORA_INICIO/HORA_FIM guardam a faixa SEM AULA; bloqueia
                        só as turmas cujo período cruza essa faixa.
-      ID_UNIDADE NULL = vale para todas as unidades.
+      CALENDARIO = AMBOS vale para os dois; CRECHE/FUNDAMENTAL restringe.
+       ID_UNIDADE NULL = vale para todas as unidades.
    ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_CALENDARIOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_CALENDARIOS (
+        ID          int IDENTITY(1,1) NOT NULL,
+        ANO_LETIVO  int           NOT NULL,
+        CALENDARIO  nvarchar(20)  NOT NULL,
+        INICIO_ANO  date          NOT NULL,
+        FIM_ANO     date          NOT NULL,
+        CREATED     datetime      NOT NULL CONSTRAINT DF_CALENDARIOS_CREATED DEFAULT (GETDATE()),
+        UPDATED     datetime      NULL,
+        CONSTRAINT PK_TB_CALENDARIOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_CALENDARIO_ANO UNIQUE (ANO_LETIVO, CALENDARIO),
+        CONSTRAINT CK_CALENDARIO_TIPO CHECK (CALENDARIO IN ('CRECHE', 'FUNDAMENTAL')),
+        CONSTRAINT CK_CALENDARIO_ANO CHECK (ANO_LETIVO BETWEEN 2000 AND 2100)
+    );
+
+    PRINT '  + TB_CALENDARIOS criada';
+END
+ELSE
+    PRINT '  = TB_CALENDARIOS já existe';
+GO
+
+/* Exceções globais do calendário: um sábado/domingo/feriado pode virar letivo
+   e um dia útil pode ser dispensado. Uma data por calendário. */
+IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_CALENDARIO_EXCECOES (
+        ID             int IDENTITY(1,1) NOT NULL,
+        ID_CALENDARIO  int           NOT NULL,
+        DATA           date          NOT NULL,
+        TIPO           nvarchar(12)  NOT NULL,
+        MOTIVO         nvarchar(150) NULL,
+        CREATED        datetime      NOT NULL CONSTRAINT DF_CAL_EXC_CREATED DEFAULT (GETDATE()),
+        CONSTRAINT PK_TB_CALENDARIO_EXCECOES PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT UQ_CAL_EXC_DATA UNIQUE (ID_CALENDARIO, DATA),
+        CONSTRAINT FK_CAL_EXC_CALENDARIO FOREIGN KEY (ID_CALENDARIO)
+            REFERENCES dbo.TB_CALENDARIOS (ID) ON DELETE CASCADE,
+        CONSTRAINT CK_CAL_EXC_TIPO CHECK (TIPO IN ('LETIVO', 'NAO_LETIVO'))
+    );
+    PRINT '  + TB_CALENDARIO_EXCECOES criada';
+END
+ELSE
+    PRINT '  = TB_CALENDARIO_EXCECOES já existe';
+GO
+
 IF OBJECT_ID(N'dbo.TB_FERIADOS', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.TB_FERIADOS (
@@ -570,9 +616,11 @@ BEGIN
         HORA_INICIO nvarchar(5)   NULL,
         HORA_FIM    nvarchar(5)   NULL,
         ID_UNIDADE  int           NULL,
+        CALENDARIO  nvarchar(20)  NOT NULL CONSTRAINT DF_FERIADOS_CALENDARIO DEFAULT (N'AMBOS'),
         CREATED     datetime      NOT NULL CONSTRAINT DF_FERIADOS_CREATED DEFAULT (GETDATE()),
         CONSTRAINT PK_TB_FERIADOS PRIMARY KEY CLUSTERED (ID),
         CONSTRAINT FK_FERIADOS_UNIDADE FOREIGN KEY (ID_UNIDADE) REFERENCES dbo.TB_UNIDADES (id),
+        CONSTRAINT CK_FERIADOS_CALENDARIO CHECK (CALENDARIO IN ('AMBOS', 'CRECHE', 'FUNDAMENTAL')),
         CONSTRAINT CK_FERIADOS_TIPO CHECK (TIPO IN ('INTEGRAL', 'PARCIAL')),
         CONSTRAINT CK_FERIADOS_HORA CHECK (
             TIPO = 'INTEGRAL'
@@ -584,14 +632,99 @@ BEGIN
     -- trata NULL como distinto em UNIQUE comum, o que permitiria duplicar
     -- feriados de abrangência "todas as unidades".
     CREATE UNIQUE INDEX UQ_FERIADOS_DATA_TODAS
-        ON dbo.TB_FERIADOS (DATA) WHERE ID_UNIDADE IS NULL;
+        ON dbo.TB_FERIADOS (DATA, CALENDARIO) WHERE ID_UNIDADE IS NULL;
     CREATE UNIQUE INDEX UQ_FERIADOS_DATA_UNIDADE
-        ON dbo.TB_FERIADOS (DATA, ID_UNIDADE) WHERE ID_UNIDADE IS NOT NULL;
+        ON dbo.TB_FERIADOS (DATA, ID_UNIDADE, CALENDARIO) WHERE ID_UNIDADE IS NOT NULL;
 
     PRINT '  + TB_FERIADOS criada';
 END
 ELSE
     PRINT '  = TB_FERIADOS já existe';
+GO
+
+/* ============================================================================
+   8.1 TB_SUSPENSOES_ALUNOS
+       Suspensão por período, com motivo e quem determinou. As liberações
+       parciais de dias/aulas ficam em TB_SUSPENSOES_ALUNOS_LIBERACOES.
+       As faltas geradas em TB_CHAMADA apontam para aqui por ID_SUSPENSAO.
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_SUSPENSOES_ALUNOS', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_SUSPENSOES_ALUNOS (
+        ID                      int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO                int           NOT NULL,
+        DATA_INICIO             date          NOT NULL,
+        DATA_FIM                date          NOT NULL,
+        MOTIVO                  nvarchar(500) NOT NULL,
+        ID_USUARIO              int           NOT NULL,
+        CRIADO_EM               datetime2(0)  NOT NULL
+            CONSTRAINT DF_SUSP_ALUNO_CRIADO DEFAULT (SYSDATETIME()),
+        SITUACAO                varchar(10)   NOT NULL
+            CONSTRAINT DF_SUSP_ALUNO_SITUACAO DEFAULT ('ATIVA'),
+        ENCERRADA_EM            datetime2(0)  NULL,
+        ID_USUARIO_ENCERRAMENTO int           NULL,
+        MOTIVO_ENCERRAMENTO     nvarchar(500) NULL,
+        CONSTRAINT PK_TB_SUSP_ALUNOS PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_SUSP_ALUNO_ALUNO FOREIGN KEY (ID_ALUNO)
+            REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_SUSP_ALUNO_USUARIO FOREIGN KEY (ID_USUARIO)
+            REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_SUSP_ALUNO_USUARIO_FIM FOREIGN KEY (ID_USUARIO_ENCERRAMENTO)
+            REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_SUSP_ALUNO_PERIODO CHECK (DATA_FIM >= DATA_INICIO),
+        CONSTRAINT CK_SUSP_ALUNO_MOTIVO CHECK (LTRIM(RTRIM(MOTIVO)) <> N''),
+        CONSTRAINT CK_SUSP_ALUNO_MOTIVO_FIM CHECK (
+            MOTIVO_ENCERRAMENTO IS NULL OR LTRIM(RTRIM(MOTIVO_ENCERRAMENTO)) <> N''),
+        CONSTRAINT CK_SUSP_ALUNO_SITUACAO CHECK (SITUACAO IN ('ATIVA', 'ENCERRADA')),
+        CONSTRAINT CK_SUSP_ALUNO_ENCERRAMENTO CHECK (
+            (SITUACAO = 'ATIVA'
+             AND ENCERRADA_EM IS NULL
+             AND ID_USUARIO_ENCERRAMENTO IS NULL
+             AND MOTIVO_ENCERRAMENTO IS NULL)
+            OR
+            (SITUACAO = 'ENCERRADA'
+             AND ENCERRADA_EM IS NOT NULL
+             AND ID_USUARIO_ENCERRAMENTO IS NOT NULL
+             AND MOTIVO_ENCERRAMENTO IS NOT NULL)
+        )
+    );
+    CREATE INDEX IX_SUSP_ALUNO_PERIODO
+        ON dbo.TB_SUSPENSOES_ALUNOS (ID_ALUNO, DATA_INICIO DESC, DATA_FIM DESC);
+    PRINT '  + TB_SUSPENSOES_ALUNOS criada';
+END
+ELSE
+    PRINT '  = TB_SUSPENSOES_ALUNOS já existe';
+GO
+
+/* 8.2 Histórico de dias/aulas liberados antes do fim da suspensão. */
+IF OBJECT_ID(N'dbo.TB_SUSPENSOES_ALUNOS_LIBERACOES', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_SUSPENSOES_ALUNOS_LIBERACOES (
+        ID               int IDENTITY(1,1) NOT NULL,
+        ID_SUSPENSAO     int           NOT NULL,
+        DATA_LIBERADA    date          NOT NULL,
+        AULA_SEQ         int           NOT NULL,
+        PRESENCA_LANCADA bit           NOT NULL
+            CONSTRAINT DF_SUSP_LIB_PRESENCA DEFAULT (0),
+        MOTIVO           nvarchar(500) NOT NULL,
+        ID_USUARIO       int           NOT NULL,
+        CRIADO_EM        datetime2(0)  NOT NULL
+            CONSTRAINT DF_SUSP_LIB_CRIADO DEFAULT (SYSDATETIME()),
+        CONSTRAINT PK_TB_SUSP_LIB PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_SUSP_LIB_SUSP FOREIGN KEY (ID_SUSPENSAO)
+            REFERENCES dbo.TB_SUSPENSOES_ALUNOS (ID),
+        CONSTRAINT FK_SUSP_LIB_USUARIO FOREIGN KEY (ID_USUARIO)
+            REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT UQ_SUSP_LIB_DIA_AULA UNIQUE (ID_SUSPENSAO, DATA_LIBERADA, AULA_SEQ),
+        CONSTRAINT CK_SUSP_LIB_AULA CHECK (AULA_SEQ IN (1, 2)),
+        CONSTRAINT CK_SUSP_LIB_MOTIVO CHECK (LTRIM(RTRIM(MOTIVO)) <> N'')
+    );
+    CREATE INDEX IX_SUSP_LIB_SUSP_DIA
+        ON dbo.TB_SUSPENSOES_ALUNOS_LIBERACOES (ID_SUSPENSAO, DATA_LIBERADA);
+    PRINT '  + TB_SUSPENSOES_ALUNOS_LIBERACOES criada';
+END
+ELSE
+    PRINT '  = TB_SUSPENSOES_ALUNOS_LIBERACOES já existe';
 GO
 
 /* ============================================================================
@@ -606,23 +739,31 @@ BEGIN
         ID            int IDENTITY(1,1) NOT NULL,
         ID_ALUNO      int           NOT NULL,
         DATA          date          NOT NULL,
+        AULA_SEQ      int           NOT NULL CONSTRAINT DF_CHAMADA_AULA DEFAULT (1),
         STATUS        nvarchar(1)   NOT NULL,
         JUSTIFICATIVA nvarchar(500) NULL,
         ID_USUARIO    int           NOT NULL,
         CONFIRMADA_EM  datetime     NULL,
         CONFIRMADA_POR int          NULL,
+        ID_SUSPENSAO  int           NULL,
         CREATED       datetime      NOT NULL CONSTRAINT DF_CHAMADA_CREATED DEFAULT (GETDATE()),
         MODIFIED      datetime      NULL,
         CONSTRAINT PK_TB_CHAMADA PRIMARY KEY CLUSTERED (ID),
-        CONSTRAINT UQ_CHAMADA_ALUNO_DATA UNIQUE (ID_ALUNO, DATA),
+        CONSTRAINT UQ_CHAMADA_ALUNO_DATA_AULA UNIQUE (ID_ALUNO, DATA, AULA_SEQ),
         CONSTRAINT FK_CHAMADA_ALUNO   FOREIGN KEY (ID_ALUNO)   REFERENCES dbo.TB_ALUNOS (ID),
         CONSTRAINT FK_CHAMADA_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT FK_CHAMADA_SUSPENSAO FOREIGN KEY (ID_SUSPENSAO)
+            REFERENCES dbo.TB_SUSPENSOES_ALUNOS (ID),
         CONSTRAINT CK_CHAMADA_STATUS CHECK (STATUS IN ('P', 'F', 'J', 'A')),
         CONSTRAINT CK_CHAMADA_JUST CHECK (
             STATUS <> 'J' OR (JUSTIFICATIVA IS NOT NULL AND LTRIM(RTRIM(JUSTIFICATIVA)) <> '')
-        )
+        ),
+        CONSTRAINT CK_CHAMADA_AULA CHECK (AULA_SEQ IN (1, 2))
     );
     CREATE INDEX IX_CHAMADA_DATA ON dbo.TB_CHAMADA (DATA);
+    CREATE INDEX IX_CHAMADA_DATA_AULA ON dbo.TB_CHAMADA (DATA, AULA_SEQ);
+    CREATE INDEX IX_CHAMADA_SUSPENSAO ON dbo.TB_CHAMADA (ID_SUSPENSAO)
+        WHERE ID_SUSPENSAO IS NOT NULL;
     PRINT '  + TB_CHAMADA criada';
 END
 ELSE
@@ -651,6 +792,81 @@ UPDATE dbo.TB_CHAMADA
    SET CONFIRMADA_EM  = ISNULL(CONFIRMADA_EM, CREATED),
        CONFIRMADA_POR = ISNULL(CONFIRMADA_POR, ID_USUARIO)
  WHERE CONFIRMADA_EM IS NULL OR CONFIRMADA_POR IS NULL;
+GO
+
+/* Coluna de aula em bases já existentes. Registro antigo vira 1ª aula. */
+IF COL_LENGTH(N'dbo.TB_CHAMADA', N'AULA_SEQ') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA
+        ADD AULA_SEQ int NOT NULL CONSTRAINT DF_CHAMADA_AULA DEFAULT (1);
+    PRINT '  + TB_CHAMADA.AULA_SEQ adicionada';
+END
+GO
+
+IF EXISTS (SELECT 1 FROM sys.objects
+            WHERE parent_object_id = OBJECT_ID(N'dbo.TB_CHAMADA')
+              AND name = N'UQ_CHAMADA_ALUNO_DATA' AND type = N'UQ')
+    ALTER TABLE dbo.TB_CHAMADA DROP CONSTRAINT UQ_CHAMADA_ALUNO_DATA;
+ELSE IF EXISTS (SELECT 1 FROM sys.indexes
+                 WHERE object_id = OBJECT_ID(N'dbo.TB_CHAMADA')
+                   AND name = N'UQ_CHAMADA_ALUNO_DATA')
+    DROP INDEX UQ_CHAMADA_ALUNO_DATA ON dbo.TB_CHAMADA;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CHAMADA')
+                  AND name = N'UQ_CHAMADA_ALUNO_DATA_AULA')
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA
+        ADD CONSTRAINT UQ_CHAMADA_ALUNO_DATA_AULA UNIQUE (ID_ALUNO, DATA, AULA_SEQ);
+    PRINT '  + UQ_CHAMADA_ALUNO_DATA_AULA criada';
+END
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints
+                WHERE parent_object_id = OBJECT_ID(N'dbo.TB_CHAMADA')
+                  AND name = N'CK_CHAMADA_AULA')
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA
+        ADD CONSTRAINT CK_CHAMADA_AULA CHECK (AULA_SEQ IN (1, 2));
+    PRINT '  + CK_CHAMADA_AULA criada';
+END
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CHAMADA')
+                  AND name = N'IX_CHAMADA_DATA_AULA')
+BEGIN
+    CREATE INDEX IX_CHAMADA_DATA_AULA ON dbo.TB_CHAMADA (DATA, AULA_SEQ);
+    PRINT '  + IX_CHAMADA_DATA_AULA criado';
+END
+GO
+
+/* Coluna que liga faltas geradas por suspensão (upgrade). */
+IF COL_LENGTH(N'dbo.TB_CHAMADA', N'ID_SUSPENSAO') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA ADD ID_SUSPENSAO int NULL;
+    PRINT '  + TB_CHAMADA.ID_SUSPENSAO adicionada';
+END
+GO
+
+IF OBJECT_ID(N'dbo.TB_SUSPENSOES_ALUNOS', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys
+                    WHERE name = N'FK_CHAMADA_SUSPENSAO'
+                      AND parent_object_id = OBJECT_ID(N'dbo.TB_CHAMADA'))
+BEGIN
+    ALTER TABLE dbo.TB_CHAMADA WITH CHECK
+        ADD CONSTRAINT FK_CHAMADA_SUSPENSAO FOREIGN KEY (ID_SUSPENSAO)
+            REFERENCES dbo.TB_SUSPENSOES_ALUNOS (ID);
+    PRINT '  + FK_CHAMADA_SUSPENSAO criada';
+END
+GO
+
+IF COL_LENGTH(N'dbo.TB_CHAMADA', N'ID_SUSPENSAO') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.indexes
+                    WHERE name = N'IX_CHAMADA_SUSPENSAO'
+                      AND object_id = OBJECT_ID(N'dbo.TB_CHAMADA'))
+BEGIN
+    CREATE INDEX IX_CHAMADA_SUSPENSAO ON dbo.TB_CHAMADA (ID_SUSPENSAO)
+        WHERE ID_SUSPENSAO IS NOT NULL;
+    PRINT '  + IX_CHAMADA_SUSPENSAO criado';
+END
 GO
 
 /* ============================================================================
@@ -707,9 +923,10 @@ GO
 /* ============================================================================
    11. TB_CHAMADA_RETIFICACOES — histórico de correções da chamada
    ----------------------------------------------------------------------------
-   Depois de confirmada, a presença do aluno no dia não pode ser confirmada de
-   novo: só retificada, com motivo obrigatório. Cada retificação guarda o valor
-   anterior, o novo, quem fez e quando.
+   Depois de confirmada, a presença do aluno naquela aula não pode ser
+   confirmada de novo: só retificada, com motivo obrigatório. Cada retificação
+   guarda o valor anterior, o novo, quem fez e quando; a aula vem do registro
+   vinculado em TB_CHAMADA.AULA_SEQ.
    ============================================================================ */
 PRINT '';
 PRINT '11. TB_CHAMADA_RETIFICACOES — histórico de retificações';
@@ -859,6 +1076,49 @@ BEGIN
         CONSTRAINT FK_HIST_REL_ALTERACAO FOREIGN KEY (ID_USUARIO_ALTERACAO) REFERENCES dbo.TB_USUARIOS (ID)
     );
     CREATE INDEX IX_HIST_REL_REGISTRO ON dbo.TB_HISTORICO_RELATORIOS (ID_RELATORIO, ID DESC);
+END
+GO
+
+/* ============================================================================
+   13.1 TB_AUDITORIA — quem alterou permissões, AEE, feriados, unidades e usuários
+   ============================================================================ */
+IF OBJECT_ID(N'dbo.TB_AUDITORIA', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_AUDITORIA (
+        ID            bigint IDENTITY(1,1) NOT NULL,
+        CRIADO_EM     datetime       NOT NULL CONSTRAINT DF_AUDITORIA_CRIADO DEFAULT (GETDATE()),
+        ID_USUARIO    int            NULL,
+        USUARIO_NOME  nvarchar(150)  NULL,
+        MODULO        varchar(40)    NOT NULL,
+        ACAO          varchar(40)    NOT NULL,
+        REGISTRO_TIPO varchar(40)    NOT NULL,
+        REGISTRO_ID   varchar(60)    NULL,
+        IP            varchar(45)    NULL,
+        DETALHES      nvarchar(2000) NULL,
+        CONSTRAINT PK_TB_AUDITORIA PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_AUDITORIA_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID)
+    );
+    CREATE INDEX IX_AUDITORIA_DATA ON dbo.TB_AUDITORIA (CRIADO_EM DESC, ID DESC);
+    CREATE INDEX IX_AUDITORIA_MODULO ON dbo.TB_AUDITORIA (MODULO, REGISTRO_TIPO, REGISTRO_ID, ID DESC);
+    PRINT '  + TB_AUDITORIA criada';
+END
+ELSE
+    PRINT '  = TB_AUDITORIA já existe';
+GO
+
+/* Instalações antigas que já tinham a tabela sem a FK. */
+IF OBJECT_ID(N'dbo.TB_AUDITORIA', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AUDITORIA_USUARIO')
+BEGIN
+    UPDATE a
+       SET ID_USUARIO = NULL
+      FROM dbo.TB_AUDITORIA a
+     WHERE a.ID_USUARIO IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM dbo.TB_USUARIOS u WHERE u.ID = a.ID_USUARIO);
+
+    ALTER TABLE dbo.TB_AUDITORIA
+        ADD CONSTRAINT FK_AUDITORIA_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID);
+    PRINT '  + FK_AUDITORIA_USUARIO criada';
 END
 GO
 
@@ -1860,16 +2120,43 @@ BEGIN
         PARENTESCO        varchar(15)       NOT NULL,
         DESCRICAO_OUTRO   nvarchar(60)      NULL,
         CONTATO_PRINCIPAL bit               NOT NULL CONSTRAINT DF_ALUNORESP_PRINCIPAL DEFAULT (0),
+        RESTRITO_CONTATO  bit               NOT NULL CONSTRAINT DF_ALUNORESP_RESTRITO_CONTATO DEFAULT (0),
         CREATED           datetime2(0)      NOT NULL CONSTRAINT DF_ALUNORESP_CREATED DEFAULT (SYSDATETIME()),
         CONSTRAINT PK_TB_ALUNO_RESPONSAVEIS PRIMARY KEY CLUSTERED (ID),
         CONSTRAINT FK_ALUNORESP_ALUNO FOREIGN KEY (ID_ALUNO) REFERENCES dbo.TB_ALUNOS (ID),
         CONSTRAINT FK_ALUNORESP_RESP  FOREIGN KEY (ID_RESPONSAVEL) REFERENCES dbo.TB_RESPONSAVEIS (ID),
         CONSTRAINT UQ_ALUNORESP_ALUNO_RESP UNIQUE (ID_ALUNO, ID_RESPONSAVEL),
         CONSTRAINT UQ_ALUNORESP_ALUNO_TIPO UNIQUE (ID_ALUNO, PARENTESCO),
-        CONSTRAINT CK_ALUNORESP_PARENTESCO CHECK (PARENTESCO IN ('MAE', 'PAI', 'OUTRO'))
+        CONSTRAINT CK_ALUNORESP_PARENTESCO CHECK (PARENTESCO IN ('MAE', 'PAI', 'OUTRO')),
+        CONSTRAINT CK_ALUNORESP_RESTRITO_CONTATO CHECK (RESTRITO_CONTATO IN (0, 1))
     );
     CREATE INDEX IX_ALUNORESP_RESP  ON dbo.TB_ALUNO_RESPONSAVEIS (ID_RESPONSAVEL);
     CREATE INDEX IX_ALUNORESP_ALUNO ON dbo.TB_ALUNO_RESPONSAVEIS (ID_ALUNO);
+END
+GO
+
+/* Histórico de restrições familiares: quem restringiu/liberou, quando e por quê. */
+IF OBJECT_ID(N'dbo.TB_RESTRICAO_FAMILIA_HISTORICO', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.TB_RESTRICAO_FAMILIA_HISTORICO (
+        ID                    int IDENTITY(1,1) NOT NULL,
+        ID_ALUNO              int           NOT NULL,
+        ID_ALUNO_RESPONSAVEIS int           NOT NULL,
+        PARENTESCO            varchar(15)   NOT NULL,
+        DESCRICAO_OUTRO       nvarchar(60)  NULL,
+        NOME_RESPONSAVEL      nvarchar(150) NOT NULL,
+        ACAO                  varchar(10)   NOT NULL,
+        MOTIVO                nvarchar(500) NOT NULL,
+        ID_USUARIO            int           NOT NULL,
+        CRIADO_EM             datetime2(0)  NOT NULL
+            CONSTRAINT DF_RESTFAM_CRIADO DEFAULT (SYSDATETIME()),
+        CONSTRAINT PK_TB_RESTFAM_HIST PRIMARY KEY CLUSTERED (ID),
+        CONSTRAINT FK_RESTFAM_ALUNO FOREIGN KEY (ID_ALUNO) REFERENCES dbo.TB_ALUNOS (ID),
+        CONSTRAINT FK_RESTFAM_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES dbo.TB_USUARIOS (ID),
+        CONSTRAINT CK_RESTFAM_ACAO CHECK (ACAO IN ('RESTRINGIR', 'LIBERAR'))
+    );
+    CREATE INDEX IX_RESTFAM_ALUNO
+        ON dbo.TB_RESTRICAO_FAMILIA_HISTORICO (ID_ALUNO, CRIADO_EM DESC);
 END
 GO
 

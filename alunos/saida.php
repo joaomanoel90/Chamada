@@ -47,7 +47,7 @@
       <div class="mt-4">
         <a class="btn btn-outline-secondary" href="<?= ch_url('alunos/view.php?id=' . (int)$id) ?>">Cancelar</a>
         <button class="btn btn-primary" type="submit"
-                onclick="return confirm('Registrar a saída e retirar o aluno das chamadas ativas?')">
+                data-confirm="Registrar a saída e retirar o aluno das chamadas ativas?">
           <i class="fas fa-right-from-bracket"></i> Registrar saída
         </button>
       </div>

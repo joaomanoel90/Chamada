@@ -149,7 +149,7 @@ if (!defined('ABSPATH')) {
     </div>
   </div>
 
-  <script>
+  <script nonce="<?= ch_csp_nonce() ?>">
   /* Família por CPF: máscara e preenchimento automático quando o CPF já existe no sistema. */
   (function () {
     var form = document.querySelector('form');
@@ -275,7 +275,7 @@ if (!defined('ABSPATH')) {
       </div>
     </div>
   </div>
-  <script>
+  <script nonce="<?= ch_csp_nonce() ?>">
   (function () {
     var tea = document.querySelector('input[name="deficiencias_inclusao[]"][value="TEA"]');
     var bloco = document.getElementById('bloco-simbolo-tea');

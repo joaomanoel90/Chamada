@@ -19,6 +19,7 @@ date_default_timezone_set('America/Sao_Paulo');
 require_once(__DIR__ . '/auth_security.php');
 ch_auth_security_headers();
 ch_auth_session_guard();
+ch_auth_revalidar_usuario();
 
 /* ------------------------------------------------------------ banco de dados */
 
@@ -116,6 +117,83 @@ function ch_insert_id($sql, $params = [])
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
     return $row ? (int)reset($row) : 0;
+}
+
+/**
+ * Auditoria genérica de operações sensíveis (quem, quando, o quê).
+ * ID_USUARIO tem FK para TB_USUARIOS: a conta é desativada, nunca removida.
+ *
+ * Nunca deve quebrar a operação principal: se TB_AUDITORIA ainda não existe
+ * ou o banco falha, registra apenas no error_log. A consulta à tabela é
+ * cacheada por requisição para não repetir o teste a cada gravação.
+ */
+function ch_auditar($modulo, $acao, $registroTipo, $registroId, $detalhes = [])
+{
+    static $tabelaOk = null;
+    global $conn;
+    if (empty($conn)) return false;
+
+    if ($tabelaOk === null) {
+        $stmt = sqlsrv_query(
+            $conn,
+            "SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.TB_AUDITORIA') AND type = 'U'"
+        );
+        if ($stmt === false) {
+            error_log('Auditoria: falha ao verificar TB_AUDITORIA. ' . print_r(sqlsrv_errors(), true));
+            $tabelaOk = false;
+        } else {
+            $tabelaOk = sqlsrv_has_rows($stmt);
+            sqlsrv_free_stmt($stmt);
+            if (!$tabelaOk) {
+                error_log('Auditoria: TB_AUDITORIA não existe. Rode sql_inicial/ATUALIZAR_AUDITORIA.sql.');
+            }
+        }
+    }
+    if (!$tabelaOk) return false;
+
+    $uid = function_exists('ch_uid') ? ch_uid() : (int)($_SESSION['usuarioId'] ?? 0);
+    $nome = null;
+    if ($uid > 0) {
+        $stmt = sqlsrv_query($conn, 'SELECT NOME FROM dbo.TB_USUARIOS WHERE ID = ?', [$uid]);
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            if ($row) $nome = (string)$row['NOME'];
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) $ip = null;
+
+    $json = json_encode(
+        is_scalar($detalhes) ? ['valor' => $detalhes] : (array)$detalhes,
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+    if ($json === false) $json = '';
+    $json = mb_substr($json, 0, 2000);
+
+    $stmt = sqlsrv_query(
+        $conn,
+        'INSERT INTO dbo.TB_AUDITORIA
+             (MODULO, ACAO, REGISTRO_TIPO, REGISTRO_ID, ID_USUARIO, USUARIO_NOME, IP, DETALHES, CRIADO_EM)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE())',
+        [
+            mb_substr((string)$modulo, 0, 40),
+            mb_substr((string)$acao, 0, 40),
+            mb_substr((string)$registroTipo, 0, 40),
+            mb_substr((string)$registroId, 0, 60),
+            $uid > 0 ? $uid : null,
+            $nome !== null ? mb_substr($nome, 0, 150) : null,
+            $ip !== null ? mb_substr($ip, 0, 45) : null,
+            $json
+        ]
+    );
+    if ($stmt === false) {
+        error_log('Auditoria: falha ao gravar. ' . print_r(sqlsrv_errors(), true));
+        return false;
+    }
+    sqlsrv_free_stmt($stmt);
+    return true;
 }
 
 /** Última mensagem de erro do banco, para diagnóstico. Vazio se não houve. */
@@ -216,6 +294,16 @@ function ch_require_gestor()
 {
     if (!ch_gestor()) {
         ch_flash('Acesso restrito à gestão.', 'danger');
+        header('Location: ' . BASEURL . 'index.php');
+        exit;
+    }
+}
+
+/** Interrompe a tela se o usuário não for da gestão da rede (nível 1 ou 4). */
+function ch_require_rede()
+{
+    if (!ch_rede()) {
+        ch_flash('Acesso restrito à gestão da rede.', 'danger');
         header('Location: ' . BASEURL . 'index.php');
         exit;
     }
@@ -325,15 +413,19 @@ function ch_filtro_observacao_aluno($aliasAluno = 'a')
 }
 
 /** Secretários só inserem observações em unidades liberadas pelo Diretor. */
-function ch_pode_escrever_observacao_turma($idTurma, $idUnidade)
+function ch_pode_escrever_observacao_turma($idTurma, $idUnidade, $data = null)
 {
     if (ch_secretario_escolar()) {
         return in_array((int)$idUnidade, ch_unidades_observacoes_ids(2), true);
     }
+    /* Professor substituto só escreve na data em que está vigente na equipe. */
+    if (ch_professor() && $data !== null && !eq_na_equipe_em($idTurma, ch_uid(), $data)) {
+        return false;
+    }
     return ch_pode_turma($idTurma);
 }
 
-function ch_pode_escrever_observacao_aluno($idAluno)
+function ch_pode_escrever_observacao_aluno($idAluno, $data = null)
 {
     $aluno = ch_aluno($idAluno);
     if (!$aluno) {
@@ -342,7 +434,7 @@ function ch_pode_escrever_observacao_aluno($idAluno)
     if (ch_eh_professor_aee_aluno($aluno)) {
         return true;
     }
-    return ch_pode_escrever_observacao_turma($aluno['ID_TURMA'], $aluno['ID_UNIDADE']);
+    return ch_pode_escrever_observacao_turma($aluno['ID_TURMA'], $aluno['ID_UNIDADE'], $data);
 }
 
 function ch_pode_escrever_observacoes()
@@ -802,6 +894,25 @@ function ch_digitos($s)
     return preg_replace('/\D+/', '', (string)$s);
 }
 
+/** Valida CPF de 11 dígitos, incluindo os dígitos verificadores. */
+function ch_cpf_valido($s)
+{
+    $cpf = ch_digitos($s);
+    if (!preg_match('/^[0-9]{11}$/D', $cpf) || preg_match('/^([0-9])\1{10}$/D', $cpf)) {
+        return false;
+    }
+    for ($t = 9; $t < 11; $t++) {
+        $soma = 0;
+        for ($i = 0; $i < $t; $i++) {
+            $soma += (int)$cpf[$i] * (($t + 1) - $i);
+        }
+        $dig = ($soma * 10) % 11;
+        if ($dig === 10) $dig = 0;
+        if ((int)$cpf[$t] !== $dig) return false;
+    }
+    return true;
+}
+
 /** 11 dígitos -> 000.000.000-00. Se não tiver 11, devolve o texto como veio.
     O login compara o CPF digitado (com máscara) com o que está gravado, por
     isso o cadastro precisa gravar sempre no mesmo formato. */
@@ -1043,19 +1154,278 @@ function ch_status_rotulo($s)
     return $l[$s]['rotulo'] ?? '—';
 }
 
+/* -------------------------------------------------------- aula do dia */
+
+/** Bases antigas não tinham AULA_SEQ: todo registro valia como aula 1. */
+function ch_chamada_tem_aula()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.columns
+              WHERE object_id = OBJECT_ID(N'dbo.TB_CHAMADA') AND name = N'AULA_SEQ'"
+        );
+    }
+    return $tem;
+}
+
+/** Coluna segura para leituras em bancos migrados e não migrados. */
+function ch_aula_col($alias = '')
+{
+    $prefix = $alias !== '' ? rtrim((string)$alias, '.') . '.' : '';
+    return ch_chamada_tem_aula() ? $prefix . 'AULA_SEQ' : 'CAST(1 AS int)';
+}
+
+function ch_aula_lista()
+{
+    return [1 => '1ª aula', 2 => '2ª aula'];
+}
+
+function ch_aula_normalizar($valor)
+{
+    return (int)$valor === 2 ? 2 : 1;
+}
+
+function ch_aula_rotulo($aula)
+{
+    $lista = ch_aula_lista();
+    return $lista[ch_aula_normalizar($aula)] ?? '1ª aula';
+}
+
+/* --------------------------------------------------- calendário escolar */
+
+/** Calendários da rede. Pré-escola segue o ensino fundamental. */
+function ch_calendarios_opcoes()
+{
+    return [
+        'CRECHE'      => 'Creche (Berçário e Maternal)',
+        'FUNDAMENTAL' => 'Ensino Fundamental e Pré-Escola',
+    ];
+}
+
+function ch_calendario_rotulo($codigo)
+{
+    $opcoes = ch_calendarios_opcoes();
+    return isset($opcoes[$codigo]) ? $opcoes[$codigo] : 'Calendário não informado';
+}
+
+/** Etapa/série da turma -> calendário que ela segue. */
+function ch_calendario_da_turma($turma)
+{
+    $etapa = is_array($turma) ? (string)($turma['ETAPA_ENSINO'] ?? '') : '';
+    $serie = is_array($turma) ? (string)($turma['SERIE'] ?? '') : '';
+    if ($etapa === 'INFANTIL_CRECHE') return 'CRECHE';
+
+    /* Turmas antigas podem não ter ETAPA_ENSINO preenchida. */
+    $series = ch_series_ensino();
+    if ($serie !== '' && isset($series[$serie]) && $series[$serie]['etapa'] === 'INFANTIL_CRECHE') {
+        return 'CRECHE';
+    }
+    /* INFANTIL_PRE_ESCOLA e FUNDAMENTAL_* usam o mesmo calendário. */
+    return 'FUNDAMENTAL';
+}
+
+/** Instalações antigas podem não ter a coluna CALENDARIO em TB_FERIADOS. */
+function ch_feriados_tem_calendario()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+              WHERE TABLE_NAME = 'TB_FERIADOS' AND COLUMN_NAME = 'CALENDARIO'"
+        );
+    }
+    return $tem;
+}
+
+/** A tabela de calendários pode não existir antes da migração. */
+function ch_tabela_calendarios()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIOS') AND type = 'U'"
+        );
+    }
+    return $tem;
+}
+
+/** A coluna FIM_ANO pode não existir em um banco ainda não migrado. */
+function ch_calendario_tem_fim()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.columns
+              WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIOS') AND name = N'FIM_ANO'"
+        );
+    }
+    return $tem;
+}
+
+/** A tabela de exceções pode não existir antes da migração. */
+function ch_tabela_excecoes_calendario()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.objects WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES') AND type = 'U'"
+        );
+    }
+    return $tem;
+}
+
+/**
+ * Regras completas de um calendário, cacheadas por requisição.
+ *
+ * Devolve INICIO/FIM em ISO, os feriados integrais globais do calendário
+ * (data => descrição) e as exceções (data => ID/TIPO/MOTIVO). Feriados de uma
+ * única unidade ficam de fora: a contagem e as exceções são globais.
+ */
+function ch_calendario_dados($anoLetivo, $calendario)
+{
+    static $cache = [];
+    $chave = (int)$anoLetivo . '|' . (string)$calendario;
+    if (isset($cache[$chave])) return $cache[$chave];
+
+    $dados = [
+        'ID' => 0, 'INICIO' => null, 'FIM' => null, 'EXISTE' => false,
+        'FERIADOS' => [], 'EXCECOES' => [],
+    ];
+    if (!ch_tabela_calendarios()) return $cache[$chave] = $dados;
+
+    $colFim = ch_calendario_tem_fim()
+        ? 'CONVERT(varchar(10), FIM_ANO, 23)'
+        : "CAST(NULL AS varchar(10))";
+    $row = ch_row(
+        'SELECT ID, CONVERT(varchar(10), INICIO_ANO, 23) AS INICIO, ' . $colFim . ' AS FIM
+           FROM dbo.TB_CALENDARIOS WHERE ANO_LETIVO = ? AND CALENDARIO = ?',
+        [(int)$anoLetivo, (string)$calendario]
+    );
+    if (!$row) return $cache[$chave] = $dados;
+
+    $dados['EXISTE'] = true;
+    $dados['ID'] = (int)$row['ID'];
+    $dados['INICIO'] = $row['INICIO'] !== null ? (string)$row['INICIO'] : null;
+    $dados['FIM'] = $row['FIM'] !== null ? (string)$row['FIM'] : null;
+
+    if ($dados['INICIO'] !== null && $dados['FIM'] !== null) {
+        $sql = "SELECT CONVERT(varchar(10), DATA, 23) AS DATA, DESCRICAO
+                  FROM TB_FERIADOS
+                 WHERE DATA >= ? AND DATA <= ? AND ID_UNIDADE IS NULL AND TIPO = 'INTEGRAL'";
+        $params = [$dados['INICIO'], $dados['FIM']];
+        if (ch_feriados_tem_calendario()) {
+            $sql .= " AND (CALENDARIO = ? OR CALENDARIO = 'AMBOS')";
+            $params[] = (string)$calendario;
+        }
+        foreach (ch_rows($sql, $params) as $f) {
+            $dados['FERIADOS'][(string)$f['DATA']] = (string)$f['DESCRICAO'];
+        }
+    }
+
+    if (ch_tabela_excecoes_calendario()) {
+        foreach (ch_rows(
+            'SELECT ID, CONVERT(varchar(10), DATA, 23) AS DATA, TIPO, MOTIVO
+               FROM dbo.TB_CALENDARIO_EXCECOES WHERE ID_CALENDARIO = ? ORDER BY DATA',
+            [$dados['ID']]
+        ) as $e) {
+            $dados['EXCECOES'][(string)$e['DATA']] = [
+                'ID' => (int)$e['ID'],
+                'TIPO' => (string)$e['TIPO'],
+                'MOTIVO' => (string)($e['MOTIVO'] ?? ''),
+            ];
+        }
+    }
+    return $cache[$chave] = $dados;
+}
+
+/** Início do calendário em ISO; null se não cadastrado. */
+function ch_calendario_inicio($anoLetivo, $calendario)
+{
+    return ch_calendario_dados($anoLetivo, $calendario)['INICIO'];
+}
+
+/** Fim do calendário em ISO; null se não cadastrado. */
+function ch_calendario_fim($anoLetivo, $calendario)
+{
+    return ch_calendario_dados($anoLetivo, $calendario)['FIM'];
+}
+
+/** Dados completos dos dois calendários de um ano letivo. */
+function ch_calendarios_do_ano($anoLetivo)
+{
+    if (!ch_tabela_calendarios()) return [];
+    $out = [];
+    foreach (ch_rows(
+        'SELECT CALENDARIO FROM dbo.TB_CALENDARIOS WHERE ANO_LETIVO = ?',
+        [(int)$anoLetivo]
+    ) as $row) {
+        $out[(string)$row['CALENDARIO']] = ch_calendario_dados($anoLetivo, (string)$row['CALENDARIO']);
+    }
+    return $out;
+}
+
+/**
+ * Conta os dias letivos entre início e fim.
+ *
+ * Parte dos dias úteis (segunda a sexta), desconta feriados integrais globais
+ * e fins de semana, e aplica as exceções nos dois sentidos: LETIVO acrescenta
+ * um dia e NAO_LETIVO remove um dia útil.
+ */
+function ch_calendario_contador($anoLetivo, $calendario)
+{
+    $dados = ch_calendario_dados($anoLetivo, $calendario);
+    $cont = [
+        'INICIO' => $dados['INICIO'], 'FIM' => $dados['FIM'], 'TOTAL' => 0,
+        'DIAS_UTEIS' => 0, 'FERIADOS' => 0, 'ACRESCIDOS' => 0, 'RETIRADOS' => 0,
+    ];
+    if ($dados['INICIO'] === null || $dados['FIM'] === null || $dados['FIM'] < $dados['INICIO']) {
+        return $cont;
+    }
+
+    $inicio = new DateTime($dados['INICIO']);
+    $fim = (new DateTime($dados['FIM']))->modify('+1 day');
+    foreach (new DatePeriod($inicio, new DateInterval('P1D'), $fim) as $dia) {
+        $iso = $dia->format('Y-m-d');
+        $util = (int)$dia->format('N') < 6;
+        $feriado = isset($dados['FERIADOS'][$iso]);
+        $excecao = $dados['EXCECOES'][$iso] ?? null;
+
+        if ($util) $cont['DIAS_UTEIS']++;
+        if ($util && $feriado) $cont['FERIADOS']++;
+
+        if ($excecao && $excecao['TIPO'] === 'LETIVO') {
+            if (!$util || $feriado) $cont['ACRESCIDOS']++;
+            $letivo = true;
+        } elseif ($excecao && $excecao['TIPO'] === 'NAO_LETIVO') {
+            if ($util && !$feriado) $cont['RETIRADOS']++;
+            $letivo = false;
+        } else {
+            $letivo = $util && !$feriado;
+        }
+        if ($letivo) $cont['TOTAL']++;
+    }
+    return $cont;
+}
+
 /* --------------------------------------------------- regras de bloqueio */
 
 /**
  * Verifica se a chamada pode ser lançada naquela data para aquela turma.
  * Devolve null quando está liberado, ou uma string com o motivo do bloqueio.
  *
- * Ordem: data futura -> ano letivo -> feriado integral -> feriado parcial.
+ * Ordem: data futura -> ano letivo -> não letiva -> início/fim do calendário
+ * -> final de semana -> feriado integral -> feriado parcial. Exceção LETIVO
+ * libera fim de semana e feriado.
+ *
+ * $ignorarFuturo/$ignorarEquipe são usados pela suspensão: ela cobre datas
+ * vindouras e é registrada pela gestão, não pelo professor da aula.
  */
-function ch_bloqueio_chamada($dataIso, $turma)
+function ch_bloqueio_chamada($dataIso, $turma, $ignorarFuturo = false, $ignorarEquipe = false)
 {
     if (!$turma) return 'Turma não encontrada.';
 
-    if ($dataIso > ch_hoje()) {
+    if (!$ignorarFuturo && $dataIso > ch_hoje()) {
         return 'Não é possível lançar chamada em data futura.';
     }
 
@@ -1067,42 +1437,80 @@ function ch_bloqueio_chamada($dataIso, $turma)
         return 'Esta turma está inativa e não aceita novos lançamentos.';
     }
 
-    $feriado = ch_row(
-        'SELECT DESCRICAO, TIPO, HORA_INICIO, HORA_FIM, ID_UNIDADE
-         FROM TB_FERIADOS
-         WHERE DATA = ? AND (ID_UNIDADE IS NULL OR ID_UNIDADE = ?)',
-        [$dataIso, (int)$turma['ID_UNIDADE']]
-    );
-
-    if (!$feriado) return null;
-
-    if ($feriado['TIPO'] === 'INTEGRAL') {
-        return 'Feriado de dia inteiro: ' . $feriado['DESCRICAO'] . '.';
+    /* A vigência do substituto vale na data do lançamento, não na data de hoje. */
+    if (!$ignorarEquipe && ch_professor() && !eq_na_equipe_em((int)$turma['ID'], ch_uid(), $dataIso)) {
+        return 'Você não está na equipe desta turma na data escolhida.';
     }
 
-    // Parcial: guarda a faixa SEM aula. Bloqueia se cruzar o período da turma.
-    $cruza = $feriado['HORA_INICIO'] < $turma['HORA_FIM']
-          && $feriado['HORA_FIM']    > $turma['HORA_INICIO'];
+    $calendario = ch_calendario_da_turma($turma);
+    $regras = ch_calendario_dados((int)$turma['ANO_LETIVO'], $calendario);
+    $excecao = $regras['EXCECOES'][$dataIso] ?? null;
+    $liberadoPorExcecao = $excecao && $excecao['TIPO'] === 'LETIVO';
 
-    if ($cruza) {
-        return 'Feriado parcial (' . $feriado['DESCRICAO'] . '): sem aula das '
-             . $feriado['HORA_INICIO'] . ' às ' . $feriado['HORA_FIM']
-             . ', o que atinge o período ' . $turma['PERIODO'] . '.';
+    if ($excecao && $excecao['TIPO'] === 'NAO_LETIVO') {
+        return 'Data marcada como não letiva no calendário ' . ch_calendario_rotulo($calendario)
+             . ($excecao['MOTIVO'] !== '' ? ': ' . $excecao['MOTIVO'] : '.');
+    }
+    if ($regras['INICIO'] !== null && $dataIso < $regras['INICIO']) {
+        return 'A data escolhida é anterior ao início do ano letivo do calendário '
+             . ch_calendario_rotulo($calendario) . ' (' . ch_data_br($regras['INICIO']) . ').';
+    }
+    if ($regras['FIM'] !== null && $dataIso > $regras['FIM']) {
+        return 'A data escolhida é posterior ao fim do ano letivo do calendário '
+             . ch_calendario_rotulo($calendario) . ' (' . ch_data_br($regras['FIM']) . ').';
+    }
+    if (!$liberadoPorExcecao && $regras['EXISTE'] && (int)date('N', strtotime($dataIso)) >= 6) {
+        return 'Final de semana: não há aula nesta data. Se precisar de aula, marque a data como letiva no Calendário Escolar.';
+    }
+
+    /* Uma exceção LETIVO também libera feriados integrais e parciais. */
+    if ($liberadoPorExcecao) return null;
+
+    $sql = 'SELECT DESCRICAO, TIPO, HORA_INICIO, HORA_FIM, ID_UNIDADE
+              FROM TB_FERIADOS
+             WHERE DATA = ? AND (ID_UNIDADE IS NULL OR ID_UNIDADE = ?)';
+    $params = [$dataIso, (int)$turma['ID_UNIDADE']];
+    if (ch_feriados_tem_calendario()) {
+        $sql .= " AND (CALENDARIO = ? OR CALENDARIO = 'AMBOS')";
+        $params[] = $calendario;
+    }
+    /* Integral primeiro; entre iguais, a regra específica da unidade vale
+       antes da regra global, para não ser mascarada por esta última. */
+    $sql .= " ORDER BY CASE WHEN TIPO = 'INTEGRAL' THEN 0 ELSE 1 END,
+                      CASE WHEN ID_UNIDADE IS NULL THEN 1 ELSE 0 END, ID";
+
+    foreach (ch_rows($sql, $params) as $feriado) {
+        if ($feriado['TIPO'] === 'INTEGRAL') {
+            return 'Feriado de dia inteiro: ' . $feriado['DESCRICAO'] . '.';
+        }
+
+        // Parcial: guarda a faixa SEM aula. Bloqueia se cruzar o período da turma.
+        $cruza = $feriado['HORA_INICIO'] < $turma['HORA_FIM']
+              && $feriado['HORA_FIM']    > $turma['HORA_INICIO'];
+
+        if ($cruza) {
+            return 'Feriado parcial (' . $feriado['DESCRICAO'] . '): sem aula das '
+                 . $feriado['HORA_INICIO'] . ' às ' . $feriado['HORA_FIM']
+                 . ', o que atinge o período ' . $turma['PERIODO'] . '.';
+        }
     }
 
     return null;
 }
 
 /** Feriados que atingem uma turma dentro de um intervalo (para avisos na tela). */
-function ch_feriados_do_periodo($inicio, $fim, $idUnidade)
+function ch_feriados_do_periodo($inicio, $fim, $idUnidade, $calendario = null)
 {
-    return ch_rows(
-        'SELECT ID, CONVERT(varchar(10), DATA, 23) AS DATA, DESCRICAO, TIPO, HORA_INICIO, HORA_FIM
-         FROM TB_FERIADOS
-         WHERE DATA >= ? AND DATA <= ? AND (ID_UNIDADE IS NULL OR ID_UNIDADE = ?)
-         ORDER BY DATA',
-        [$inicio, $fim, (int)$idUnidade]
-    );
+    $sql = 'SELECT ID, CONVERT(varchar(10), DATA, 23) AS DATA, DESCRICAO, TIPO, HORA_INICIO, HORA_FIM
+              FROM TB_FERIADOS
+             WHERE DATA >= ? AND DATA <= ? AND (ID_UNIDADE IS NULL OR ID_UNIDADE = ?)';
+    $params = [$inicio, $fim, (int)$idUnidade];
+    if ($calendario !== null && ch_feriados_tem_calendario()) {
+        $sql .= " AND (CALENDARIO = ? OR CALENDARIO = 'AMBOS')";
+        $params[] = (string)$calendario;
+    }
+    $sql .= ' ORDER BY DATA';
+    return ch_rows($sql, $params);
 }
 
 /* ------------------------------------------------------------ paginação */
@@ -1121,6 +1529,40 @@ function ch_cabecalho($titulo, $icone = 'fa-clipboard-user', $botaoHtml = '')
 function ch_url($caminho)
 {
     return BASEURL . ltrim($caminho, '/');
+}
+
+/**
+ * Aceita somente caminhos internos simples vindos de formulário/URL.
+ *
+ * É usado no campo "voltar" das observações: o valor recebido é concatenado
+ * por ch_url(), então precisa ser um caminho relativo da própria aplicação.
+ * A inspeção é feita sobre o texto DECODIFICADO, para que %2f / %5c não se
+ * tornem separadores no navegador. São rejeitados:
+ *   - esquema (http:, https:), barras duplas, barra invertida, '@' e '#';
+ *   - segmentos '..' ou '.' (path traversal) e segmentos vazios no meio;
+ *   - espaços, caracteres de controle e caracteres fora do alfabeto de URLs
+ *     usado pelo sistema.
+ *
+ * O texto original é devolvido para não alterar parâmetros já codificados.
+ */
+function ch_caminho_interno($valor, $padrao = '')
+{
+    $valor = trim((string)$valor);
+    if ($valor === '') return $padrao;
+
+    $decodificado = rawurldecode($valor);
+    if (preg_match('/[\x00-\x20\x7f\\\\@#]/', $decodificado)) return $padrao;
+    if (!preg_match('/\A\/?[A-Za-z0-9][A-Za-z0-9_.?&\/=%-]*\z/D', $decodificado)) return $padrao;
+    if (strpos($decodificado, '://') !== false || strpos($decodificado, '//') === 0) return $padrao;
+    if (strpos($decodificado, '..') !== false) return $padrao;
+
+    $caminho = explode('?', $decodificado, 2)[0];
+    $caminho = ltrim($caminho, '/');
+    foreach (explode('/', $caminho) as $segmento) {
+        if ($segmento === '' || $segmento === '.') return $padrao;
+    }
+
+    return $valor;
 }
 
 /** Nome do mês em português (1-12). */

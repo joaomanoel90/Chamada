@@ -11,12 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['id_acesso'])) {
 
     $idAcesso = (int)$_POST['id_acesso'];
     // Descobre o usuário antes de desativar, para voltar à tela certa.
-    $idUsuario = (int)ch_val('SELECT id_usuario FROM TB_ACESSO WHERE ID = ?', [$idAcesso]);
+    $acesso = ch_row('SELECT id_usuario, id_unidade FROM TB_ACESSO WHERE ID = ?', [$idAcesso]);
+    $idUsuario = (int)($acesso['id_usuario'] ?? 0);
 
     if (!$idUsuario || !ch_pode_gerenciar_vinculos_usuario($idUsuario)) {
         ch_flash('Você não pode remover este vínculo de unidade.', 'danger');
     } else {
         $ok = ch_exec('UPDATE TB_ACESSO SET ATIVO = 0, DESATIVADO = GETDATE() WHERE ID = ?', [$idAcesso]);
+        if ($ok) {
+            ch_auditar('Permissões', 'Remover vínculo', 'USUARIO', $idUsuario, [
+                'ID_ACESSO'   => $idAcesso,
+                'ID_UNIDADE'  => (int)($acesso['id_unidade'] ?? 0),
+            ]);
+        }
         ch_flash($ok ? 'Acesso à unidade removido.' : 'Não foi possível remover o acesso.',
                  $ok ? 'success' : 'danger');
         $volta = ch_url('usuarios/acesso.php?id=' . $idUsuario);

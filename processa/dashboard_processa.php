@@ -29,10 +29,10 @@ $unidadesAtivas = count(ch_unidades_ids());
 
 /* ------------------------------------------- chamada de hoje por turma */
 $turmasHoje = ch_rows(
-    'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.ID_UNIDADE,
+    'SELECT t.ID, t.NOME, t.ANO_LETIVO, t.ID_UNIDADE, t.ETAPA_ENSINO, t.SERIE,
             u.unidade AS UNIDADE, p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM,
             (SELECT COUNT(*) FROM TB_ALUNOS a WHERE a.ID_TURMA = t.ID AND a.ATIVO = 1) AS ALUNOS,
-            (SELECT COUNT(*) FROM TB_CHAMADA c
+            (SELECT COUNT(DISTINCT c.ID_ALUNO) FROM TB_CHAMADA c
              INNER JOIN TB_ALUNOS a2 ON a2.ID = c.ID_ALUNO
              WHERE a2.ID_TURMA = t.ID AND c.DATA = ?) AS LANCADAS
      FROM TB_TURMAS t
@@ -56,7 +56,7 @@ foreach ($turmasHoje as $t) {
 
 /* ------------------------------------------------- frequência do mês */
 $resumoMes = ch_row(
-    "SELECT COUNT(*) AS DIAS,
+    "SELECT COUNT(*) AS AULAS,
             SUM(CASE WHEN c.STATUS IN ('P','A') THEN 1 ELSE 0 END) AS PRESENCAS
      FROM TB_CHAMADA c
      INNER JOIN TB_ALUNOS a ON a.ID = c.ID_ALUNO
@@ -64,9 +64,9 @@ $resumoMes = ch_row(
      WHERE c.DATA >= ? AND c.DATA <= ?" . $filtro['sql'],
     array_merge([$inicioMes, $hoje], $p)
 );
-$diasMes      = (int)($resumoMes['DIAS'] ?? 0);
+$aulasMes     = (int)($resumoMes['AULAS'] ?? 0);
 $presencasMes = (int)($resumoMes['PRESENCAS'] ?? 0);
-$freqMes      = $diasMes > 0 ? round($presencasMes * 100 / $diasMes, 1) : null;
+$freqMes      = $aulasMes > 0 ? round($presencasMes * 100 / $aulasMes, 1) : null;
 
 $fObsDash = eq_obs_filtro('o', 'a');
 $fObsPermissaoDash = ch_filtro_observacao_aluno('a');
@@ -81,7 +81,7 @@ $obsMes = (int)ch_val(
 
 /* ------------------------------------------- série mensal do gráfico */
 $serie = ch_rows(
-    "SELECT MONTH(c.DATA) AS MES, COUNT(*) AS DIAS,
+    "SELECT MONTH(c.DATA) AS MES, COUNT(*) AS AULAS,
             SUM(CASE WHEN c.STATUS IN ('P','A') THEN 1 ELSE 0 END) AS PRESENCAS
      FROM TB_CHAMADA c
      INNER JOIN TB_ALUNOS a ON a.ID = c.ID_ALUNO
@@ -97,7 +97,7 @@ $labelsFreq = [];
 $dadosFreq  = [];
 for ($m = 1; $m <= 12; $m++) {
     if (!isset($porMes[$m])) continue;
-    $d = (int)$porMes[$m]['DIAS'];
+    $d = (int)$porMes[$m]['AULAS'];
     $labelsFreq[] = substr(ch_mes_nome($m), 0, 3);
     $dadosFreq[]  = $d > 0 ? round((int)$porMes[$m]['PRESENCAS'] * 100 / $d, 1) : 0;
 }

@@ -273,6 +273,10 @@ BEGIN TRY
     DELETE FROM dbo.TB_TURMA_PROFESSORES;
     DELETE FROM dbo.TB_TURMA_DISCIPLINAS;
     DELETE FROM dbo.TB_FERIADOS;
+    IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NOT NULL
+        DELETE FROM dbo.TB_CALENDARIO_EXCECOES;
+    IF OBJECT_ID(N'dbo.TB_CALENDARIOS', N'U') IS NOT NULL
+        DELETE FROM dbo.TB_CALENDARIOS;
     DELETE FROM dbo.TB_SECRETARIO_RELATORIOS;
     DELETE FROM dbo.TB_SECRETARIO_OBSERVACOES;
     DELETE FROM dbo.TB_ACESSO;
@@ -283,6 +287,9 @@ BEGIN TRY
     DELETE FROM dbo.TB_PERIODOS;
     DELETE FROM dbo.TB_UNIDADES;
     DELETE FROM dbo.TB_LOGIN_TENTATIVAS;
+    /* Auditoria referencia usuários por FK; numa reinicialização completa o
+       histórico também é descartado antes de remover os usuários da demo. */
+    DELETE FROM dbo.TB_AUDITORIA;
     DELETE FROM dbo.TB_USUARIOS WHERE ID <> 1;
 
     /* Unidades e períodos de demonstração. */
@@ -685,6 +692,21 @@ BEGIN TRY
     INNER JOIN @TurmaLancador tl ON tl.COD_TURMA = a.COD_TURMA
     CROSS JOIN @DiasChamada d;
 
+    /* 2ª aula para parte dos alunos: falta/presença independente da 1ª. */
+    INSERT INTO dbo.TB_CHAMADA
+        (ID_ALUNO, DATA, AULA_SEQ, STATUS, JUSTIFICATIVA, ID_USUARIO,
+         CONFIRMADA_EM, CONFIRMADA_POR)
+    SELECT a.ID, d.DATA, 2,
+           CASE WHEN a.SEQ % 7 = 0 OR a.SEQ % 11 = 0 THEN N'P' ELSE N'F' END,
+           NULL,
+           tl.ID_USUARIO,
+           DATEADD(MINUTE, 600, CONVERT(datetime, d.DATA)),
+           tl.ID_USUARIO
+    FROM @Alunos a
+    INNER JOIN @TurmaLancador tl ON tl.COD_TURMA = a.COD_TURMA
+    CROSS JOIN @DiasChamada d
+    WHERE a.SEQ % 3 = 0;
+
     /* Uma retificação de exemplo: uma falta de teste passa a justificada. */
     DECLARE @ChamadaRetificar int;
     SELECT TOP (1) @ChamadaRetificar = ID
@@ -793,6 +815,31 @@ BEGIN TRY
     FROM @Unidades WHERE COD = 'CMEI'
     UNION ALL
     SELECT DATEADD(DAY, 45, @HOJE), N'DEMO — feriado de teste (rede)', N'INTEGRAL', NULL, NULL, NULL;
+
+    /* Calendários escolares de demonstração, se o banco já foi migrado. */
+    IF OBJECT_ID(N'dbo.TB_CALENDARIOS', N'U') IS NOT NULL
+    BEGIN
+        INSERT INTO dbo.TB_CALENDARIOS (ANO_LETIVO, CALENDARIO, INICIO_ANO, FIM_ANO)
+        VALUES (@ANO, 'CRECHE', DATEFROMPARTS(@ANO, 2, 1), DATEFROMPARTS(@ANO, 12, 31)),
+               (@ANO, 'FUNDAMENTAL', DATEFROMPARTS(@ANO, 1, 20), DATEFROMPARTS(@ANO, 12, 31));
+    END
+
+    IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NOT NULL
+    BEGIN
+        DECLARE @PrimeiroSabadoNovembro date = DATEADD(DAY,
+            (5 - DATEDIFF(DAY, '19000101', DATEFROMPARTS(@ANO, 11, 1)) % 7 + 7) % 7,
+            DATEFROMPARTS(@ANO, 11, 1));
+
+        INSERT INTO dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, TIPO, MOTIVO)
+        SELECT c.ID, @PrimeiroSabadoNovembro, N'LETIVO', N'Sábado letivo de reposição (demonstração)'
+          FROM dbo.TB_CALENDARIOS c
+         WHERE c.ANO_LETIVO = @ANO AND c.CALENDARIO = 'FUNDAMENTAL';
+
+        INSERT INTO dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, TIPO, MOTIVO)
+        SELECT c.ID, DATEFROMPARTS(@ANO, 10, 10), N'NAO_LETIVO', N'Recesso pedagógico (demonstração)'
+          FROM dbo.TB_CALENDARIOS c
+         WHERE c.ANO_LETIVO = @ANO AND c.CALENDARIO = 'CRECHE';
+    END
 
     /* As FKs e CHECKs nunca foram desativadas. Qualquer inconsistência
        encontrada durante a limpeza ou carga provoca rollback da transação. */

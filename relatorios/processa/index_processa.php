@@ -50,7 +50,7 @@ $turmas = ch_rows(
 $fObsIdx = eq_obs_filtro('o', 'a');
 $fObsPermissaoIdx = ch_filtro_observacao_aluno('a');
 $sql = 'SELECT a.ID, a.MATRICULA, a.NOME, tv.NOME AS TURMA, tv.ANO_LETIVO, u.unidade AS UNIDADE,
-               (SELECT COUNT(*) FROM TB_CHAMADA c WHERE c.ID_ALUNO = a.ID AND c.DATA >= ? AND c.DATA <= ?) AS DIAS,
+               (SELECT COUNT(*) FROM TB_CHAMADA c WHERE c.ID_ALUNO = a.ID AND c.DATA >= ? AND c.DATA <= ?) AS AULAS,
                (SELECT COUNT(*) FROM TB_OBSERVACOES o WHERE o.ID_ALUNO = a.ID AND ISNULL(o.RESTRITA_AEE, 0) = 0 AND o.DATA >= ? AND o.DATA <= ?' . $fObsIdx['sql'] . $fObsPermissaoIdx['sql'] . ') AS OBSERVACOES,
                CASE WHEN r.ID IS NULL THEN 0 ELSE 1 END AS TEM_PARECER
         FROM TB_ALUNOS a

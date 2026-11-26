@@ -23,8 +23,10 @@ se o seu banco tiver outro nome.
 | 15 | `ATUALIZAR_HISTORICO_PROMOCOES.sql` | **Instalações existentes.** Cria o histórico de versões de observações e relatórios e habilita a promoção de alunos com preservação da linha do tempo. Rode depois de `ATUALIZAR_TRANSFERENCIAS.sql`. |
 | 16 | `ATUALIZAR_PROGRESSAO_ESCOLAR.sql` | **Instalações existentes.** Adiciona as séries estruturadas e o resultado de promoção/retenção; rode depois dos scripts de transferência e histórico. |
 | 17 | `ATUALIZAR_INCLUSAO_CRACHA.sql` | **Instalações existentes.** Adiciona as categorias de inclusão, a preferência do símbolo para TEA e autorização (desmarcada por padrão) para os marcadores nos crachás. |
+| 18 | `ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql` | **Instalações existentes.** Adiciona a restrição familiar por vínculo aluno/responsável e o histórico de ações (data, usuário e motivo). Contatos restritos saem do crachá e geram observação orientando a emitir outro crachá. |
+| 19 | `ATUALIZAR_SUSPENSAO_ALUNOS.sql` | **Instalações existentes.** Cria o histórico de suspensões por período e de liberações parciais de datas/aulas, e liga as faltas geradas em `TB_CHAMADA` à suspensão. |
 
-Os scripts 1, 2, 4 e 6 a 17 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 19 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -56,6 +58,18 @@ Os scripts 1, 2, 4 e 6 a 17 podem ser executados mais de uma vez sem duplicar na
 > Para habilitar as categorias de inclusão e os marcadores opcionais na frente
 > do crachá, execute `ATUALIZAR_INCLUSAO_CRACHA.sql`. A autorização começa
 > desmarcada; sem autorização do responsável, nenhum símbolo ou faixa é impresso.
+> Para usar a **restrição familiar**, execute
+> `ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql`. Na ficha do aluno, o botão
+> **Restrição familiar** abre a tela própria: cada restringir/liberar pede um
+> motivo e fica no histórico com data e usuário. Ao restringir, o sistema
+> registra uma observação orientando a gerar outro crachá sem a informação
+> daquele contato.
+> Para **suspender um aluno**, execute `ATUALIZAR_SUSPENSAO_ALUNOS.sql` e use o
+> botão **Suspensão** na ficha: informe início, fim e motivo. O sistema lança
+> falta em todas as aulas letivas do período e registra quem determinou. Para
+> tirar dias, marque as datas/aulas na própria tela: nos dias que já passaram
+> escolha entre lançar presença ou deixar a chamada pendente; cada liberação fica
+> no histórico com motivo e usuário.
 > Em **Turmas → Editar**, classifique as turmas que já existem; o sistema não
 > tenta adivinhar a série pelo nome. Promoções e transferências exigem séries
 > classificadas. Transferências pendentes antigas sem resultado precisam ser

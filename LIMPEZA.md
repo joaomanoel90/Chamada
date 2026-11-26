@@ -192,6 +192,8 @@ deixe mais com cara de ambiente escolar"*.
 | `TB_TURMA_PROFESSORES` | equipe da turma: N professores, `PAPEL` REGENTE/AUXILIAR, `ATIVO` |
 | `UX_TURMAPROF_REGENTE` | índice único **filtrado**: no máximo 1 regente ativo por turma |
 | `TB_CHAMADA_RETIFICACOES` | antes/depois, justificativas, motivo (`CHECK` não-vazio), autor, data/hora |
+| `TB_CHAMADA.AULA_SEQ` | `1` = 1ª aula, `2` = 2ª aula; registros antigos viraram `1` |
+| `UQ_CHAMADA_ALUNO_DATA_AULA` | uma confirmação por aluno, data **e aula** |
 | `TB_CHAMADA.CONFIRMADA_EM` / `CONFIRMADA_POR` | quem confirmou originalmente, preservado nas retificações |
 
 Migração automática: o professor único de cada turma vira REGENTE; registros

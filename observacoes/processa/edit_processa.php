@@ -16,7 +16,7 @@ $atual = ch_row('SELECT o.ID, o.ID_ALUNO, o.CATEGORIA, o.TEXTO, o.ID_USUARIO,
                         CONVERT(varchar(10), o.DATA, 23) AS DATA
                  FROM TB_OBSERVACOES o WHERE o.ID = ?', [$id]);
 
-if (!$atual || !ch_pode_ler_obs_restrita_aee($atual) || !ch_pode_escrever_observacao_aluno($atual['ID_ALUNO'])) {
+if (!$atual || !ch_pode_ler_obs_restrita_aee($atual) || !ch_pode_escrever_observacao_aluno($atual['ID_ALUNO'], $atual['DATA'])) {
     if ($atual && !ch_pode_ler_obs_restrita_aee($atual)) {
         ch_flash('Esta observação é restrita ao professor de AEE.', 'danger');
         header('Location: index.php');
@@ -47,7 +47,7 @@ if (!ch_gestor() && (int)$atual['ID_USUARIO'] !== ch_uid()) {
 $erros = [];
 $alunosDisponiveis = observacao_alunos();
 $d = $atual;
-$voltar = trim($_POST['voltar'] ?? '');
+$voltar = ch_caminho_interno($_POST['voltar'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!ch_csrf_ok()) {

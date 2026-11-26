@@ -56,6 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($ok) {
+            ch_auditar('Usuários', 'Criar usuário', 'USUARIO', $novoId, [
+                'NOME'  => $d['nome'],
+                'NIVEL' => $d['nivel'],
+                'ATIVO' => $d['ativo'],
+            ]);
             ch_flash('Usuário "' . $d['nome'] . '" cadastrado como ' . ch_nivel_nome($d['nivel']) . '.');
             if ($d['nivel'] === 2) {
                 ch_flash('Agora libere as unidades deste diretor em "Acesso Unidades".', 'info');

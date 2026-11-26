@@ -15,6 +15,7 @@ $turmas = ch_rows(
 
 $turmaId = (int)($_GET['turma_id'] ?? ($turmas ? (int)$turmas[0]['ID'] : 0));
 $data    = ch_data_iso($_GET['data'] ?? '', ch_hoje());
+$aula    = ch_aula_normalizar($_GET['aula'] ?? 1);
 
 $turma = null;
 $bloqueio = null;
@@ -23,6 +24,7 @@ $jaLancada = false;
 $resumo = ['P' => 0, 'F' => 0, 'J' => 0, 'A' => 0];
 $pendentes = [];
 $confirmados = [];
+$porAula = [1 => 0, 2 => 0];
 $equipe = [];
 $podeRetificar = false;
 $podeConfirmar = false;
@@ -30,7 +32,7 @@ $podeConfirmar = false;
 if ($turmaId > 0) {
     if (!ch_pode_turma($turmaId)) {
         ch_flash('Você não tem acesso a essa turma.', 'danger');
-        header('Location: index.php');
+        header('Location: index.php?aula=' . $aula);
         exit;
     }
     $turma = ch_turma($turmaId);
@@ -44,22 +46,51 @@ if ($turmaId > 0) {
        anteriores à transferência e sumiria do histórico da turma antiga. */
     $naData = tr_filtro_na_data($turmaId, $data, 'a');
 
-    /* CONFIRMADA_EM vira texto no banco: o driver sqlsrv devolveria DateTime. */
+    /* CONFIRMADA_EM vira texto no banco: o driver sqlsrv devolveria DateTime.
+       A aula escolhida filtra o LEFT JOIN, então a 1ª e a 2ª aula do mesmo dia
+       aparecem como registros independentes. */
+    $colAula = ch_aula_col('c');
+    $joinAula = ch_chamada_tem_aula() ? ' AND c.AULA_SEQ = ?' : '';
+    $paramsAlunos = [$data];
+    if (ch_chamada_tem_aula()) $paramsAlunos[] = $aula;
+
     $alunos = ch_rows(
         'SELECT a.ID, a.MATRICULA, a.NOME,
                 a.ALERGIAS, a.RESTRICOES_ALIMENTARES, a.MEDICACAO,
+                ' . $colAula . ' AS AULA_SEQ,
                 c.ID AS ID_CHAMADA, c.STATUS, c.JUSTIFICATIVA,
                 CONVERT(varchar(16), c.CONFIRMADA_EM, 120) AS CONFIRMADA_EM,
                 uc.NOME AS CONFIRMADA_POR_NOME,
                 CONVERT(varchar(10), a.NASCIMENTO, 23) AS NASCIMENTO,
                 (SELECT COUNT(*) FROM TB_CHAMADA_RETIFICACOES r WHERE r.ID_CHAMADA = c.ID) AS RETIFICACOES
          FROM TB_ALUNOS a
-         LEFT JOIN TB_CHAMADA c ON c.ID_ALUNO = a.ID AND c.DATA = ?
+         LEFT JOIN TB_CHAMADA c ON c.ID_ALUNO = a.ID AND c.DATA = ?' . $joinAula . '
          LEFT JOIN TB_USUARIOS uc ON uc.ID = c.CONFIRMADA_POR
          WHERE a.ATIVO = 1' . $naData['sql'] . '
          ORDER BY a.NOME',
-        array_merge([$data], $naData['params'])
+        array_merge($paramsAlunos, $naData['params'])
     );
+
+    /* Placar das duas aulas no mesmo dia, para o professor ver o que já fez. */
+    if (ch_chamada_tem_aula()) {
+        foreach (ch_rows(
+            'SELECT c.AULA_SEQ AS AULA_SEQ, COUNT(*) AS QTDE
+               FROM TB_CHAMADA c
+              INNER JOIN TB_ALUNOS a ON a.ID = c.ID_ALUNO
+              WHERE c.DATA = ?' . $naData['sql'] . '
+              GROUP BY c.AULA_SEQ',
+            array_merge([$data], $naData['params'])
+        ) as $linha) {
+            $porAula[ch_aula_normalizar($linha['AULA_SEQ'])] = (int)$linha['QTDE'];
+        }
+    } else {
+        $porAula[1] = (int)ch_val(
+            'SELECT COUNT(*) FROM TB_CHAMADA c
+              INNER JOIN TB_ALUNOS a ON a.ID = c.ID_ALUNO
+              WHERE c.DATA = ?' . $naData['sql'],
+            array_merge([$data], $naData['params'])
+        );
+    }
 
     foreach ($alunos as $a) {
         if (!empty($a['STATUS'])) {

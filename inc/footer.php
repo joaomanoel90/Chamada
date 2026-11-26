@@ -64,7 +64,7 @@
 
 
 
-<script>
+<script nonce="<?= ch_csp_nonce() ?>">
     $(function() {
         timeout = setTimeout(function() {
             window.location.href = "<?php echo BASEURL; ?>sair.php";
