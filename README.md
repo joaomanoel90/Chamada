@@ -103,6 +103,10 @@ Ele cria `TB_CALENDARIOS` (início e fim), `TB_CALENDARIO_EXCECOES`, acrescenta
 `CALENDARIO` em `TB_FERIADOS` e converte os feriados existentes em **Ambos**, sem
 alterar o comportamento anterior. Em bancos já migrados, rode o script novamente
 para receber `FIM_ANO` e as exceções; ele é idempotente.
+Para dar abrangência às exceções, execute
+`sql_inicial/ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql` depois dele. Ele acrescenta
+`ID_UNIDADE` e `ID_TURMA`, troca a unicidade antiga por índices por abrangência e
+mantém as exceções existentes como globais. Também pode ser rodado mais de uma vez.
 Para lançar 1ª e 2ª aula no mesmo dia, execute
 `sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql`. Ele acrescenta `AULA_SEQ`,
 substitui a chave única `ID_ALUNO + DATA` por `ID_ALUNO + DATA + AULA_SEQ` e
@@ -159,12 +163,26 @@ ALTER ROLE db_datawriter ADD MEMBER [user_chamada];
 1. **Períodos** — já vêm cadastrados; confira os horários
 2. **Unidades** — já vem a rede municipal; ajuste se precisar
 3. **Usuários** — cadastre os professores e vincule às unidades
-4. **Turmas** — unidade, ano letivo, período, professor e capacidade
-5. **Alunos** — matrícula dos alunos nas turmas
-6. **Calendário Escolar** — defina o início e o fim do ano letivo da creche e do
+4. **Turmas** — unidade, ano letivo, período, capacidade e **aulas por dia**
+   (definidas manualmente: creche integral, turma da manhã/tarde etc.)
+5. **Modelos de Turma** — padrões nomeados com aulas por dia e matérias para
+   aplicar a várias turmas da mesma unidade ou de outras
+6. **Alunos** — matrícula dos alunos nas turmas
+7. **Calendário Escolar** — defina o início e o fim do ano letivo da creche e do
    fundamental, cadastre feriados e marque exceções (dias letivos ou não letivos)
-7. **Chamada do Dia** — lançamento diário
-8. **Diário de Classe** — classifique a turma, habilite notas somente nas
+8. **Grade Diária** — defina, para cada turma e dia da semana, a disciplina de
+   cada posição de aula (até a quantidade configurada na turma); só aparecem as
+   matérias com atribuição, e cada uma é limitada ao total de aulas atribuídas;
+   o select mostra as restantes e esconde a matéria quando a cota acaba. O
+   professor vem da Atribuição, aparece abaixo da disciplina e não é editável
+   na grade. O sistema bloqueia o mesmo professor na mesma posição em turmas
+   diferentes, e a grade fica travada após salvar até você clicar em **Editar grade**
+9. **Chamada do Dia** — lançamento diário; a **Ficha de Chamada** (no mesmo
+   menu) mostra a turma inteira em uma tabela de alunos × datas do mês, com as
+   aulas configuradas identificadas no cabeçalho (professor abaixo da disciplina),
+   os totais por aluno e a opção
+   de imprimir em A4 paisagem
+10. **Diário de Classe** — classifique a turma, habilite notas somente nas
    etapas escolares, cadastre as disciplinas com seus professores responsáveis
    e lance as notas por bimestre
 
@@ -173,9 +191,13 @@ ALTER ROLE db_datawriter ADD MEMBER [user_chamada];
 A tela **Calendário Escolar** (endereço `/feriados/`) reúne os dois calendários
 globais de cada ano letivo: **Creche** (Berçário I/II e Maternal I/II) e
 **Ensino Fundamental** (Pré-Escola e 1º ao 9º ano). Somente a gestão da rede
-(níveis 1 e 4) define início, fim e exceções; a pré-escola segue o calendário do
-fundamental. A chamada recusa datas fora do período, fins de semana e feriados,
-salvo quando a data estiver marcada como **Letivo**.
+(níveis 1 e 4) define início e fim; a pré-escola segue o calendário do
+fundamental. Exceções podem ser criadas para **todas as unidades** (só gestão da
+rede), para **uma unidade** ou para **uma turma** — Diretores podem criar e
+alterar exceções dentro das unidades vinculadas, e nunca de outras escolas. A
+chamada recusa datas fora do período, fins de semana e feriados, salvo quando a
+data estiver marcada como **Letivo**. Quando há mais de uma exceção na mesma
+data, vale a mais específica: **turma &gt; unidade &gt; global**.
 
 O contador parte dos dias úteis entre início e fim, desconta os feriados
 integrais **globais** do calendário (feriados de uma única unidade não entram na
@@ -185,8 +207,23 @@ feriado; **Não letivo** dispensa um dia útil e bloqueia o lançamento.
 O painel **Dias do calendário** reúne feriados e exceções em uma única lista e
 mostra a situação efetiva de cada dia: feriado integral aparece como
 **Não letivo**, feriado parcial como **Letivo parcial**, e uma exceção pode
-mudar a data para **Letivo** ou **Não letivo**. Um feriado pode receber uma
-exceção diretamente na sua linha, sem sair da tela.
+mudar a data para **Letivo** ou **Não letivo**. A coluna **Abrangência** diz se a
+regra vale para todas as unidades, para qual unidade ou para qual turma. Um
+feriado pode receber uma exceção diretamente na sua linha, sem sair da tela; a
+exceção criada ali herda a unidade do feriado. Editar ou excluir só é oferecido
+quando a regra está no alcance do usuário.
+
+O dashboard (`index.php`) traz um **Calendário escolar** com as marcações de
+início e fim do ano letivo, feriados integrais e parciais, e exceções letivas ou
+não letivas. A grade usa as regras do alcance do usuário, começa no domingo,
+mostra o total de dias letivos de cada calendário e lista os detalhes de cada
+marcação abaixo da grade, com a abrangência de cada regra. O filtro de mês aceita
+**Ano todo**: nesse modo o card apresenta as doze mini-grades do ano civil, uma
+ao lado da outra, sem sair da tela. Os filtros de ano, mês e calendário, e os
+botões de mês anterior/próximo (disponíveis no modo mensal), atualizam **somente
+o card**, via `dashboard_calendario.php`; o restante do painel permanece intacto
+e a URL é atualizada sem recarregar a página. O endpoint é somente leitura e
+exige login.
 
 Cada feriado é cadastrado para **Ambos**, **Creche** ou **Ensino Fundamental** e
 pode continuar restrito a uma unidade. Quando há mais de uma regra na mesma data,
@@ -201,11 +238,14 @@ alterações de feriados são registrados em `TB_AUDITORIA`.
 config.php              conexão e trava global de autenticação
 login.php  valida.php   login por CPF
 index.php               dashboard da chamada
+dashboard_calendario.php  endpoint somente leitura do card do calendário
 processa/               dados do dashboard
+  dashboard_calendario_processa.php  regras do card (reuso no endpoint)
 
 inc/                    layout, conexão e funções compartilhadas
   database.php          open_database() via sqlsrv
   chamada.php           acesso por unidade, calendário, datas e feriados
+  dashboard_calendario.php  HTML do card no dashboard e no endpoint
   tema.php header.php header2.php footer.php
 
 chamada/                lançamento e exportação da chamada
@@ -439,7 +479,7 @@ geometria do menu. Inclui ajustes para celular, impressão e
 | `TB_ALUNOS` | alunos e responsáveis |
 | `TB_ALUNO_SAIDAS_EXTERNAS` | saídas da rede e retorno dos alunos pelo cadastro original |
 | `TB_CALENDARIOS` | início e fim do ano letivo da creche e do ensino fundamental |
-| `TB_CALENDARIO_EXCECOES` | dias letivos/não letivos por calendário, com motivo |
+| `TB_CALENDARIO_EXCECOES` | dias letivos/não letivos por calendário, com motivo e abrangência (global, unidade ou turma) |
 | `TB_FERIADOS` | feriados integrais e parciais, por calendário e unidade |
 | `TB_CHAMADA` | presença por aluno/aula (`AULA_SEQ` 1 ou 2), com data e autor da confirmação |
 | `TB_TURMA_PROFESSORES` | equipe da turma: papel, turno e prazo do substituto |

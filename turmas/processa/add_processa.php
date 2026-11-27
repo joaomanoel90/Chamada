@@ -9,7 +9,7 @@ require_once(__DIR__ . '/salvar_processa.php');
 $erros = [];
 $op = turma_opcoes();
 $d = ['ID_UNIDADE' => 0, 'NOME' => '', 'SERIE' => '', 'ETAPA_ENSINO' => '', 'ANO_LETIVO' => (int)date('Y'),
-      'ID_PERIODO' => 0, 'ID_PROFESSOR' => 0, 'CAPACIDADE' => 20,
+      'ID_PERIODO' => 0, 'ID_PROFESSOR' => 0, 'AULAS_DIA' => 2, 'CAPACIDADE' => 20,
       'NOTAS_ATIVAS' => 0,
       'EQUIPE' => [], 'DISCIPLINAS' => []];
 
@@ -26,11 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
            SELECT SCOPE_IDENTITY() em outra chamada, que no SQL Server é outro
            lote/escopo e devolve NULL — a turma nunca era gravada. */
         $novoId = ch_insert_id(
-            'INSERT INTO TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ETAPA_ENSINO, SERIE, ID_PERIODO, ID_PROFESSOR, CAPACIDADE, NOTAS_ATIVAS)
+            'INSERT INTO TB_TURMAS (ID_UNIDADE, NOME, ANO_LETIVO, ETAPA_ENSINO, SERIE, ID_PERIODO, ID_PROFESSOR, AULAS_DIA, CAPACIDADE, NOTAS_ATIVAS)
              OUTPUT INSERTED.ID
-             VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
+             VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)',
             [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['SERIE'] ?: null, $d['ID_PERIODO'],
-             $d['CAPACIDADE'], $d['NOTAS_ATIVAS']]
+             $d['AULAS_DIA'], $d['CAPACIDADE'], $d['NOTAS_ATIVAS']]
         );
         $ok = $novoId > 0;
 

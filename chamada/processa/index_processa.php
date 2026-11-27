@@ -15,7 +15,7 @@ $turmas = ch_rows(
 
 $turmaId = (int)($_GET['turma_id'] ?? ($turmas ? (int)$turmas[0]['ID'] : 0));
 $data    = ch_data_iso($_GET['data'] ?? '', ch_hoje());
-$aula    = ch_aula_normalizar($_GET['aula'] ?? 1);
+$aula    = ch_aula_normalizar($_GET['aula'] ?? 1, ch_turma_aulas_dia($turmaId));
 
 $turma = null;
 $bloqueio = null;
@@ -24,7 +24,7 @@ $jaLancada = false;
 $resumo = ['P' => 0, 'F' => 0, 'J' => 0, 'A' => 0];
 $pendentes = [];
 $confirmados = [];
-$porAula = [1 => 0, 2 => 0];
+$porAula = array_fill_keys(array_keys(ch_aula_lista_turma($turmaId)), 0);
 $equipe = [];
 $podeRetificar = false;
 $podeConfirmar = false;
@@ -81,7 +81,7 @@ if ($turmaId > 0) {
               GROUP BY c.AULA_SEQ',
             array_merge([$data], $naData['params'])
         ) as $linha) {
-            $porAula[ch_aula_normalizar($linha['AULA_SEQ'])] = (int)$linha['QTDE'];
+            $porAula[ch_aula_normalizar($linha['AULA_SEQ'], ch_turma_aulas_dia($turmaId))] = (int)$linha['QTDE'];
         }
     } else {
         $porAula[1] = (int)ch_val(

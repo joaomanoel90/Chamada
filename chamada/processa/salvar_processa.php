@@ -22,7 +22,7 @@ if (!ch_csrf_ok()) {
 
 $turmaId = (int)($_POST['turma_id'] ?? 0);
 $data    = ch_data_iso($_POST['data'] ?? '');
-$aula    = ch_aula_normalizar($_POST['aula'] ?? 1);
+$aula    = ch_aula_normalizar($_POST['aula'] ?? 1, ch_turma_aulas_dia($turmaId));
 $voltar  = 'index.php?turma_id=' . $turmaId . '&data=' . $data . '&aula=' . $aula;
 
 if (!$data) {

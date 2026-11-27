@@ -99,17 +99,55 @@ segundos depois da cópia. Reiniciar o Apache elimina a dúvida.
 
 `inc/header.php` e `inc/header2.php` já têm o menu só da chamada, e `index.php`
 com `processa/dashboard_processa.php` formam o dashboard da chamada (pendências
-do dia, frequência do mês, próximos feriados, observações recentes).
+do dia, frequência do mês, calendário escolar com início/fim do ano letivo,
+feriados e exceções, próximos feriados e observações recentes).
+
+O card do calendário mora em `inc/dashboard_calendario.php`; as regras em
+`processa/dashboard_calendario_processa.php` são usadas tanto no dashboard quanto
+no endpoint `dashboard_calendario.php`. A grade começa no domingo e o filtro de
+mês tem a opção **Ano todo** (`cal_mes=0`), que mostra as doze mini-grades do ano
+no próprio card. Os filtros e a navegação entre meses usam
+`js/calendario_dashboard.js` e atualizam apenas o card, sem recarregar o restante
+do painel. O endpoint devolve só HTML, exige login e não grava nada.
+
+A **Ficha de Chamada** vive em `chamada/ficha.php` e
+`chamada/processa/ficha_processa.php`. O processador é somente leitura: lista
+apenas turmas do alcance (`ch_filtro_turma`) e considera somente os alunos cujo
+vínculo com a turma vale em algum ponto do mês (`VW_ALUNO_VINCULO`). Lançamentos
+em `TB_CHAMADA` não incluem alunos: a tabela não registra turma e isso traria
+alunos de outras turmas para a ficha. As colunas seguem as datas letivas de
+`ch_bloqueio_chamada()`, com exceções de calendário aplicadas; cada célula mostra
+as aulas configuradas na turma (`AULA_SEQ`, de 1 até `TB_TURMAS.AULAS_DIA`), e os
+totais por aluno usam `(P + A) / lançamentos`.
+O cabeçalho de cada data identifica a disciplina e o professor das aulas,
+vindos da **Grade Diária** (`grade/index.php`, tabela `TB_GRADE_AULAS`);
+substitutos vigentes na data aparecem com `*`. A grade é cadastro da gestão e
+não muda a chamada — `TB_CHAMADA` continua gravando apenas `AULA_SEQ`. Sem grade
+cadastrada, o cabeçalho mostra `—` e a ficha segue legível.
 
 ### Passo 4 — primeiro uso
 
 1. **Períodos** — confira Manhã / Tarde / Integral e ajuste os horários.
 2. **Turmas** — cadastre as turmas, escolhendo unidade, ano letivo, período,
-   professor e capacidade.
-3. **Alunos** — matricule os alunos nas turmas.
-4. **Feriados** — cadastre os feriados do ano.
-5. **Chamada do Dia** — lance a presença.
-6. **Diário de Classe** — classifique a turma, habilite notas somente nas etapas
+   capacidade e a quantidade de aulas por dia.
+3. **Modelos de Turma** — crie padrões nomeados (aulas por dia + matérias) e aplique
+   a várias turmas, na mesma unidade ou em outras.
+4. **Alunos** — matricule os alunos nas turmas.
+5. **Feriados** — cadastre os feriados do ano.
+6. **Grade Diária** — informe apenas a disciplina de cada posição de aula do dia;
+   o professor é o da **Atribuição** com mais aulas na matéria e aparece abaixo
+   da disciplina, sem campo editável. Só aparecem as matérias com atribuição, e
+   cada uma pode ocupar no máximo o total de aulas atribuídas na turma; o select
+   mostra as aulas restantes e esconde a matéria quando a cota acaba. O sistema
+   bloqueia o mesmo professor na mesma posição em turmas diferentes. Ao salvar,
+   a grade fica travada; use **Editar grade** para desbloquear. Use
+   **Atribuição de Professores** para carga semanal e troca de responsável.
+7. **Chamada do Dia** — lance a presença. A **Ficha de Chamada** (`chamada/ficha.php`)
+   abre a turma inteira no mês escolhido: alunos nas linhas, datas letivas nas
+   colunas e as aulas configuradas em cada célula, com a disciplina e o professor
+   abaixo dela no cabeçalho. É somente leitura e imprime em A4 paisagem; para editar, use a
+   Chamada do Dia.
+8. **Diário de Classe** — classifique a turma, habilite notas somente nas etapas
    escolares, cadastre as disciplinas com seus professores responsáveis e lance
    as notas por bimestre.
 
@@ -154,7 +192,9 @@ php ferramentas/gera_manifesto.php
 
 Em bancos instalados antes da chamada por aula, rode também
 `sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql`. Ele é idempotente e converte os
-registros antigos para a 1ª aula.
+registros antigos para a 1ª aula. Para exceções por unidade ou turma, rode
+`sql_inicial/ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql`; as exceções antigas
+continuam globais.
 
 ---
 
@@ -344,6 +384,24 @@ Histórico e auditoria guardam período, motivo, autor e cada liberação. A mig
   chamada antes.
 - Excluir um feriado **não** apaga chamadas já lançadas.
 
+### Exceções do calendário
+
+Uma exceção torna letivo um fim de semana/feriado ou dispensa um dia útil. A
+abrangência é **todas as unidades**, **uma unidade** ou **uma turma**. A regra
+mais específica prevalece: turma &gt; unidade &gt; global. Uma exceção de turma
+herda a unidade da turma, e é validado se a turma pertence ao ano letivo e ao
+calendário informados.
+
+- A gestão da rede (níveis 1 e 4) cria exceções em qualquer abrangência.
+- O Diretor (nível 2) cria e altera exceções de unidade/turma dentro do seu
+  alcance; não mexe em exceção global nem de outra escola.
+- A tela mostra a abrangência de cada regra, e as ações de editar/excluir só
+  aparecem quando o registro está no alcance do usuário.
+- `ch_calendario_dados()`, `ch_calendario_contador()` e `ch_bloqueio_chamada()`
+  aplicam a precedência; sem unidade/turma informados, mantêm o comportamento
+  antigo (somente exceções globais).
+- Migração: `sql_inicial/ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql`.
+
 ### Observações
 
 - Categorias prontas: desenvolvimento geral, linguagem, coordenação motora,
@@ -374,6 +432,11 @@ histórico. Um período em uso por turmas ativas não pode ser inativado.
 ```
 inc/chamada.php                  funções compartilhadas (acesso, datas, regras)
 inc/chamada_categorias.php       categorias de observação
+inc/dashboard_calendario.php     HTML do card do calendário
+processa/dashboard_calendario_processa.php  regras do card
+dashboard_calendario.php         endpoint somente leitura do card
+js/calendario_dashboard.js       filtros do card sem recarregar a página
+js/excecao_escopo.js             mostra o campo da abrangência escolhida
 
 periodos/     index add edit formulario + processa/{index,add,edit,salvar,toggle}
 turmas/       index add edit formulario (equipe) + processa/{index,add,edit,salvar,toggle}

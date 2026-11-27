@@ -23,6 +23,7 @@ function turma_validar($post, $idAtual = 0)
         'ETAPA_ENSINO' => '',
         'ID_PERIODO'   => (int)($post['id_periodo'] ?? 0),
         'ID_PROFESSOR' => 0,
+        'AULAS_DIA'    => (int)($post['aulas_dia'] ?? 2),
         'CAPACIDADE'   => (int)($post['capacidade'] ?? 0),
         'NOTAS_ATIVAS' => !empty($post['notas_ativas']) ? 1 : 0,
         'EQUIPE'       => $equipe,
@@ -89,6 +90,9 @@ function turma_validar($post, $idAtual = 0)
         $e[] = $msg;
     }
 
+    if ($d['AULAS_DIA'] < 1 || $d['AULAS_DIA'] > ch_aula_max()) {
+        $e[] = 'Informe de 1 a ' . ch_aula_max() . ' aulas por dia para esta turma.';
+    }
     if ($d['CAPACIDADE'] < 1 || $d['CAPACIDADE'] > 500) {
         $e[] = 'A capacidade deve ficar entre 1 e 500.';
     }

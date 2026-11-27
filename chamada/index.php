@@ -1,7 +1,13 @@
 <?php require_once('processa/index_processa.php'); ?>
 <?php include(ch_gestor() ? HEADER_TEMPLATE : HEADER_TEMPLATE2); ?>
 
-<?php ch_cabecalho('Chamada de Alunos', 'fa-clipboard-user'); ?>
+<?php
+$chFichaBotao = $turmaId > 0
+    ? '<a class="btn btn-outline-secondary" href="' . ch_url('chamada/ficha.php?turma_id=' . (int)$turmaId
+        . '&ano=' . (int)substr($data, 0, 4) . '&mes=' . (int)substr($data, 5, 2)) . '"><i class="fas fa-table-list"></i> Ficha da turma</a>'
+    : '';
+ch_cabecalho('Chamada de Alunos', 'fa-clipboard-user', $chFichaBotao);
+?>
 
 <form method="get" action="index.php" class="row g-3 align-items-end mb-4">
   <div class="col-md-5">
@@ -23,7 +29,7 @@
   <div class="col-md-2">
     <label class="form-label small fw-bold mb-1">Aula</label>
     <select name="aula" class="form-select" required>
-      <?php foreach (ch_aula_lista() as $numero => $rotulo): ?>
+      <?php foreach (ch_aula_lista_turma($turmaId) as $numero => $rotulo): ?>
         <option value="<?= (int)$numero ?>" <?= $aula === (int)$numero ? 'selected' : '' ?>><?= ch_h($rotulo) ?></option>
       <?php endforeach; ?>
     </select>

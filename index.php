@@ -16,6 +16,7 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 <?php require_once('processa/dashboard_processa.php'); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="<?= ch_url('js/calendario_dashboard.js') ?>"></script>
 
 <style>
 	.chart-container { position: relative; height: 300px; width: 100%; }
@@ -28,6 +29,43 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 	.dashboard-card-link { color: inherit; text-decoration: none; }
 	.dashboard-card-link:focus-visible { border-radius: 18px; outline: 2px solid #315F75; outline-offset: 3px; }
 	.dashboard-card:hover { transform: translateY(-1px); box-shadow: var(--sombra-alta) !important; z-index: 10; }
+	.cal-semana, .cal-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+	.cal-semana { margin-bottom: 4px; }
+	.cal-semana div { padding: 2px 4px; color: #66717e; font-size: .75rem; font-weight: 700; text-align: center; }
+	.cal-dia { min-height: 64px; padding: 4px; border: 1px solid #e1e8ee; border-radius: 8px; background: #fff; }
+	.cal-dia.cal-fora { opacity: .45; }
+	.cal-dia.cal-fds { background: #f5f7f9; }
+	.cal-dia.cal-hoje { outline: 2px solid #26734d; outline-offset: -2px; }
+	.cal-dia.cal-inicio, .cal-dia.cal-fim { background: #e9f1ff; border-color: #96b8ee; }
+	.cal-dia.cal-exletivo { background: #e7f6ec; border-color: #92cda9; }
+	.cal-dia.cal-exnaoletivo { background: #edf0f3; border-color: #a8b2bc; }
+	.cal-dia.cal-feriado { background: #fdecec; border-color: #e6a0a0; }
+	.cal-dia.cal-parcial { background: #fff6dc; border-color: #e5c472; }
+	.cal-num { font-size: .85rem; font-weight: 700; }
+	.cal-marcas { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; }
+	.cal-marca {
+		display: inline-grid; place-items: center;
+		min-width: 15px; height: 15px; padding: 0 2px;
+		border-radius: 4px; color: #fff; font-size: 9px; font-weight: 700; line-height: 1;
+	}
+	.cal-marca-inicio, .cal-marca-fim { background: #315f75; }
+	.cal-marca-excecao_letivo { background: #26734d; }
+	.cal-marca-excecao_nao_letivo { background: #6c757d; }
+	.cal-marca-feriado_integral { background: #c0392b; }
+	.cal-marca-feriado_parcial { background: #c98a08; }
+	.cal-meses-ano { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+	.cal-mes-titulo { margin: 0 0 4px; color: #315f75; font-size: .85rem; font-weight: 700; }
+	.cal-meses-ano .cal-dia { min-height: 34px; padding: 2px; }
+	.cal-meses-ano .cal-semana div { padding: 1px 2px; font-size: .65rem; }
+	.cal-meses-ano .cal-num { font-size: .72rem; }
+	.cal-meses-ano .cal-marca { min-width: 11px; height: 11px; font-size: 8px; }
+	@media (max-width: 576px) {
+		.cal-grade, .cal-semana { gap: 2px; }
+		.cal-dia { min-height: 46px; padding: 2px; }
+		.cal-meses-ano .cal-dia { min-height: 30px; padding: 1px; }
+		.cal-num { font-size: .72rem; }
+		.cal-marca { min-width: 12px; height: 12px; font-size: 8px; }
+	}
 </style>
 
 <h1><i class="fas fa-clipboard-user"></i> Chamada de Alunos</h1>
@@ -212,6 +250,10 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 
 	<div class="row g-3 mt-1">
 
+		<div id="calendarioDashboard" class="col-12">
+			<?php require('inc/dashboard_calendario.php'); ?>
+		</div>
+
 		<!-- FERIADOS -->
 		<div class="col-lg-5">
 			<div class="card border-0 rounded-4 dashboard-card h-100">
@@ -281,7 +323,6 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 							<?= $relatoriosPendentes ?> aluno(s) ainda sem parecer registrado.
 						</span>
 					</div>
-					<?php endif; ?>
 					<a class="btn btn-primary" href="<?= ch_url('relatorios/index.php?ano=' . $ano) ?>">
 						<i class="fas fa-folder-open"></i> Abrir relatórios
 					</a>
@@ -289,6 +330,7 @@ if (!in_array((int)$nivel, [1, 2, 4, 5], true)) {
 			</div>
 		</div>
 	</div>
+	<?php endif; ?>
 
 </div>
 

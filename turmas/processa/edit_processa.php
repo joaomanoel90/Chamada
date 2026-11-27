@@ -35,9 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ok = ch_exec(
             'UPDATE TB_TURMAS SET ID_UNIDADE = ?, NOME = ?, ANO_LETIVO = ?, ETAPA_ENSINO = ?, SERIE = ?, ID_PERIODO = ?,
-                    CAPACIDADE = ?, NOTAS_ATIVAS = ? WHERE ID = ?',
+                    AULAS_DIA = ?, CAPACIDADE = ?, NOTAS_ATIVAS = ? WHERE ID = ?',
             [$d['ID_UNIDADE'], $d['NOME'], $d['ANO_LETIVO'], $d['ETAPA_ENSINO'], $d['SERIE'] ?: null, $d['ID_PERIODO'],
-             $d['CAPACIDADE'], $d['NOTAS_ATIVAS'], $id]
+             $d['AULAS_DIA'], $d['CAPACIDADE'], $d['NOTAS_ATIVAS'], $id]
         );
 
         if ($ok) {

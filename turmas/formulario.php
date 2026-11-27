@@ -103,6 +103,15 @@ function turma_linha_disciplina($d, $op)
           <small class="text-muted">Na Creche (Berçário I ao Maternal II), o período é sempre <b>Integral</b>.</small>
         </div>
         <div class="form-group col-md-3">
+          <label class="fw-bold" for="aulas_dia">Aulas por dia</label>
+          <select class="form-select" name="aulas_dia" id="aulas_dia" required>
+            <?php for ($n = 1; $n <= ch_aula_max(); $n++): ?>
+              <option value="<?= $n ?>"<?= (int)($d['AULAS_DIA'] ?? 2) === $n ? ' selected' : '' ?>><?= $n ?><?= $n === 1 ? ' aula' : ' aulas' ?></option>
+            <?php endfor; ?>
+          </select>
+          <small class="text-muted">Defina manualmente por turma. Vale para chamada, grade e ficha.</small>
+        </div>
+        <div class="form-group col-md-3">
           <label class="fw-bold">Capacidade</label>
           <input type="number" class="form-control" name="capacidade" min="1" max="500" value="<?= (int)$d['CAPACIDADE'] ?>" required>
         </div>
@@ -134,6 +143,37 @@ function turma_linha_disciplina($d, $op)
         e as escalas temporárias no menu
         <a href="<?= ch_url('substituicoes/index.php' . (!empty($id) ? '?turma=' . (int)$id : '')) ?>"><strong>Substituições</strong></a>.
       </p>
+
+      <?php
+      $modelosJS = [];
+      foreach (mod_opcoes() as $modeloOp) {
+          $modeloCompleto = mod_dados($modeloOp['ID']);
+          $modelosJS[] = [
+              'ID' => (int)$modeloOp['ID'],
+              'NOME' => (string)$modeloOp['NOME'],
+              'AULAS_DIA' => (int)$modeloOp['AULAS_DIA'],
+              'DISCIPLINAS' => array_map(function ($disc) {
+                  return ['NOME' => (string)$disc['NOME'], 'AULAS' => (int)$disc['AULAS']];
+              }, (array)($modeloCompleto['DISCIPLINAS'] ?? [])),
+          ];
+      }
+      ?>
+      <div id="dados-modelos" class="d-none" data-modelos="<?= ch_h(json_encode($modelosJS, JSON_UNESCAPED_UNICODE)) ?>"></div>
+
+      <?php if ($modelosJS): ?>
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-lg-6">
+            <label class="fw-bold small" for="aplicar-modelo">Aplicar modelo de turma</label>
+            <select id="aplicar-modelo" class="form-select">
+              <option value="">Selecione...</option>
+              <?php foreach ($modelosJS as $modeloOp): ?>
+                <option value="<?= (int)$modeloOp['ID'] ?>"><?= ch_h($modeloOp['NOME']) ?> · <?= (int)$modeloOp['AULAS_DIA'] ?> aula(s)/dia · <?= count($modeloOp['DISCIPLINAS']) ?> matéria(s)</option>
+              <?php endforeach; ?>
+            </select>
+            <small class="text-muted">Preenche aulas por dia e acrescenta/ajusta as matérias do modelo. Não remove matérias já cadastradas.</small>
+          </div>
+        </div>
+      <?php endif; ?>
 
       <div id="lista-disciplinas">
         <?php
@@ -193,6 +233,56 @@ function turma_linha_disciplina($d, $op)
   });
 
   atualizar();
+})();
+
+/* Modelo de turma: preenche aulas por dia e mescla as matérias. */
+(function () {
+  var seletor = document.getElementById('aplicar-modelo');
+  var fonte = document.getElementById('dados-modelos');
+  if (!seletor || !fonte) return;
+  var modelos = [];
+  try { modelos = JSON.parse(fonte.dataset.modelos || '[]'); } catch (e) { modelos = []; }
+
+  seletor.addEventListener('change', function () {
+    var modelo = null;
+    for (var i = 0; i < modelos.length; i++) {
+      if (String(modelos[i].ID) === seletor.value) { modelo = modelos[i]; break; }
+    }
+    if (!modelo) return;
+
+    var aulas = document.getElementById('aulas_dia');
+    if (aulas) aulas.value = String(modelo.AULAS_DIA);
+
+    var lista = document.getElementById('lista-disciplinas');
+    var origem = document.getElementById('modelo-linha-disciplina');
+    if (!lista || !origem) return;
+    var linhas = Array.prototype.slice.call(lista.querySelectorAll('[data-linha-disciplina]'));
+
+    (modelo.DISCIPLINAS || []).forEach(function (disc) {
+      var linha = null;
+      for (var j = 0; j < linhas.length; j++) {
+        var campo = linhas[j].querySelector('select[name="disc_nome[]"]');
+        if (campo && campo.value.toLowerCase() === String(disc.NOME).toLowerCase()) {
+          linha = linhas[j]; break;
+        }
+      }
+      if (!linha) {
+        var temp = document.createElement('template');
+        temp.innerHTML = origem.innerHTML.trim();
+        linha = temp.content.firstElementChild;
+        lista.appendChild(linha);
+        linhas.push(linha);
+      }
+      linha.querySelector('select[name="disc_nome[]"]').value = disc.NOME;
+      linha.querySelector('input[name="disc_aulas[]"]').value = disc.AULAS;
+    });
+
+    var contador = document.getElementById('contador-disciplinas');
+    if (contador) {
+      var n = lista.querySelectorAll('[data-linha-disciplina]').length;
+      contador.textContent = n + (n === 1 ? ' matéria' : ' matérias');
+    }
+  });
 })();
 
 /* Creche (Berçário I ao Maternal II): o período é sempre Integral.

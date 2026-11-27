@@ -23,7 +23,7 @@ if (!ch_csrf_ok()) {
 
 $turmaId   = (int)($_POST['turma_id'] ?? 0);
 $data      = ch_data_iso($_POST['data'] ?? '');
-$aula      = ch_aula_normalizar($_POST['aula'] ?? 1);
+$aula      = ch_aula_normalizar($_POST['aula'] ?? 1, ch_turma_aulas_dia($turmaId));
 $chamadaId = (int)($_POST['chamada_id'] ?? 0);
 $novo      = strtoupper(trim((string)($_POST['status'] ?? '')));
 $justNova  = strip_tags(trim((string)($_POST['justificativa'] ?? '')));
@@ -39,7 +39,7 @@ if (!$data || $chamadaId <= 0) {
     exit;
 }
 
-if ($aula === 2 && !ch_chamada_tem_aula()) {
+if ($aula >= 2 && !ch_chamada_tem_aula()) {
     ch_flash('Este banco ainda não tem chamada por aula. Rode sql_inicial/ATUALIZAR_CHAMADA_POR_AULA.sql.', 'danger');
     header('Location: ' . $voltar);
     exit;
@@ -66,7 +66,7 @@ $registro = ch_row(
 );
 
 if (!$registro || (int)$registro['ID_TURMA'] !== $turmaId
-    || ch_aula_normalizar($registro['AULA_SEQ']) !== $aula) {
+    || ch_aula_normalizar($registro['AULA_SEQ'], ch_turma_aulas_dia($turmaId)) !== $aula) {
     ch_flash('Registro de chamada não encontrado para esta turma, data e aula.', 'danger');
     header('Location: ' . $voltar);
     exit;

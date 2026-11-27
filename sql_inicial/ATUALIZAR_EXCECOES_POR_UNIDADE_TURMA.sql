@@ -1,0 +1,122 @@
+/* Exceções do calendário com abrangência: todas as unidades, uma unidade
+   ou uma turma específica. SQL Server 2016 ou mais novo.
+
+   As exceções já cadastradas continuam globais (unidade e turma nulas).
+   Pode ser executado mais de uma vez sem apagar histórico. */
+USE [db_chamada];
+GO
+
+IF OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES', N'U') IS NULL
+   OR OBJECT_ID(N'dbo.TB_UNIDADES', N'U') IS NULL
+   OR OBJECT_ID(N'dbo.TB_TURMAS', N'U') IS NULL
+BEGIN
+    ;THROW 50020, 'Execute INSTALACAO_COMPLETA.sql e ATUALIZAR_CALENDARIO_ESCOLAR.sql antes desta atualizacao.', 1;
+END;
+GO
+
+IF COL_LENGTH(N'dbo.TB_CALENDARIO_EXCECOES', N'ID_UNIDADE') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES ADD ID_UNIDADE int NULL;
+    PRINT '  + TB_CALENDARIO_EXCECOES.ID_UNIDADE';
+END;
+GO
+
+IF COL_LENGTH(N'dbo.TB_CALENDARIO_EXCECOES', N'ID_TURMA') IS NULL
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES ADD ID_TURMA int NULL;
+    PRINT '  + TB_CALENDARIO_EXCECOES.ID_TURMA';
+END;
+GO
+
+/* Uma exceção de turma sempre herda a unidade da turma. */
+UPDATE e
+   SET e.ID_UNIDADE = t.ID_UNIDADE
+  FROM dbo.TB_CALENDARIO_EXCECOES e
+  INNER JOIN dbo.TB_TURMAS t ON t.ID = e.ID_TURMA
+ WHERE e.ID_TURMA IS NOT NULL AND e.ID_UNIDADE IS NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CAL_EXC_UNIDADE')
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES
+        ADD CONSTRAINT FK_CAL_EXC_UNIDADE FOREIGN KEY (ID_UNIDADE)
+            REFERENCES dbo.TB_UNIDADES (id);
+    PRINT '  + FK_CAL_EXC_UNIDADE';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_CAL_EXC_TURMA')
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES
+        ADD CONSTRAINT FK_CAL_EXC_TURMA FOREIGN KEY (ID_TURMA)
+            REFERENCES dbo.TB_TURMAS (ID);
+    PRINT '  + FK_CAL_EXC_TURMA';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints
+                WHERE parent_object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                  AND name = 'CK_CAL_EXC_ESCOPO')
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES
+        ADD CONSTRAINT CK_CAL_EXC_ESCOPO CHECK (ID_TURMA IS NULL OR ID_UNIDADE IS NOT NULL);
+    PRINT '  + CK_CAL_EXC_ESCOPO';
+END;
+GO
+
+/* A unicidade antiga impedia mais de uma exceção na mesma data do calendário.
+   Índices filtrados permitem uma regra por abrangência, como em TB_FERIADOS. */
+IF EXISTS (SELECT 1 FROM sys.indexes
+            WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+              AND name = 'UQ_CAL_EXC_DATA')
+BEGIN
+    ALTER TABLE dbo.TB_CALENDARIO_EXCECOES DROP CONSTRAINT UQ_CAL_EXC_DATA;
+    PRINT '  - UQ_CAL_EXC_DATA';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                  AND name = 'UQ_CAL_EXC_GLOBAL')
+BEGIN
+    CREATE UNIQUE INDEX UQ_CAL_EXC_GLOBAL
+        ON dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA)
+     WHERE ID_UNIDADE IS NULL AND ID_TURMA IS NULL;
+    PRINT '  + UQ_CAL_EXC_GLOBAL';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                  AND name = 'UQ_CAL_EXC_UNIDADE')
+BEGIN
+    CREATE UNIQUE INDEX UQ_CAL_EXC_UNIDADE
+        ON dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, ID_UNIDADE)
+     WHERE ID_UNIDADE IS NOT NULL AND ID_TURMA IS NULL;
+    PRINT '  + UQ_CAL_EXC_UNIDADE';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                  AND name = 'UQ_CAL_EXC_TURMA')
+BEGIN
+    CREATE UNIQUE INDEX UQ_CAL_EXC_TURMA
+        ON dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, ID_UNIDADE, ID_TURMA)
+     WHERE ID_TURMA IS NOT NULL;
+    PRINT '  + UQ_CAL_EXC_TURMA';
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                  AND name = 'IX_CAL_EXC_ESCOPO')
+BEGIN
+    CREATE INDEX IX_CAL_EXC_ESCOPO
+        ON dbo.TB_CALENDARIO_EXCECOES (ID_CALENDARIO, DATA, ID_UNIDADE, ID_TURMA);
+    PRINT '  + IX_CAL_EXC_ESCOPO';
+END;
+GO
+
+PRINT 'Atualizacao de excecoes por unidade/turma concluida.';
+GO

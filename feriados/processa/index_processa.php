@@ -17,6 +17,18 @@ $colCalendario = $temCalendario
     : "CAST('AMBOS' AS nvarchar(20))";
 $params = [$fAno];
 $where = '';
+/* Feriados de uma única unidade só aparecem para quem alcança essa unidade;
+   gestão da rede vê todos, professor alcança a unidade das suas turmas. */
+if (!ch_rede()) {
+    $unidadesFeriado = ch_unidades_alcance();
+    if ($unidadesFeriado) {
+        $where .= ' AND (f.ID_UNIDADE IS NULL OR f.ID_UNIDADE IN ('
+                . implode(',', array_fill(0, count($unidadesFeriado), '?')) . '))';
+        $params = array_merge($params, $unidadesFeriado);
+    } else {
+        $where .= ' AND f.ID_UNIDADE IS NULL';
+    }
+}
 if ($temCalendario && $fCalendario === 'AMBOS') {
     $where = ' AND f.CALENDARIO = ?';
     $params[] = 'AMBOS';
@@ -55,27 +67,61 @@ foreach ($opcoesCalendario as $codigo => $rotulo) {
     $contadores[$codigo] = ch_calendario_contador($fAno, $codigo);
 }
 
-/* Todas as exceções do ano, indexadas por data + calendário. A lista única
-   abaixo cruza feriados e exceções para mostrar a situação efetiva de cada dia. */
+/* Todas as exceções do ano dentro do alcance do usuário, indexadas por data +
+   calendário + abrangência. A lista abaixo cruza feriados e exceções para
+   mostrar a situação efetiva de cada dia sem misturar regras de outras escolas. */
 $todasExcecoes = [];
+$temEscopo = ch_excecoes_tem_escopo();
 if (ch_tabela_excecoes_calendario()) {
-    foreach (ch_rows(
-        'SELECT e.ID, CONVERT(varchar(10), e.DATA, 23) AS DATA, e.TIPO, e.MOTIVO, c.CALENDARIO
-           FROM dbo.TB_CALENDARIO_EXCECOES e
-           JOIN dbo.TB_CALENDARIOS c ON c.ID = e.ID_CALENDARIO
-          WHERE c.ANO_LETIVO = ?
-          ORDER BY e.DATA, e.ID',
-        [$fAno]
-    ) as $e) {
+    $colEscopo = $temEscopo
+        ? ', ISNULL(e.ID_UNIDADE, 0) AS ID_UNIDADE, ISNULL(e.ID_TURMA, 0) AS ID_TURMA'
+        : ', CAST(0 AS int) AS ID_UNIDADE, CAST(0 AS int) AS ID_TURMA';
+    $sqlExc = 'SELECT e.ID, CONVERT(varchar(10), e.DATA, 23) AS DATA, e.TIPO, e.MOTIVO, c.CALENDARIO'
+            . $colEscopo . '
+                FROM dbo.TB_CALENDARIO_EXCECOES e
+                JOIN dbo.TB_CALENDARIOS c ON c.ID = e.ID_CALENDARIO
+               WHERE c.ANO_LETIVO = ?';
+    $paramsExc = [$fAno];
+    if ($temEscopo) {
+        $idsAlcance = ch_unidades_alcance();
+        $sqlExc .= ' AND (e.ID_UNIDADE IS NULL';
+        if ($idsAlcance) {
+            $sqlExc .= ' OR e.ID_UNIDADE IN (' . implode(',', array_fill(0, count($idsAlcance), '?')) . ')';
+            $paramsExc = array_merge($paramsExc, $idsAlcance);
+        }
+        $sqlExc .= ')';
+    }
+    $sqlExc .= ' ORDER BY e.DATA, e.ID';
+    foreach (ch_rows($sqlExc, $paramsExc) as $e) {
+        $escopo = ch_excecao_escopo_dados($e['ID_UNIDADE'], $e['ID_TURMA']);
         $item = [
             'ID' => (int)$e['ID'],
             'DATA' => (string)$e['DATA'],
             'TIPO' => (string)$e['TIPO'],
             'MOTIVO' => (string)($e['MOTIVO'] ?? ''),
             'CALENDARIO' => (string)$e['CALENDARIO'],
+            'ESCOPO' => $escopo['ESCOPO'],
+            'ROTULO_ESCOPO' => $escopo['ROTULO'],
+            'ID_UNIDADE' => (int)$e['ID_UNIDADE'],
+            'ID_TURMA' => (int)$e['ID_TURMA'],
+            'PODE_GERENCIAR' => ch_pode_gerenciar_excecao($e['ID_UNIDADE'], $e['ID_TURMA']),
         ];
-        $todasExcecoes[$item['DATA'] . '|' . $item['CALENDARIO']] = $item;
+        $item['CHAVE'] = $item['DATA'] . '|' . $item['CALENDARIO'] . '|' . $item['ESCOPO']
+                       . '|' . $item['ID_UNIDADE'] . '|' . $item['ID_TURMA'];
+        $todasExcecoes[$item['CHAVE']] = $item;
     }
+}
+
+/** Exceção aplicável a um feriado: a da própria unidade ou, na falta dela, a global. */
+function feriado_excecao_aplicavel($idUnidade, $calendario, $dataIso, $todasExcecoes)
+{
+    $unidade = (int)$idUnidade;
+    if ($unidade > 0) {
+        $chave = $dataIso . '|' . $calendario . '|UNIDADE|' . $unidade . '|0';
+        if (isset($todasExcecoes[$chave])) return $todasExcecoes[$chave];
+    }
+    $chaveGlobal = $dataIso . '|' . $calendario . '|GLOBAL|0|0';
+    return $todasExcecoes[$chaveGlobal] ?? null;
 }
 
 $dias = [];
@@ -85,8 +131,7 @@ foreach ($feriados as $f) {
     foreach ($calendarios as $cal) {
         if ($fCalendario !== '' && $fCalendario !== 'AMBOS' && $cal !== $fCalendario) continue;
 
-        $chave = (string)$f['DATA'] . '|' . $cal;
-        $exc = $todasExcecoes[$chave] ?? null;
+        $exc = feriado_excecao_aplicavel($f['ID_UNIDADE'], $cal, (string)$f['DATA'], $todasExcecoes);
         if ($exc) $excecoesUsadas[$exc['ID']] = true;
 
         if ($exc) {
@@ -107,7 +152,12 @@ foreach ($feriados as $f) {
             'HORA_INICIO' => (string)($f['HORA_INICIO'] ?? ''),
             'HORA_FIM' => (string)($f['HORA_FIM'] ?? ''),
             'UNIDADE' => (string)($f['UNIDADE'] ?? ''),
+            'ID_UNIDADE_FERIADO' => (int)($f['ID_UNIDADE'] ?? 0),
             'EXCECAO' => $exc,
+            'ESCOPO' => $exc ? $exc['ESCOPO'] : '',
+            'ROTULO_ESCOPO' => $exc ? $exc['ROTULO_ESCOPO'] : '',
+            'ID_UNIDADE_EXCECAO' => $exc ? $exc['ID_UNIDADE'] : 0,
+            'ID_TURMA_EXCECAO' => $exc ? $exc['ID_TURMA'] : 0,
             'TIPO_EXCECAO' => $exc ? $exc['TIPO'] : '',
             'MOTIVO' => $exc ? $exc['MOTIVO'] : '',
             'EFETIVO' => $efetivo,
@@ -130,6 +180,10 @@ foreach ($todasExcecoes as $e) {
         'HORA_FIM' => '',
         'UNIDADE' => '',
         'EXCECAO' => $e,
+        'ESCOPO' => $e['ESCOPO'],
+        'ROTULO_ESCOPO' => $e['ROTULO_ESCOPO'],
+        'ID_UNIDADE_EXCECAO' => $e['ID_UNIDADE'],
+        'ID_TURMA_EXCECAO' => $e['ID_TURMA'],
         'TIPO_EXCECAO' => $e['TIPO'],
         'MOTIVO' => $e['MOTIVO'],
         'EFETIVO' => $e['TIPO'],
@@ -143,3 +197,21 @@ usort($dias, function ($a, $b) {
 });
 
 $unidades = ch_unidades_opcoes();
+
+/* Turmas do ano no alcance do usuário, agrupadas por unidade para o select de
+   abrangência. A compatibilidade com o calendário é validada no processador. */
+$turmasPorUnidade = [];
+$sqlTurmasOpcoes = 'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ETAPA_ENSINO, u.unidade AS UNIDADE
+                      FROM TB_TURMAS t INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+                     WHERE t.ANO_LETIVO = ?';
+$paramsTurmasOpcoes = [$fAno];
+$filtroTurmasOpcoes = ch_filtro_turma('t');
+if ($filtroTurmasOpcoes['sql'] !== '') {
+    $sqlTurmasOpcoes .= $filtroTurmasOpcoes['sql'];
+    $paramsTurmasOpcoes = array_merge($paramsTurmasOpcoes, $filtroTurmasOpcoes['params']);
+}
+$sqlTurmasOpcoes .= ' ORDER BY u.unidade, t.NOME, t.ID';
+foreach (ch_rows($sqlTurmasOpcoes, $paramsTurmasOpcoes) as $turmaOpcao) {
+    $turmasPorUnidade[(int)$turmaOpcao['ID_UNIDADE']][] = $turmaOpcao;
+}
+

@@ -103,7 +103,7 @@ for ($m = 1; $m <= 12; $m++) {
 }
 
 /* --------------------------------------------------- próximos feriados */
-$idsUnidade = ch_unidades_ids();
+$idsUnidade = ch_unidades_alcance();
 $proximosFeriados = [];
 if ($idsUnidade) {
     $ph = implode(',', array_fill(0, count($idsUnidade), '?'));
@@ -115,6 +115,9 @@ if ($idsUnidade) {
         array_merge([$hoje], $idsUnidade)
     );
 }
+
+/* ---------------------------------------- calendário escolar no dashboard */
+require_once(__DIR__ . '/dashboard_calendario_processa.php');
 
 /* -------------------------------------------- observações recentes */
 $obsRecentes = ch_rows(

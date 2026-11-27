@@ -25,8 +25,11 @@ se o seu banco tiver outro nome.
 | 17 | `ATUALIZAR_INCLUSAO_CRACHA.sql` | **Instalações existentes.** Adiciona as categorias de inclusão, a preferência do símbolo para TEA e autorização (desmarcada por padrão) para os marcadores nos crachás. |
 | 18 | `ATUALIZAR_RESTRICAO_CONTATO_FAMILIA.sql` | **Instalações existentes.** Adiciona a restrição familiar por vínculo aluno/responsável e o histórico de ações (data, usuário e motivo). Contatos restritos saem do crachá e geram observação orientando a emitir outro crachá. |
 | 19 | `ATUALIZAR_SUSPENSAO_ALUNOS.sql` | **Instalações existentes.** Cria o histórico de suspensões por período e de liberações parciais de datas/aulas, e liga as faltas geradas em `TB_CHAMADA` à suspensão. |
+| 20 | `ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql` | **Instalações existentes.** Acrescenta `ID_UNIDADE` e `ID_TURMA` em `TB_CALENDARIO_EXCECOES`, permitindo exceções por unidade ou turma. Rode depois do script do calendário escolar; as exceções antigas continuam globais. |
+| 21 | `ATUALIZAR_GRADE_DIARIA.sql` | **Instalações existentes.** Cria `TB_GRADE_AULAS`, onde cada turma define disciplina e professor por dia da semana e posição de aula. A Ficha de Chamada usa essa grade no cabeçalho; as aulas já lançadas não são alteradas. |
+| 22 | `ATUALIZAR_AULAS_DIA_MODELOS.sql` | **Instalações existentes.** Acrescenta `TB_TURMAS.AULAS_DIA`, amplia chamada e grade para até 6 posições por dia e cria os modelos nomeados de turma (`TB_MODELOS_TURMA` e `TB_MODELO_DISCIPLINAS`). Rode depois da grade diária. |
 
-Os scripts 1, 2, 4 e 6 a 19 podem ser executados mais de uma vez sem duplicar nada.
+Os scripts 1, 2, 4 e 6 a 22 podem ser executados mais de uma vez sem duplicar nada.
 
 > **Já tem o sistema em uso?** Rode o `ATUALIZAR_TRANSFERENCIAS.sql` e o
 > `ATUALIZAR_EQUIPE_SAUDE.sql` (nesta ordem) e copie **todos** os arquivos PHP
@@ -70,6 +73,19 @@ Os scripts 1, 2, 4 e 6 a 19 podem ser executados mais de uma vez sem duplicar na
 > tirar dias, marque as datas/aulas na própria tela: nos dias que já passaram
 > escolha entre lançar presença ou deixar a chamada pendente; cada liberação fica
 > no histórico com motivo e usuário.
+> Para usar exceções de calendário por escola ou turma, execute
+> `ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql` depois de
+> `ATUALIZAR_CALENDARIO_ESCOLAR.sql`. Ele troca a unicidade antiga por índices
+> por abrangência: pode haver uma regra global, uma por unidade e uma por turma
+> na mesma data, e vale a mais específica (turma &gt; unidade &gt; global). A
+> gestão da rede mexe em qualquer abrangência; o Diretor só nas suas unidades.
+> Sem essa migração, as exceções continuam valendo só para todas as unidades.
+> Para a Ficha de Chamada mostrar disciplina e professor em cada aula, execute
+> `ATUALIZAR_GRADE_DIARIA.sql` e, para turmas com mais de duas aulas por dia,
+> `ATUALIZAR_AULAS_DIA_MODELOS.sql`. Depois use **Turmas** para definir aulas por
+> dia, **Modelos de Turma** para replicar padrões e **Grade Diária** para montar
+> as posições. Quem não rodar os scripts continua vendo a ficha normalmente, com
+> `—` no cabeçalho das aulas.
 > Em **Turmas → Editar**, classifique as turmas que já existem; o sistema não
 > tenta adivinhar a série pelo nome. Promoções e transferências exigem séries
 > classificadas. Transferências pendentes antigas sem resultado precisam ser

@@ -132,7 +132,7 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
 </div>
 
 <h5 class="mb-3"><i class="fas fa-calendar-day"></i> Dias do calendário — feriados e exceções — <?= (int)$fAno ?></h5>
-<?php if (ch_rede()): ?>
+<?php if (ch_gestor() && (ch_rede() || $unidades)): ?>
   <details class="mb-4">
     <summary class="btn btn-sm btn-outline-success"><i class="fas fa-plus"></i> Adicionar exceção</summary>
     <div class="card card-body mt-3">
@@ -149,6 +149,34 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
           </select>
         </div>
         <div class="col-md-3">
+          <label class="form-label small fw-bold mb-1">Abrangência</label>
+          <select name="escopo" class="form-select form-select-sm" data-escopo-select required>
+            <?php if (ch_rede()): ?><option value="global">Todas as unidades</option><?php endif; ?>
+            <?php if ($unidades): ?><option value="unidade">Uma unidade</option><?php endif; ?>
+            <?php if ($turmasPorUnidade): ?><option value="turma">Uma turma</option><?php endif; ?>
+          </select>
+        </div>
+        <div class="col-md-3" data-escopo="unidade">
+          <label class="form-label small fw-bold mb-1">Unidade</label>
+          <select name="id_unidade" class="form-select form-select-sm">
+            <?php foreach ($unidades as $u): ?>
+              <option value="<?= (int)$u['id'] ?>"><?= ch_h($u['unidade']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-3" data-escopo="turma">
+          <label class="form-label small fw-bold mb-1">Turma</label>
+          <select name="id_turma" class="form-select form-select-sm">
+            <?php foreach ($turmasPorUnidade as $turmas): ?>
+              <optgroup label="<?= ch_h($turmas[0]['UNIDADE']) ?>">
+                <?php foreach ($turmas as $turma): ?>
+                  <option value="<?= (int)$turma['ID'] ?>"><?= ch_h(trim($turma['NOME'] . ($turma['SERIE'] !== '' ? ' · ' . $turma['SERIE'] : ''))) ?></option>
+                <?php endforeach; ?>
+              </optgroup>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-3">
           <label class="form-label small fw-bold mb-1">Data</label>
           <input type="date" name="data" class="form-control form-control-sm" min="<?= (int)$fAno ?>-01-01" max="<?= (int)$fAno ?>-12-31" required>
         </div>
@@ -159,7 +187,7 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
             <option value="NAO_LETIVO">Tornar não letivo</option>
           </select>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-6">
           <label class="form-label small fw-bold mb-1">Motivo</label>
           <input type="text" name="motivo" class="form-control form-control-sm" maxlength="150" placeholder="Ex.: aula de reposição">
         </div>
@@ -174,7 +202,9 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
 <div class="alert alert-info py-2">
   <i class="fas fa-circle-info"></i>
   Feriado integral = <strong>não letivo</strong>; feriado parcial = <strong>letivo parcial</strong>.
-  A exceção muda o dia para <strong>letivo</strong> ou <strong>não letivo</strong>.
+  A exceção muda o dia para <strong>letivo</strong> ou <strong>não letivo</strong> e pode valer para
+  <strong>todas as unidades</strong>, <strong>uma unidade</strong> ou <strong>uma turma</strong>.
+  Na chamada, vale a regra mais específica: turma &gt; unidade &gt; global.
 </div>
 
 <div class="table-responsive">
@@ -200,7 +230,11 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
           $rotuloEfetivo = $d['EFETIVO'] === 'NAO_LETIVO' ? 'Não letivo'
               : ($d['EFETIVO'] === 'LETIVO' ? 'Letivo' : 'Letivo parcial');
           $rotuloCalDia = $d['CALENDARIO'] === 'CRECHE' ? 'Creche' : 'Fundamental';
-          $temAcao = (($d['ORIGEM'] === 'FERIADO' && ch_gestor()) || ch_rede());
+          $exc = $d['EXCECAO'];
+          $podeCriarExc = $d['ORIGEM'] === 'FERIADO' && ch_gestor()
+              && ch_pode_gerenciar_excecao($d['ID_UNIDADE_FERIADO'] ?? 0, 0);
+          $podeEditarExc = $exc && $exc['PODE_GERENCIAR'];
+          $temAcao = (($d['ORIGEM'] === 'FERIADO' && ch_gestor()) || $podeEditarExc);
         ?>
         <tr>
           <td class="text-nowrap fw-semibold"><?= ch_h(ch_data_br($d['DATA'])) ?></td>
@@ -223,8 +257,12 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
               <?php if ($d['EXCECAO'] && $d['MOTIVO'] !== ''): ?>
                 <div class="small text-muted mt-1"><i class="fas fa-arrow-right"></i> <?= ch_h($d['MOTIVO']) ?></div>
               <?php endif; ?>
+              <?php if ($d['EXCECAO'] && $d['ESCOPO'] !== 'GLOBAL'): ?>
+                <div class="small text-muted mt-1"><i class="fas fa-users"></i> <?= ch_h($d['ROTULO_ESCOPO']) ?></div>
+              <?php endif; ?>
             <?php else: ?>
               <span class="small"><?= $d['MOTIVO'] !== '' ? ch_h($d['MOTIVO']) : 'Sem motivo informado' ?></span>
+              <div class="small text-muted mt-1"><i class="fas fa-users"></i> <?= ch_h($d['ROTULO_ESCOPO']) ?></div>
             <?php endif; ?>
           </td>
           <td>
@@ -253,7 +291,7 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                   </div>
                 <?php endif; ?>
 
-                <?php if (ch_rede() && $d['ORIGEM'] === 'FERIADO' && !$d['EXCECAO']): ?>
+                <?php if ($podeCriarExc && !$d['EXCECAO']): ?>
                   <div class="btn-group">
                     <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                       Exceção
@@ -266,6 +304,9 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                           <input type="hidden" name="ano" value="<?= (int)$fAno ?>">
                           <input type="hidden" name="id" value="0">
                           <input type="hidden" name="calendario" value="<?= ch_h($d['CALENDARIO']) ?>">
+                          <input type="hidden" name="escopo" value="<?= $d['ID_UNIDADE_FERIADO'] > 0 ? 'unidade' : 'global' ?>">
+                          <input type="hidden" name="id_unidade" value="<?= (int)$d['ID_UNIDADE_FERIADO'] ?>">
+                          <input type="hidden" name="id_turma" value="0">
                           <input type="hidden" name="data" value="<?= ch_h($d['DATA']) ?>">
                           <input type="hidden" name="tipo" value="LETIVO">
                           <input type="hidden" name="motivo" value="Ajuste no calendário escolar">
@@ -279,6 +320,9 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                           <input type="hidden" name="ano" value="<?= (int)$fAno ?>">
                           <input type="hidden" name="id" value="0">
                           <input type="hidden" name="calendario" value="<?= ch_h($d['CALENDARIO']) ?>">
+                          <input type="hidden" name="escopo" value="<?= $d['ID_UNIDADE_FERIADO'] > 0 ? 'unidade' : 'global' ?>">
+                          <input type="hidden" name="id_unidade" value="<?= (int)$d['ID_UNIDADE_FERIADO'] ?>">
+                          <input type="hidden" name="id_turma" value="0">
                           <input type="hidden" name="data" value="<?= ch_h($d['DATA']) ?>">
                           <input type="hidden" name="tipo" value="NAO_LETIVO">
                           <input type="hidden" name="motivo" value="Ajuste no calendário escolar">
@@ -287,8 +331,7 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                       </li>
                     </ul>
                   </div>
-                <?php elseif (ch_rede() && $d['EXCECAO']): ?>
-                  <?php $exc = $d['EXCECAO']; ?>
+                <?php elseif ($podeEditarExc): ?>
                   <details>
                     <summary class="btn btn-sm btn-outline-primary">Exceção</summary>
                     <div class="border rounded p-3 mt-2 bg-light">
@@ -298,6 +341,10 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                         <input type="hidden" name="ano" value="<?= (int)$fAno ?>">
                         <input type="hidden" name="id" value="<?= (int)$exc['ID'] ?>">
                         <input type="hidden" name="calendario" value="<?= ch_h($exc['CALENDARIO']) ?>">
+                        <input type="hidden" name="escopo" value="<?= ch_h(strtolower($exc['ESCOPO'])) ?>">
+                        <input type="hidden" name="id_unidade" value="<?= (int)$exc['ID_UNIDADE'] ?>">
+                        <input type="hidden" name="id_turma" value="<?= (int)$exc['ID_TURMA'] ?>">
+                        <div class="small text-muted mb-2">Abrangência: <?= ch_h($exc['ROTULO_ESCOPO']) ?>. Para mudar, exclua e crie outra exceção.</div>
                         <?php if ($d['ORIGEM'] === 'EXCECAO'): ?>
                           <div class="mb-2">
                             <label class="form-label small text-muted mb-1">Data</label>
@@ -324,6 +371,9 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
                         <input type="hidden" name="acao" value="excluir">
                         <input type="hidden" name="ano" value="<?= (int)$fAno ?>">
                         <input type="hidden" name="id" value="<?= (int)$exc['ID'] ?>">
+                        <input type="hidden" name="escopo" value="<?= ch_h(strtolower($exc['ESCOPO'])) ?>">
+                        <input type="hidden" name="id_unidade" value="<?= (int)$exc['ID_UNIDADE'] ?>">
+                        <input type="hidden" name="id_turma" value="<?= (int)$exc['ID_TURMA'] ?>">
                         <button type="submit" class="btn btn-sm btn-outline-danger w-100"
                                 data-confirm="Excluir esta exceção?"><i class="fas fa-trash"></i> Excluir exceção</button>
                       </form>
@@ -340,4 +390,5 @@ ch_cabecalho('Calendário Escolar', 'fa-calendar-days',
 </div>
 
 <script src="<?= BASEURL ?>js/tabela.js"></script>
+<script src="<?= BASEURL ?>js/excecao_escopo.js"></script>
 <?php include(FOOTER_TEMPLATE); ?>

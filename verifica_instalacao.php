@@ -221,7 +221,8 @@ $funcoes = array(
 	'inc/chamada.php' => array(
 		'ch_db', 'ch_q', 'ch_rows', 'ch_row', 'ch_val', 'ch_exec', 'ch_afetadas', 'ch_insert_id',
 		'ch_uid', 'ch_nivel', 'ch_admin', 'ch_diretor', 'ch_professor', 'ch_gestor',
-		'ch_unidades_ids', 'ch_turmas_ids', 'ch_filtro_turma', 'ch_pode_unidade', 'ch_pode_turma',
+		'ch_unidades_ids', 'ch_unidades_alcance', 'ch_turmas_ids', 'ch_filtro_turma',
+		'ch_pode_unidade', 'ch_pode_turma',
 		'ch_contexto', 'ch_contexto_turma', 'ch_contexto_padrao',
 		'ch_professor_turmas_por_escola', 'ch_professor_anos',
 		'ch_aluno', 'ch_pode_aluno', 'ch_pode_aluno_atual', 'ch_exige_aluno_atual',
@@ -229,7 +230,14 @@ $funcoes = array(
 		'ch_feriados_do_periodo', 'ch_turma_equipe_texto',
 		'ch_tabela_excecoes_calendario', 'ch_calendario_tem_fim', 'ch_calendario_dados', 'ch_calendario_fim',
 		'ch_calendario_contador', 'ch_chamada_tem_aula', 'ch_aula_col', 'ch_aula_lista',
+		'ch_aula_max', 'ch_turma_aulas_dia', 'ch_aula_lista_turma',
 		'ch_aula_normalizar', 'ch_aula_rotulo',
+		'ch_feriados_tem_calendario', 'ch_excecoes_tem_escopo', 'ch_excecao_escopo_dados',
+		'ch_pode_gerenciar_excecao', 'ch_excecoes_do_periodo', 'ch_turma',
+		'ch_calendarios_opcoes', 'ch_calendario_rotulo', 'ch_calendario_da_turma',
+		'ch_grade_dias', 'ch_grade_tem_tabela', 'ch_grade_da_turma', 'ch_grade_rotulo',
+		'ch_grade_curto', 'ch_grade_titulo',
+		'ch_grade_conflito_professor', 'ch_grade_conflitos_da_turma',
 	),
 );
 
@@ -237,7 +245,7 @@ $funcoes = array(
  * Uma lista fixa envelhece — foi o que aconteceu com eq_professores_opcoes(),
  * que existia no equipe.php mas nao estava na conferencia. Lendo o arquivo,
  * toda funcao nova entra na checagem automaticamente. */
-foreach (array('inc/transferencias.php', 'inc/equipe.php', 'inc/familia.php', 'inc/suspensao.php') as $modulo) {
+foreach (array('inc/transferencias.php', 'inc/equipe.php', 'inc/familia.php', 'inc/suspensao.php', 'inc/modelos.php') as $modulo) {
 	if (!file_exists($raiz . '/' . $modulo)) continue;
 	$fonte_mod = (string) file_get_contents($raiz . '/' . $modulo);
 	if (preg_match_all('/^function\s+([a-z0-9_]+)\s*\(/mi', $fonte_mod, $m)) {
@@ -360,7 +368,7 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 			'TB_HISTORICO_OBSERVACOES', 'TB_RELATORIOS_ANUAIS', 'TB_HISTORICO_RELATORIOS',
 			'TB_CHAMADA_RETIFICACOES', 'TB_TRANSFERENCIAS', 'TB_PROMOCOES',
 			'TB_ALUNO_SAIDAS_EXTERNAS',
-			'TB_TURMA_DISCIPLINAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
+			'TB_TURMA_DISCIPLINAS', 'TB_GRADE_AULAS', 'TB_NOTAS', 'TB_SECRETARIO_RELATORIOS',
 			'TB_SECRETARIO_OBSERVACOES', 'TB_PROFESSOR_MATERIAS', 'TB_ATRIBUICOES',
 			'TB_RESPONSAVEIS', 'TB_ALUNO_RESPONSAVEIS', 'TB_RESTRICAO_FAMILIA_HISTORICO',
 			'TB_SUSPENSOES_ALUNOS', 'TB_SUSPENSOES_ALUNOS_LIBERACOES',
@@ -507,10 +515,45 @@ if (!$carregou || !function_exists('sqlsrv_connect')) {
 					'TB_CALENDARIO_EXCECOES.MOTIVO'),
 				'objs'   => array('TB_CALENDARIOS', 'PK_TB_CALENDARIOS', 'UQ_CALENDARIO_ANO',
 					'CK_CALENDARIO_TIPO', 'TB_CALENDARIO_EXCECOES',
-					'PK_TB_CALENDARIO_EXCECOES', 'UQ_CAL_EXC_DATA',
+					'PK_TB_CALENDARIO_EXCECOES',
 					'FK_CAL_EXC_CALENDARIO', 'CK_CAL_EXC_TIPO',
 					'CK_FERIADOS_CALENDARIO',
 					'UQ_FERIADOS_DATA_TODAS', 'UQ_FERIADOS_DATA_UNIDADE'),
+			),
+			array(
+				'nome'   => 'Exceções por unidade e por turma (abrangência)',
+				'script' => 'sql_inicial/ATUALIZAR_EXCECOES_POR_UNIDADE_TURMA.sql',
+				'cols'   => array('TB_CALENDARIO_EXCECOES.ID_UNIDADE',
+					'TB_CALENDARIO_EXCECOES.ID_TURMA'),
+				'objs'   => array('FK_CAL_EXC_UNIDADE', 'FK_CAL_EXC_TURMA',
+					'CK_CAL_EXC_ESCOPO', 'UQ_CAL_EXC_GLOBAL', 'UQ_CAL_EXC_UNIDADE',
+					'UQ_CAL_EXC_TURMA', 'IX_CAL_EXC_ESCOPO'),
+			),
+			array(
+				'nome'   => 'Grade diária por turma (disciplina e professor por aula)',
+				'script' => 'sql_inicial/ATUALIZAR_GRADE_DIARIA.sql',
+				'cols'   => array(),
+				'objs'   => array('TB_GRADE_AULAS', 'PK_TB_GRADE_AULAS', 'UQ_GRADE_AULA',
+					'FK_GRADE_TURMA', 'FK_GRADE_DISCIPLINA', 'FK_GRADE_PROFESSOR',
+					'CK_GRADE_DIA_SEMANA', 'CK_GRADE_AULA_SEQ',
+					'IX_GRADE_AULAS_DISCIPLINA', 'IX_GRADE_AULAS_PROFESSOR'),
+			),
+			array(
+				'nome'   => 'Aulas por dia e modelos de turma (grade flexível)',
+				'script' => 'sql_inicial/ATUALIZAR_AULAS_DIA_MODELOS.sql',
+				'cols'   => array('TB_TURMAS.AULAS_DIA'),
+				'objs'   => array('CK_TB_TURMAS_AULAS_DIA', 'CK_CHAMADA_AULA',
+					'CK_GRADE_AULA_SEQ', 'TB_MODELOS_TURMA', 'PK_TB_MODELOS_TURMA',
+					'UQ_MODELO_TURMA_NOME', 'CK_MODELO_AULAS_DIA', 'CK_MODELO_NOME',
+					'TB_MODELO_DISCIPLINAS', 'PK_TB_MODELO_DISCIPLINAS',
+					'UQ_MODELO_DISCIPLINA', 'FK_MODELO_DISC_MODELO',
+					'CK_MODELO_DISC_NOME', 'CK_MODELO_DISC_AULAS', 'IX_MODELO_DISC_MODELO'),
+			),
+			array(
+				'nome'   => 'Travamento da grade diária após salvar',
+				'script' => 'sql_inicial/ATUALIZAR_GRADE_BLOQUEADA.sql',
+				'cols'   => array('TB_TURMAS.GRADE_BLOQUEADA'),
+				'objs'   => array(),
 			),
 			array(
 				'nome'   => 'Chamada por aula (1ª e 2ª aula no mesmo dia)',

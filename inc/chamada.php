@@ -557,6 +557,24 @@ function ch_turmas_ids()
     return $cache;
 }
 
+/** Unidades do alcance do usuário: vínculo direto ou turmas em que atua.
+ *  Professores não têm vínculo em TB_ACESSO, mas precisam ver as regras da
+ *  unidade das suas turmas no calendário. */
+function ch_unidades_alcance()
+{
+    $ids = ch_unidades_ids();
+    $turmas = ch_turmas_ids();
+    if ($turmas) {
+        $ph = implode(',', array_fill(0, count($turmas), '?'));
+        $rows = ch_rows('SELECT DISTINCT ID_UNIDADE FROM dbo.TB_TURMAS WHERE ID IN (' . $ph . ')', $turmas);
+        foreach ($rows ?: [] as $r) {
+            $id = (int)$r['ID_UNIDADE'];
+            if ($id > 0 && !in_array($id, $ids, true)) $ids[] = $id;
+        }
+    }
+    return $ids;
+}
+
 /* ------------------------------------------------- contexto do professor
    ----------------------------------------------------------------------------
    O professor pode lecionar em mais de uma escola e em mais de uma turma.
@@ -722,7 +740,7 @@ function ch_turma($idTurma)
 {
     return ch_row(
         'SELECT t.ID, t.ID_UNIDADE, t.NOME, t.SERIE, t.ANO_LETIVO, t.ETAPA_ENSINO, t.ID_PERIODO, t.ID_PROFESSOR,
-                t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO,
+                t.CAPACIDADE, t.NOTAS_ATIVAS, t.ATIVO, t.GRADE_BLOQUEADA,
                 u.unidade AS UNIDADE,
                 p.NOME AS PERIODO, p.HORA_INICIO, p.HORA_FIM
          FROM TB_TURMAS t
@@ -1176,20 +1194,204 @@ function ch_aula_col($alias = '')
     return ch_chamada_tem_aula() ? $prefix . 'AULA_SEQ' : 'CAST(1 AS int)';
 }
 
-function ch_aula_lista()
+/** Limite de posições por dia aceito pelo banco (AULA_SEQ de 1 a 6). */
+function ch_aula_max()
 {
-    return [1 => '1ª aula', 2 => '2ª aula'];
+    return 6;
 }
 
-function ch_aula_normalizar($valor)
+/** A quantidade é definida manualmente em TB_TURMAS.AULAS_DIA (padrão 2). */
+function ch_turma_aulas_dia($idTurma)
 {
-    return (int)$valor === 2 ? 2 : 1;
+    $idTurma = (int)$idTurma;
+    static $cache = [];
+    if (!array_key_exists($idTurma, $cache)) {
+        $valor = $idTurma > 0
+            ? ch_val('SELECT AULAS_DIA FROM TB_TURMAS WHERE ID = ?', [$idTurma])
+            : null;
+        $cache[$idTurma] = max(1, min(ch_aula_max(), (int)($valor ?: 2)));
+    }
+    return $cache[$idTurma];
+}
+
+/** A grade fica travada depois de salva; "Editar grade" libera nova alteração. */
+function ch_turma_grade_bloqueada($idTurma)
+{
+    $idTurma = (int)$idTurma;
+    if ($idTurma <= 0) return false;
+    static $cache = [];
+    if (!array_key_exists($idTurma, $cache)) {
+        $valor = ch_val('SELECT GRADE_BLOQUEADA FROM TB_TURMAS WHERE ID = ?', [$idTurma]);
+        $cache[$idTurma] = (int)$valor === 1;
+    }
+    return $cache[$idTurma];
+}
+
+/** Lista [aula => rótulo] até a quantidade pedida (padrão 2, compatibility). */
+function ch_aula_lista($aulasDia = 2)
+{
+    $n = max(1, min(ch_aula_max(), (int)$aulasDia ?: 2));
+    $lista = [];
+    for ($aula = 1; $aula <= $n; $aula++) {
+        $lista[$aula] = $aula . 'ª aula';
+    }
+    return $lista;
+}
+
+/** Lista de aulas já no tamanho configurado da turma. */
+function ch_aula_lista_turma($idTurma)
+{
+    return ch_aula_lista(ch_turma_aulas_dia($idTurma));
+}
+
+/** Normaliza para a faixa válida. Sem turma, aceita até o limite do banco. */
+function ch_aula_normalizar($valor, $aulasDia = 0)
+{
+    $n = $aulasDia > 0 ? max(1, min(ch_aula_max(), (int)$aulasDia)) : ch_aula_max();
+    $aula = (int)$valor;
+    if ($aula < 1) return 1;
+    return $aula > $n ? $n : $aula;
 }
 
 function ch_aula_rotulo($aula)
 {
-    $lista = ch_aula_lista();
+    $lista = ch_aula_lista(ch_aula_max());
     return $lista[ch_aula_normalizar($aula)] ?? '1ª aula';
+}
+
+/* ------------------------------------------------------------- grade diária */
+
+/** Dia da semana no mesmo padrão de DateTime::format('N'): 1 = segunda. */
+function ch_grade_dias()
+{
+    return [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta',
+            5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
+}
+
+/** Instalações antigas podem não ter a tabela ainda. */
+function ch_grade_tem_tabela()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.tables WHERE object_id = OBJECT_ID(N'dbo.TB_GRADE_AULAS')"
+        );
+    }
+    return $tem;
+}
+
+/** Grade [dia][aula] da turma, com disciplina e professor já nominados. */
+function ch_grade_da_turma($idTurma)
+{
+    if (!ch_grade_tem_tabela()) return [];
+    $linhas = ch_rows(
+        'SELECT g.DIA_SEMANA, g.AULA_SEQ, g.ID_DISCIPLINA, d.NOME AS DISCIPLINA,
+                g.ID_PROFESSOR, u.NOME AS PROFESSOR
+           FROM TB_GRADE_AULAS g
+           LEFT JOIN TB_TURMA_DISCIPLINAS d ON d.ID = g.ID_DISCIPLINA
+           LEFT JOIN TB_USUARIOS u ON u.ID = g.ID_PROFESSOR
+          WHERE g.ID_TURMA = ?',
+        [(int)$idTurma]
+    ) ?: [];
+    $grade = [];
+    foreach ($linhas as $linha) {
+        $grade[(int)$linha['DIA_SEMANA']][(int)$linha['AULA_SEQ']] = [
+            'ID_DISCIPLINA' => (int)$linha['ID_DISCIPLINA'],
+            'DISCIPLINA'    => (string)$linha['DISCIPLINA'],
+            'ID_PROFESSOR'  => (int)$linha['ID_PROFESSOR'],
+            'PROFESSOR'     => (string)$linha['PROFESSOR'],
+        ];
+    }
+    return $grade;
+}
+
+/**
+ * Conflito de professor na mesma posição (dia + aula) em OUTRA turma do mesmo
+ * ano letivo. A regra é global: unidades diferentes também entram no conflito.
+ */
+function ch_grade_conflito_professor($idTurma, $dia, $aula, $idProfessor, $anoLetivo = 0)
+{
+    $idProfessor = (int)$idProfessor;
+    if ($idProfessor <= 0) return null;
+    $idTurma = (int)$idTurma;
+    if ($anoLetivo <= 0) {
+        $anoLetivo = (int)ch_val('SELECT ANO_LETIVO FROM TB_TURMAS WHERE ID = ?', [$idTurma]);
+    }
+    if ($anoLetivo <= 0) return null;
+
+    $linha = ch_row(
+        'SELECT t.ID, t.NOME, u.unidade AS UNIDADE, p.NOME AS PERIODO
+           FROM TB_GRADE_AULAS g
+          INNER JOIN TB_TURMAS t ON t.ID = g.ID_TURMA
+          INNER JOIN TB_UNIDADES u ON u.id = t.ID_UNIDADE
+          INNER JOIN TB_PERIODOS p ON p.ID = t.ID_PERIODO
+          WHERE g.ID_PROFESSOR = ? AND g.DIA_SEMANA = ? AND g.AULA_SEQ = ?
+            AND g.ID_TURMA <> ? AND t.ANO_LETIVO = ?',
+        [$idProfessor, (int)$dia, (int)$aula, $idTurma, $anoLetivo]
+    );
+    if (!$linha) return null;
+    return [
+        'ID_TURMA' => (int)$linha['ID'],
+        'LOCAL'    => trim((string)$linha['UNIDADE'] . ' — Sala ' . $linha['NOME'] . ' (' . $linha['PERIODO'] . ')'),
+    ];
+}
+
+/** Mapa dia:aula:professor => conflito já existente, para avisar na tela. */
+function ch_grade_conflitos_da_turma($idTurma)
+{
+    if (!ch_grade_tem_tabela()) return [];
+    $grade = ch_grade_da_turma($idTurma);
+    $ano = (int)ch_val('SELECT ANO_LETIVO FROM TB_TURMAS WHERE ID = ?', [(int)$idTurma]);
+    $conflitos = [];
+    foreach ($grade as $dia => $aulas) {
+        foreach ($aulas as $aula => $slot) {
+            if ((int)$slot['ID_PROFESSOR'] <= 0) continue;
+            $outro = ch_grade_conflito_professor($idTurma, $dia, $aula, $slot['ID_PROFESSOR'], $ano);
+            if (!$outro) continue;
+            $conflitos[$dia . ':' . $aula . ':' . (int)$slot['ID_PROFESSOR']] =
+                ch_aula_rotulo($aula) . ' de ' . ch_grade_dias()[$dia]
+                . ': já está em ' . $outro['LOCAL'];
+        }
+    }
+    return $conflitos;
+}
+
+/** "Matemática · Ana" (ou "—" quando a aula não está configurada). */
+function ch_grade_rotulo($slot)
+{
+    if (!$slot || ($slot['DISCIPLINA'] === '' && $slot['PROFESSOR'] === '')) return '—';
+    $partes = array_filter([$slot['DISCIPLINA'], $slot['PROFESSOR']], function ($p) {
+        return $p !== '';
+    });
+    return implode(' · ', $partes);
+}
+
+/** Sigla curta para o cabeçalho estreito da ficha (nome completo no title). */
+function ch_grade_curto($texto, $tamanho = 3)
+{
+    $texto = trim((string)$texto);
+    if ($texto === '') return '—';
+    if (function_exists('mb_substr') && function_exists('mb_strtoupper')) {
+        return mb_strtoupper(mb_substr($texto, 0, $tamanho, 'UTF-8'), 'UTF-8');
+    }
+    return strtoupper(substr($texto, 0, $tamanho));
+}
+
+/** Texto completo do cabeçalho: "1ª aula: Matemática · Ana". */
+function ch_grade_titulo($slot, $aula)
+{
+    $prefixo = ch_aula_rotulo($aula) . ': ';
+    if (!$slot) return $prefixo . 'sem grade cadastrada';
+    $partes = [];
+    if ((string)($slot['DISCIPLINA'] ?? '') !== '') $partes[] = (string)$slot['DISCIPLINA'];
+    if ((string)($slot['PROFESSOR'] ?? '') !== '') {
+        $professor = (string)$slot['PROFESSOR'];
+        if (!empty($slot['PROFESSOR_SUBSTITUTO'])) {
+            $professor .= ' (substituiu ' . $slot['PROFESSOR_SUBSTITUTO'] . ')';
+        }
+        $partes[] = $professor;
+    }
+    return $prefixo . ($partes ? implode(' · ', $partes) : 'sem disciplina/professor definidos');
 }
 
 /* --------------------------------------------------- calendário escolar */
@@ -1275,17 +1477,80 @@ function ch_tabela_excecoes_calendario()
     return $tem;
 }
 
+/** Instalações antigas podem não ter a abrangência por unidade/turma. */
+function ch_excecoes_tem_escopo()
+{
+    static $tem = null;
+    if ($tem === null) {
+        $tem = (bool)ch_val(
+            "SELECT 1 FROM sys.columns
+              WHERE object_id = OBJECT_ID(N'dbo.TB_CALENDARIO_EXCECOES')
+                AND name IN (N'ID_UNIDADE', N'ID_TURMA')"
+        );
+    }
+    return $tem;
+}
+
+/** Rótulo da abrangência de uma exceção, para listas e mensagens. */
+function ch_excecao_escopo_dados($idUnidade, $idTurma)
+{
+    $idUnidade = (int)$idUnidade;
+    $idTurma = (int)$idTurma;
+    if ($idTurma > 0) {
+        static $turmas = [];
+        if (!array_key_exists($idTurma, $turmas)) {
+            $turmas[$idTurma] = ch_val('SELECT NOME FROM dbo.TB_TURMAS WHERE ID = ?', [$idTurma]);
+        }
+        return [
+            'ESCOPO' => 'TURMA',
+            'ROTULO' => 'Turma ' . ($turmas[$idTurma] !== null ? (string)$turmas[$idTurma] : '#' . $idTurma),
+            'ID_UNIDADE' => $idUnidade,
+            'ID_TURMA' => $idTurma,
+        ];
+    }
+    if ($idUnidade > 0) {
+        static $unidades = [];
+        if (!array_key_exists($idUnidade, $unidades)) {
+            $unidades[$idUnidade] = ch_val('SELECT unidade FROM dbo.TB_UNIDADES WHERE id = ?', [$idUnidade]);
+        }
+        return [
+            'ESCOPO' => 'UNIDADE',
+            'ROTULO' => 'Unidade ' . ($unidades[$idUnidade] !== null ? (string)$unidades[$idUnidade] : '#' . $idUnidade),
+            'ID_UNIDADE' => $idUnidade,
+            'ID_TURMA' => 0,
+        ];
+    }
+    return ['ESCOPO' => 'GLOBAL', 'ROTULO' => 'Todas as unidades', 'ID_UNIDADE' => 0, 'ID_TURMA' => 0];
+}
+
+/** Quem pode alterar uma exceção nesta abrangência. Global só para a rede. */
+function ch_pode_gerenciar_excecao($idUnidade, $idTurma)
+{
+    if (ch_rede()) return true;
+    if (!ch_gestor()) return false;
+    if ((int)$idTurma > 0) return ch_pode_turma((int)$idTurma);
+    if ((int)$idUnidade > 0) return ch_pode_unidade((int)$idUnidade);
+    return false;
+}
+
 /**
  * Regras completas de um calendário, cacheadas por requisição.
  *
  * Devolve INICIO/FIM em ISO, os feriados integrais globais do calendário
- * (data => descrição) e as exceções (data => ID/TIPO/MOTIVO). Feriados de uma
- * única unidade ficam de fora: a contagem e as exceções são globais.
+ * (data => descrição) e as exceções efetivas (data => ID/TIPO/MOTIVO/ESCOPO).
+ * Com unidade/turma informados, vale a regra mais específica: turma > unidade
+ * > global. Sem eles, mantém-se o comportamento antigo (só exceções globais).
  */
-function ch_calendario_dados($anoLetivo, $calendario)
+function ch_calendario_dados($anoLetivo, $calendario, $idUnidade = 0, $idTurma = 0)
 {
     static $cache = [];
-    $chave = (int)$anoLetivo . '|' . (string)$calendario;
+    $idUnidade = (int)$idUnidade;
+    $idTurma = (int)$idTurma;
+    if ($idTurma > 0 && $idUnidade <= 0) {
+        $turmaEscopo = ch_turma($idTurma);
+        if ($turmaEscopo) $idUnidade = (int)$turmaEscopo['ID_UNIDADE'];
+    }
+    $chave = (int)$anoLetivo . '|' . (string)$calendario . '|' . $idUnidade . '|' . $idTurma;
     if (isset($cache[$chave])) return $cache[$chave];
 
     $dados = [
@@ -1324,19 +1589,90 @@ function ch_calendario_dados($anoLetivo, $calendario)
     }
 
     if (ch_tabela_excecoes_calendario()) {
-        foreach (ch_rows(
-            'SELECT ID, CONVERT(varchar(10), DATA, 23) AS DATA, TIPO, MOTIVO
-               FROM dbo.TB_CALENDARIO_EXCECOES WHERE ID_CALENDARIO = ? ORDER BY DATA',
-            [$dados['ID']]
-        ) as $e) {
-            $dados['EXCECOES'][(string)$e['DATA']] = [
+        $comEscopo = ch_excecoes_tem_escopo();
+        $sql = 'SELECT e.ID, CONVERT(varchar(10), e.DATA, 23) AS DATA, e.TIPO, e.MOTIVO, '
+             . ($comEscopo
+                 ? 'ISNULL(e.ID_UNIDADE, 0) AS ID_UNIDADE, ISNULL(e.ID_TURMA, 0) AS ID_TURMA'
+                 : 'CAST(0 AS int) AS ID_UNIDADE, CAST(0 AS int) AS ID_TURMA')
+             . ' FROM dbo.TB_CALENDARIO_EXCECOES e WHERE e.ID_CALENDARIO = ?';
+        $paramsExcecoes = [$dados['ID']];
+        if ($comEscopo) {
+            $sql .= ' AND (e.ID_UNIDADE IS NULL OR e.ID_UNIDADE = ?)'
+                  . ' AND (e.ID_TURMA IS NULL OR e.ID_TURMA = ?)'
+                  . ' ORDER BY CASE WHEN e.ID_TURMA = ? THEN 0'
+                  . ' WHEN e.ID_UNIDADE = ? AND e.ID_TURMA IS NULL THEN 1'
+                  . ' WHEN e.ID_UNIDADE IS NULL AND e.ID_TURMA IS NULL THEN 2'
+                  . ' ELSE 3 END, e.DATA, e.ID';
+            $paramsExcecoes = array_merge($paramsExcecoes, [$idUnidade, $idTurma, $idTurma, $idUnidade]);
+        } else {
+            $sql .= ' ORDER BY e.DATA, e.ID';
+        }
+        foreach (ch_rows($sql, $paramsExcecoes) as $e) {
+            $dataIso = (string)$e['DATA'];
+            /* ORDER BY já colocou a regra mais específica primeiro. */
+            if (isset($dados['EXCECOES'][$dataIso])) continue;
+            $escopo = ch_excecao_escopo_dados($e['ID_UNIDADE'], $e['ID_TURMA']);
+            $dados['EXCECOES'][$dataIso] = [
                 'ID' => (int)$e['ID'],
                 'TIPO' => (string)$e['TIPO'],
                 'MOTIVO' => (string)($e['MOTIVO'] ?? ''),
+                'ESCOPO' => $escopo['ESCOPO'],
+                'ROTULO_ESCOPO' => $escopo['ROTULO'],
+                'ID_UNIDADE' => (int)$e['ID_UNIDADE'],
+                'ID_TURMA' => (int)$e['ID_TURMA'],
             ];
         }
     }
     return $cache[$chave] = $dados;
+}
+
+/**
+ * Exceções de um calendário dentro de um período, já recortadas pelo alcance
+ * do usuário. Diferente de ch_calendario_dados(), devolve todas as abrangências
+ * (global, unidade e turma), sem escolher uma como efetiva — é o que o painel
+ * precisa para mostrar cada marcação separadamente.
+ */
+function ch_excecoes_do_periodo($idCalendario, $deIso, $ateIso, $idsUnidade = [], $idsTurma = [])
+{
+    if (!ch_tabela_excecoes_calendario()) return [];
+    $comEscopo = ch_excecoes_tem_escopo();
+    $sql = 'SELECT e.ID, CONVERT(varchar(10), e.DATA, 23) AS DATA, e.TIPO, e.MOTIVO, '
+         . ($comEscopo
+                 ? 'ISNULL(e.ID_UNIDADE, 0) AS ID_UNIDADE, ISNULL(e.ID_TURMA, 0) AS ID_TURMA'
+                 : 'CAST(0 AS int) AS ID_UNIDADE, CAST(0 AS int) AS ID_TURMA')
+         . ' FROM dbo.TB_CALENDARIO_EXCECOES e'
+         . ' WHERE e.ID_CALENDARIO = ? AND e.DATA >= ? AND e.DATA <= ?';
+    $params = [(int)$idCalendario, (string)$deIso, (string)$ateIso];
+    if ($comEscopo) {
+        $sql .= ' AND (e.ID_UNIDADE IS NULL';
+        if ($idsUnidade) {
+            $sql .= ' OR e.ID_UNIDADE IN (' . implode(',', array_fill(0, count($idsUnidade), '?')) . ')';
+            $params = array_merge($params, $idsUnidade);
+        }
+        /* A turma também é alcançada pela unidade; o IN de turmas cobre quem
+           não tem vínculo de unidade, como professor alocado em uma turma. */
+        if ($idsTurma) {
+            $sql .= ' OR e.ID_TURMA IN (' . implode(',', array_fill(0, count($idsTurma), '?')) . ')';
+            $params = array_merge($params, $idsTurma);
+        }
+        $sql .= ')';
+    }
+    $sql .= ' ORDER BY e.DATA, e.ID';
+    $out = [];
+    foreach (ch_rows($sql, $params) as $e) {
+        $escopo = ch_excecao_escopo_dados($e['ID_UNIDADE'], $e['ID_TURMA']);
+        $out[] = [
+            'ID' => (int)$e['ID'],
+            'DATA' => (string)$e['DATA'],
+            'TIPO' => (string)$e['TIPO'],
+            'MOTIVO' => (string)($e['MOTIVO'] ?? ''),
+            'ESCOPO' => $escopo['ESCOPO'],
+            'ROTULO_ESCOPO' => $escopo['ROTULO'],
+            'ID_UNIDADE' => (int)$e['ID_UNIDADE'],
+            'ID_TURMA' => (int)$e['ID_TURMA'],
+        ];
+    }
+    return $out;
 }
 
 /** Início do calendário em ISO; null se não cadastrado. */
@@ -1372,9 +1708,9 @@ function ch_calendarios_do_ano($anoLetivo)
  * e fins de semana, e aplica as exceções nos dois sentidos: LETIVO acrescenta
  * um dia e NAO_LETIVO remove um dia útil.
  */
-function ch_calendario_contador($anoLetivo, $calendario)
+function ch_calendario_contador($anoLetivo, $calendario, $idUnidade = 0, $idTurma = 0)
 {
-    $dados = ch_calendario_dados($anoLetivo, $calendario);
+    $dados = ch_calendario_dados($anoLetivo, $calendario, $idUnidade, $idTurma);
     $cont = [
         'INICIO' => $dados['INICIO'], 'FIM' => $dados['FIM'], 'TOTAL' => 0,
         'DIAS_UTEIS' => 0, 'FERIADOS' => 0, 'ACRESCIDOS' => 0, 'RETIRADOS' => 0,
@@ -1443,12 +1779,19 @@ function ch_bloqueio_chamada($dataIso, $turma, $ignorarFuturo = false, $ignorarE
     }
 
     $calendario = ch_calendario_da_turma($turma);
-    $regras = ch_calendario_dados((int)$turma['ANO_LETIVO'], $calendario);
+    $regras = ch_calendario_dados(
+        (int)$turma['ANO_LETIVO'], $calendario,
+        (int)$turma['ID_UNIDADE'], (int)$turma['ID']
+    );
     $excecao = $regras['EXCECOES'][$dataIso] ?? null;
     $liberadoPorExcecao = $excecao && $excecao['TIPO'] === 'LETIVO';
 
     if ($excecao && $excecao['TIPO'] === 'NAO_LETIVO') {
-        return 'Data marcada como não letiva no calendário ' . ch_calendario_rotulo($calendario)
+        $detalheEscopo = ($excecao['ESCOPO'] ?? 'GLOBAL') === 'GLOBAL'
+            ? ''
+            : ' para ' . $excecao['ROTULO_ESCOPO'];
+        return 'Data marcada como não letiva' . $detalheEscopo . ' no calendário '
+             . ch_calendario_rotulo($calendario)
              . ($excecao['MOTIVO'] !== '' ? ': ' . $excecao['MOTIVO'] : '.');
     }
     if ($regras['INICIO'] !== null && $dataIso < $regras['INICIO']) {
@@ -1817,6 +2160,11 @@ require_once(__DIR__ . '/transferencias.php');
 require_once(__DIR__ . '/equipe.php');
 
 /* ============================================================================
+   MODELOS DE TURMA (padrão de aulas por dia e matérias)
+   ============================================================================ */
+require_once(__DIR__ . '/modelos.php');
+
+/* ============================================================================
    FAMÍLIA E RESPONSÁVEIS VINCULADOS POR CPF
    ============================================================================ */
 require_once(__DIR__ . '/familia.php');
@@ -1830,3 +2178,11 @@ require_once(__DIR__ . '/aee.php');
    INCLUSÃO E NECESSIDADES ESPECIAIS (CRACHÁS E CATEGORIAS)
    ============================================================================ */
 require_once(ABSPATH . 'alunos/inclusao.php');
+
+/* ============================================================================
+   SUSPENSÃO DE ALUNOS — faltas por período, liberações e histórico
+   Carregado aqui pelo mesmo motivo dos módulos acima: qualquer tela que já
+   inclui inc/chamada.php passa a ter as regras à mão. O arquivo só define
+   funções e não inclui este de volta, então não há ciclo.
+   ============================================================================ */
+require_once(__DIR__ . '/suspensao.php');

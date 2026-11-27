@@ -21,6 +21,9 @@ $ch_admin  = ch_admin();    // nível 1
 /* id do módulo => [rótulo, ícone, caminho, quem vê] */
 $ch_links_chamada = [
     ['chamada',     'Chamada do Dia',  'fas fa-clipboard-user',  'chamada/index.php',     true],
+    ['ficha',       'Ficha de Chamada', 'fas fa-table-list',      'chamada/ficha.php',     true],
+    ['grade',       'Grade Diária',     'fas fa-table-cells',     'grade/index.php',       ch_gestor()],
+    ['modelos',     'Modelos de Turma', 'fas fa-diagram-project', 'modelos/index.php',     ch_gestor()],
     ['diario',      'Diário de Classe', 'fas fa-book-open',      'diario/index.php',      true],
     ['observacoes', 'Observações',     'far fa-comment-dots',    'observacoes/index.php', true],
     ['relatorios',  'Relatório de Desenvolvimento', 'fas fa-file-lines',      'relatorios/index.php',  ch_pode_ver_relatorios()],
